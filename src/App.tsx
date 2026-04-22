@@ -25,6 +25,12 @@ const AppContent: React.FC = () => {
     return <Auth />;
   }
 
+  // If we have a user but no profile yet, and we're not loading, 
+  // it might mean the profile doesn't exist yet or is slow.
+  if (!profile && !loading) {
+    return <WaitingRoom />;
+  }
+
   if (profile && !profile.is_approved) {
     return <WaitingRoom />;
   }

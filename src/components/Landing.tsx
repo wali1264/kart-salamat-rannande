@@ -104,8 +104,8 @@ export const Landing: React.FC = () => {
                   <UserIcon className="w-6 h-6 text-slate-300" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-800">{profile?.name}</p>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role}</p>
+                  <p className="text-xs font-bold text-slate-800">{profile?.name || 'کاربر سیستم'}</p>
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role || 'بدون نقش'}</p>
                 </div>
               </div>
               <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100">

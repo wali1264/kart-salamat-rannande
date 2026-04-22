@@ -9,17 +9,29 @@ interface Props {
   onClose: () => void;
   driver: Driver;
   card: HealthCard;
+  autoPrint?: boolean;
 }
 
-export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card }) => {
+export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card, autoPrint = false }) => {
   const [showBack, setShowBack] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isOpen && autoPrint) {
+      // Small timeout to ensure QR codes are fully rendered
+      const timer = setTimeout(() => {
+        window.print();
+        onClose(); // Close the "invisible" modal after triggering print
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, autoPrint, onClose]);
 
   if (!isOpen) return null;
 
   // Shared Card Component for duplication in print view
   const CardSide = ({ isBack = false, printOnly = false }) => (
     <div 
-      className={`bg-white rounded-[1mm] overflow-hidden relative border border-slate-200 ${printOnly ? 'print-card-box' : ''}`} 
+      className={`bg-white rounded-[1mm] overflow-hidden relative border border-slate-200 ${printOnly ? 'print-card-standard' : ''}`} 
       style={{ width: '85.6mm', height: '54mm' }}
     >
       {!isBack ? (
@@ -174,7 +186,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card 
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         {/* PRINT ONLY SECTION - This is invisible in UI but becomes the only thing visible in Print */}
-        <div className="print-only-container hidden print:flex">
+        <div className="direct-print-zone hidden print:flex">
           <CardSide isBack={false} printOnly={true} />
           <CardSide isBack={true} printOnly={true} />
         </div>
@@ -184,14 +196,14 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-md print-hide"
+          className={`absolute inset-0 bg-slate-900/60 backdrop-blur-md print-hide ${autoPrint ? 'opacity-0 pointer-events-none' : ''}`}
         />
 
         <motion.div 
           initial={{ opacity: 0, scale: 0.9, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          className="relative w-full max-w-fit print-hide"
+          className={`relative w-full max-w-fit print-hide ${autoPrint ? 'opacity-0 pointer-events-none scale-0' : ''}`}
           dir="rtl"
         >
           {/* UI PREVIEW - Only show one side at a time for clarity in UI */}

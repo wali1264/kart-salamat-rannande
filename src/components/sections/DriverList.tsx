@@ -15,7 +15,8 @@ import {
   Loader2,
   QrCode,
   Trash2,
-  Edit
+  Edit,
+  Printer
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Driver, HealthCard } from '../../types';
@@ -30,6 +31,7 @@ export const DriverList: React.FC = () => {
   const [selectedCard, setSelectedCard] = useState<HealthCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   useEffect(() => {
     fetchDrivers();
@@ -153,16 +155,31 @@ export const DriverList: React.FC = () => {
                       <td className="p-5">
                         <div className="flex items-center gap-2">
                           {activeCard ? (
-                             <button 
-                              onClick={() => {
-                                setSelectedDriver(driver);
-                                setSelectedCard(activeCard);
-                                setIsViewOpen(true);
-                              }}
-                              className="bg-blue-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold hover:bg-blue-950 transition-all"
-                            >
-                              مشاهده کارت
-                            </button>
+                             <div className="flex items-center gap-1">
+                               <button 
+                                onClick={() => {
+                                  setSelectedDriver(driver);
+                                  setSelectedCard(activeCard);
+                                  setIsViewOpen(true);
+                                  setIsPrinting(false);
+                                }}
+                                className="bg-blue-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold hover:bg-blue-950 transition-all"
+                              >
+                                مشاهده کارت
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  setSelectedDriver(driver);
+                                  setSelectedCard(activeCard);
+                                  setIsPrinting(true);
+                                  setIsViewOpen(true);
+                                }}
+                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all"
+                                title="چاپ مستقیم کارت"
+                              >
+                                <Printer className="w-4 h-4" />
+                              </button>
+                             </div>
                           ) : (
                             <button 
                               onClick={() => {
@@ -206,9 +223,13 @@ export const DriverList: React.FC = () => {
       {selectedDriver && selectedCard && (
         <ViewHealthCard 
           isOpen={isViewOpen} 
-          onClose={() => setIsViewOpen(false)} 
+          onClose={() => {
+            setIsViewOpen(false);
+            setIsPrinting(false);
+          }} 
           driver={selectedDriver}
           card={selectedCard}
+          autoPrint={isPrinting}
         />
       )}
     </div>

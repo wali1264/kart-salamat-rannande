@@ -3,6 +3,58 @@
 
 @theme {
   --font-sans: "Vazirmatn", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer utilities {
+  @media print {
+    /* Absolute reset for print */
+    html, body {
+      height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: white !important;
+      visibility: hidden !important;
+    }
+
+    /* Container for the cards to be printed */
+    .direct-print-zone {
+      visibility: visible !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 10mm !important;
+      align-items: center !important;
+      padding-top: 10mm !important;
+    }
+
+    /* Ensure card dimensions are exact and colors are preserved */
+    .print-card-standard {
+      visibility: visible !important;
+      width: 85.6mm !important;
+      height: 54mm !important;
+      border: 0.1mm solid #f1f5f9 !important;
+      background: white !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      page-break-inside: avoid !important;
+      position: relative !important;
+      overflow: hidden !important;
+    }
+
+    /* Suppress ALL other web elements */
+    #root, .fixed, .absolute:not(.print-card-standard *), button, nav, header, aside, .bento-card, [role="dialog"] {
+      display: none !important;
+    }
+
+    @page {
+      size: auto;
+      margin: 5mm;
+    }
+  }
 }
 
 @layer base {

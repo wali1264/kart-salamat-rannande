@@ -165,8 +165,8 @@ export const DashboardHome: React.FC = () => {
                <button className="px-3 py-1.5 bg-blue-600 rounded-lg text-xs font-bold text-white shadow-lg shadow-blue-100">ماهانه</button>
             </div>
           </div>
-          <div className="h-64 sm:h-80">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 sm:h-80 min-h-[250px] w-full">
+            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
               <AreaChart data={data}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">

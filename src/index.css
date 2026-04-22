@@ -8,46 +8,57 @@
 
 @layer utilities {
   @media print {
-    /* Hard reset: Hide EVERYTHING in the DOM by default */
-    #root, .fixed, .absolute, button, nav, header, aside, .bento-card, [role="dialog"] {
+    /* 1. Hide everything by default using a more targeted approach */
+    #root, .print-hide, nav, header, aside, button, footer, [role="dialog"]:not(.direct-print-zone *) {
       display: none !important;
     }
 
-    /* Absolute reset for the document */
+    /* 2. Reset layout for the paper */
     html, body {
       margin: 0 !important;
       padding: 0 !important;
-      background: white !important;
-      height: auto !important;
-      min-height: auto !important;
-    }
-
-    /* Ensure the print zone is the ONLY thing displayed */
-    .direct-print-zone {
-      display: flex !important;
-      visibility: visible !important;
-      position: static !important;
       width: 100% !important;
-      flex-direction: column !important;
-      gap: 10mm !important;
-      align-items: center !important;
-      padding-top: 5mm !important;
-      background: white !important;
-    }
-
-    /* Force card visibility and dimensions */
-    .print-card-standard {
-      display: block !important;
-      visibility: visible !important;
-      width: 85.6mm !important;
-      height: 54mm !important;
-      border: 0.1mm solid #f1f5f9 !important;
+      height: auto !important;
       background: white !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
-      page-break-inside: avoid !important;
+    }
+
+    /* 3. Ensure the direct-print-zone and all its parents are visible */
+    .direct-print-zone, 
+    .direct-print-zone *,
+    .fixed:has(.direct-print-zone) {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      position: static !important; /* Standardize position for paper */
+    }
+
+    .direct-print-zone {
+      width: 100% !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      gap: 15mm !important;
+      padding-top: 10mm !important;
+    }
+
+    /* 4. Exact standard card styling for print */
+    .print-card-standard {
+      display: block !important;
+      width: 85.6mm !important;
+      height: 54mm !important;
+      background: white !important;
+      border: 0.1mm solid #e2e8f0 !important;
+      border-radius: 1mm !important;
       position: relative !important;
       overflow: hidden !important;
+      page-break-inside: avoid !important;
+    }
+
+    .page-break {
+      page-break-after: always;
+      height: 0;
+      margin: 0;
     }
 
     @page {

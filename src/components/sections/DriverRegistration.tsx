@@ -99,15 +99,32 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-6">
-          <div className="col-span-12 lg:col-span-4 bento-card flex flex-col items-center justify-center gap-4 bg-slate-50 border-dashed border-2 group cursor-pointer hover:border-blue-300 transition-colors">
-            <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-              <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500" />
-            </div>
-            <div className="text-center">
-              <h4 className="font-bold text-slate-700 text-sm">تصویر راننده</h4>
-              <p className="text-[10px] text-slate-400 mt-1 uppercase">Max 2MB, JPG/PNG</p>
-            </div>
-          </div>
+          <label className="col-span-12 lg:col-span-4 bento-card flex flex-col items-center justify-center gap-4 bg-slate-50 border-dashed border-2 group cursor-pointer hover:border-blue-300 transition-colors py-12 relative overflow-hidden">
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handlePhotoUpload}
+              className="hidden" 
+            />
+            {photo ? (
+              <div className="absolute inset-0">
+                <img src={photo} alt="Preview" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Upload className="w-8 h-8 text-white" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                  <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500" />
+                </div>
+                <div className="text-center">
+                  <h4 className="font-bold text-slate-700 text-sm">تصویر راننده</h4>
+                  <p className="text-[10px] text-slate-400 mt-1 uppercase">کلیک کنید یا عکس را بکشید (MAX 10MB)</p>
+                </div>
+              </>
+            )}
+          </label>
 
           <div className="col-span-12 lg:col-span-8 bento-card space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

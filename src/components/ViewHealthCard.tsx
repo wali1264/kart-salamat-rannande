@@ -55,61 +55,63 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card 
               </div>
             </div>
 
-            {/* Card Body */}
-            <div className="p-8">
-              <div className="flex items-start gap-6 mb-8">
-                <div className="w-24 h-24 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden">
-                   <User className="w-12 h-12 text-slate-300" />
-                </div>
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">نام راننده</p>
-                    <p className="text-lg font-bold text-slate-800">{driver.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">نمبر جواز</p>
-                    <p className="text-sm font-bold text-slate-800 font-mono tracking-wider">{driver.license_number}</p>
-                  </div>
-                </div>
-              </div>
+             {/* Card Body */}
+             <div className="p-8">
+               <div className="flex items-start gap-6 mb-8">
+                 <div className="w-24 h-24 bg-slate-100 rounded-2xl border border-slate-200 flex items-center justify-center overflow-hidden shadow-inner">
+                    {driver.photo_url ? (
+                      <img src={driver.photo_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-12 h-12 text-slate-300" />
+                    )}
+                 </div>
+                 <div className="flex-1 space-y-3">
+                   <div>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">نام راننده</p>
+                     <p className="text-lg font-bold text-slate-800 leading-tight">{driver.name}</p>
+                   </div>
+                   <div>
+                     <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">نام پدر</p>
+                     <p className="text-sm font-bold text-slate-700">{driver.father_name || '---'}</p>
+                   </div>
+                 </div>
+               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">پلاک موتر</p>
-                  <p className="text-xs font-bold text-slate-800">{driver.license_plate}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">وضعیت هوشیاری</p>
-                  <div className="flex items-center gap-1">
-                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                    <p className="text-xs font-bold text-emerald-600">تایید شده</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">تاریخ صدور</p>
-                  <p className="text-xs font-bold text-slate-800">{new Date(card.issue_date).toLocaleDateString('fa-AF')}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">تاریخ انقضا</p>
-                  <p className="text-xs font-bold text-slate-800">{new Date(card.expiry_date).toLocaleDateString('fa-AF')}</p>
-                </div>
-              </div>
+               <div className="grid grid-cols-2 gap-4 mb-8 bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                 <div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">نمبر جواز</p>
+                   <p className="text-sm font-bold text-slate-800 font-mono tracking-wider">{driver.license_number}</p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">پلاک موتر</p>
+                   <p className="text-xs font-bold text-slate-800">{driver.license_plate}</p>
+                 </div>
+                 <div className="pt-2 border-t border-slate-200/50">
+                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">تاریخ صدور</p>
+                   <p className="text-xs font-bold text-slate-800">{new Date(card.issue_date).toLocaleDateString('fa-AF')}</p>
+                 </div>
+                 <div className="pt-2 border-t border-slate-200/50">
+                   <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">تاریخ انقضا</p>
+                   <p className="text-xs font-bold text-slate-800">{new Date(card.expiry_date).toLocaleDateString('fa-AF')}</p>
+                 </div>
+               </div>
 
-              {/* QR Code Container */}
-              <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
-                <div className="bg-white p-4 rounded-2xl shadow-sm mb-4 border border-slate-100">
-                   <QRCodeSVG 
-                    value={card.id} 
-                    size={160}
-                    level="H"
-                    includeMargin={false}
-                   />
-                </div>
-                <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest">
-                  Scan to Verify: {card.id.slice(0, 8)}
-                </p>
-              </div>
-            </div>
+               {/* QR Code Container */}
+               <div className="flex flex-col items-center justify-center p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                 <div className="bg-white p-4 rounded-2xl shadow-sm mb-4 border border-slate-100">
+                    <QRCodeSVG 
+                     value={`${window.location.origin}/verify/${card.id}`} 
+                     size={160}
+                     level="H"
+                     includeMargin={false}
+                    />
+                 </div>
+                 <p className="text-[10px] text-slate-400 text-center font-bold uppercase tracking-widest leading-relaxed">
+                   Scan to Verify Authenticity<br/>
+                   <span className="text-blue-600">ID: {card.id.slice(0, 12)}</span>
+                 </p>
+               </div>
+             </div>
 
             {/* Footer / Buttons */}
             <div className="px-8 pb-8 flex gap-3">

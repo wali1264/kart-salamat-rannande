@@ -7,10 +7,18 @@ import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Auth } from './components/Auth';
 import { WaitingRoom } from './components/WaitingRoom';
-import { Landing } from './components/Landing'; // We'll create this next
+import { Landing } from './components/Landing';
+import { Verify } from './components/Verify';
 
 const AppContent: React.FC = () => {
   const { user, profile, loading } = useAuth();
+  
+  // Basic routing for Verify page
+  const path = window.location.pathname;
+  if (path.startsWith('/verify/')) {
+    const cardId = path.split('/verify/')[1];
+    return <Verify cardId={cardId} />;
+  }
 
   if (loading) {
     return (

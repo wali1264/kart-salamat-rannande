@@ -13,7 +13,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-  QrCode
+  QrCode,
+  Trash2,
+  Edit
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Driver, HealthCard } from '../../types';
@@ -43,6 +45,22 @@ export const DriverList: React.FC = () => {
     if (error) console.error(error);
     else setDrivers(data || []);
     setLoading(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('آیا از حذف این راننده اطمینان دارید؟')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('drivers')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      fetchDrivers();
+    } catch (err: any) {
+      alert('خطا در حذف راننده: ' + err.message);
+    }
   };
 
   const filteredDrivers = drivers.filter(d => 
@@ -156,6 +174,14 @@ export const DriverList: React.FC = () => {
                               صدور کارت
                             </button>
                           )}
+                          
+                          <button 
+                            onClick={() => handleDelete(driver.id)}
+                            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="حذف راننده"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>

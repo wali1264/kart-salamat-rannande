@@ -56,10 +56,12 @@ export const DashboardHome: React.FC = () => {
           <UserIcon className="w-4 h-4" /> وضعیت دسترسی
         </h3>
         <div className="flex items-center gap-4 border-b border-slate-100 pb-5 mb-5 mt-auto">
-          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-blue-600 font-bold text-xl border border-slate-200">A</div>
+          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-blue-600 font-bold text-xl border border-slate-200">
+            {profile?.name?.charAt(0)}
+          </div>
           <div>
-            <div className="font-bold text-slate-800">احمد ضیا کریمی</div>
-            <div className="text-[10px] text-slate-500 font-medium">افسر ارشد ترافیک - کابل</div>
+            <div className="font-bold text-slate-800">{profile?.name}</div>
+            <div className="text-[10px] text-slate-500 font-medium">{profile?.role === 'officer' ? 'مامور ترافیک' : 'داکتر موظف'}</div>
           </div>
         </div>
         <div className="space-y-4">
@@ -77,32 +79,43 @@ export const DashboardHome: React.FC = () => {
       {/* Stat 1 */}
       <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card">
         <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">مجموع رانندگان</span>
-        <div className="text-4xl font-bold text-slate-800 tracking-tighter">۱۲,۸۴۰</div>
+        <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.totalDrivers.toLocaleString('fa-AF')}</div>
         <div className="mt-auto text-emerald-600 text-[10px] font-bold flex items-center gap-1">
-          <ArrowUpRight className="w-3 h-3" /> +۱۲٪ رشد ماهانه
+          <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید
         </div>
       </div>
 
       {/* Stat 2 */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card">
+      <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card border-l-4 border-l-blue-500">
         <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">کارت‌های فعال</span>
-        <div className="text-4xl font-bold text-slate-800 tracking-tighter">۱۰,۵۰۰</div>
-        <div className="mt-auto text-blue-600 text-[10px] font-bold">۸۴٪ از کل رانندگان</div>
+        <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.activeCards.toLocaleString('fa-AF')}</div>
+        <div className="mt-auto text-blue-600 text-[10px] font-bold">تاییدیه صحی معتبر</div>
       </div>
 
-      {/* Stat 3 */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card">
-        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">تخلفات شناسایی شده</span>
-        <div className="text-4xl font-bold text-rose-600 tracking-tighter">۲۳۸</div>
-        <div className="mt-auto text-slate-400 text-[10px] font-bold uppercase">گزارش ۳۰ روز گذشته</div>
-      </div>
-
-      {/* Stat 4 */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card">
-        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">تاییدیه‌های پزشک</span>
-        <div className="text-4xl font-bold text-slate-800 tracking-tighter">۸,۴۲۰</div>
-        <div className="mt-auto text-emerald-600 text-[10px] font-bold flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3" /> روند صعودی
+      {/* Expiring Soon Section */}
+      <div className="col-span-12 sm:col-span-6 lg:col-span-6 bento-card bg-amber-50/50 border-amber-100 h-full">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-amber-700 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+            <Clock className="w-3 h-3" /> نیاز به تمدید (کمتر از ۱ ماه)
+          </span>
+          <span className="bg-amber-100 px-2 py-0.5 rounded-full text-amber-700 text-[9px] font-bold">{stats.expiringSoon.length} مورد</span>
+        </div>
+        <div className="space-y-3">
+           {stats.expiringSoon.length > 0 ? stats.expiringSoon.map((item: any) => (
+             <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-amber-100/50 shadow-sm">
+                <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs">
+                     {item.drivers?.name?.charAt(0)}
+                   </div>
+                   <div className="text-xs font-bold text-slate-800">{item.drivers?.name}</div>
+                </div>
+                <div className="text-[10px] text-amber-600 font-bold">
+                   تنها {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} روز
+                </div>
+             </div>
+           )) : (
+             <div className="text-center py-6 text-slate-400 text-xs italic">موردی برای تمدید یافت نشد</div>
+           )}
         </div>
       </div>
 

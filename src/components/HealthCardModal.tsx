@@ -21,6 +21,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver }) =>
     blood_pressure: '12/8',
     vision_status: 'سالم',
     notes: '',
+    validity_period: '12', // Store as months (default 12)
   });
 
   if (!isOpen || !driver) return null;
@@ -30,7 +31,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver }) =>
     try {
       const issueDate = new Date();
       const expiryDate = new Date();
-      expiryDate.setFullYear(expiryDate.getFullYear() + 1); // Valid for 1 year
+      expiryDate.setMonth(expiryDate.getMonth() + parseInt(data.validity_period));
 
       const { error } = await supabase
         .from('health_cards')
@@ -155,10 +156,28 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver }) =>
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-slate-700 mr-2">مدت اعتبار کارت</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button 
+                      onClick={() => setData({...data, validity_period: '6'})}
+                      className={`py-3 rounded-2xl text-xs font-bold border transition-all ${data.validity_period === '6' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-slate-50 text-slate-600 border-slate-100 opacity-60'}`}
+                    >
+                      شش ماه (۶ ماه)
+                    </button>
+                    <button 
+                      onClick={() => setData({...data, validity_period: '12'})}
+                      className={`py-3 rounded-2xl text-xs font-bold border transition-all ${data.validity_period === '12' ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-100' : 'bg-slate-50 text-slate-600 border-slate-100 opacity-60'}`}
+                    >
+                      یک سال (۱۲ ماه)
+                    </button>
+                  </div>
+                </div>
+
                 <div className="p-4 bg-slate-50 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                   <p className="text-[10px] text-slate-500 leading-relaxed">
-                    با کلیک بر روی دکمه تایید، مسئولیت بررسی و تایید سلامت راننده مذکور را بر اساس استانداردهای وزارت صحت عامه افغانستان بر عهده می‌گیرید. این کارت به مدت یک سال معتبر خواهد بود.
+                    با کلیک بر روی دکمه تایید، مسئولیت بررسی و تایید سلامت راننده مذکور را بر اساس استانداردهای وزارت صحت عامه افغانستان بر عهده می‌گیرید. این کارت به مدت {data.validity_period === '12' ? 'یک سال' : 'شش ماه'} معتبر خواهد بود.
                   </p>
                 </div>
               </div>

@@ -160,24 +160,14 @@ export const DriverList: React.FC = () => {
                                 onClick={() => {
                                   setSelectedDriver(driver);
                                   setSelectedCard(activeCard);
-                                  setIsViewOpen(true);
-                                  setIsPrinting(false);
-                                }}
-                                className="bg-blue-900 text-white px-4 py-2 rounded-lg text-[10px] font-bold hover:bg-blue-950 transition-all"
-                              >
-                                مشاهده کارت
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  setSelectedDriver(driver);
-                                  setSelectedCard(activeCard);
                                   setIsPrinting(true);
                                   setIsViewOpen(true);
                                 }}
-                                className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all"
+                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
                                 title="چاپ مستقیم کارت"
                               >
                                 <Printer className="w-4 h-4" />
+                                <span>چاپ کارت سلامت</span>
                               </button>
                              </div>
                           ) : (

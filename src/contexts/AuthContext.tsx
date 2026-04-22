@@ -57,45 +57,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true;
 
-    async function initializeAuth() {
-      try {
-        // 1. Get initial session securely
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-
-        if (session?.user) {
-          setUser(session.user);
-          await fetchProfile(session.user.id);
-        } else {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Auth init error:", error);
-        if (mounted) setLoading(false);
-      }
-    }
-
-    initializeAuth();
-
-    // 2. Listen for auth changes, but handle them carefully
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Direct check of current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
+      if (session?.user) {
+        setUser(session.user);
+        fetchProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
 
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        fetchProfile(currentUser.id);
+      } else {
         setProfile(null);
         setLoading(false);
-        localStorage.clear();
-        return;
-      }
-
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        if (currentUser) {
-          await fetchProfile(currentUser.id);
-        }
       }
     });
 
@@ -106,16 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
-    setLoading(true);
-    try {
-      await supabase.auth.signOut();
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.href = '/'; // Force a clean reload
-    } catch (error) {
-      console.error('Signout error:', error);
-      window.location.reload();
-    }
+    await supabase.auth.signOut();
+    localStorage.clear();
+    window.location.href = '/';
   };
 
   return (

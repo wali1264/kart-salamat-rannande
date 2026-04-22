@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   CheckCircle2, 
@@ -7,8 +7,11 @@ import {
   TrendingUp,
   ArrowUpRight,
   ShieldCheck,
-  User as UserIcon
+  User as UserIcon,
+  Clock
 } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   BarChart, 
   Bar, 
@@ -31,6 +34,37 @@ const data = [
 ];
 
 export const DashboardHome: React.FC = () => {
+  const { profile } = useAuth();
+  const [stats, setStats] = useState({
+    totalDrivers: 0,
+    activeCards: 0,
+    expiringSoon: [] as any[]
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      const { count: driversCount } = await supabase.from('drivers').select('*', { count: 'exact', head: true });
+      const { count: cardsCount } = await supabase.from('health_cards').select('*', { count: 'exact', head: true }).eq('status', 'active');
+      
+      const oneMonthFromNow = new Date();
+      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+      
+      const { data: expiring } = await supabase
+        .from('health_cards')
+        .select('*, drivers(*)')
+        .eq('status', 'active')
+        .lt('expiry_date', oneMonthFromNow.toISOString())
+        .limit(3);
+
+      setStats({
+        totalDrivers: driversCount || 0,
+        activeCards: cardsCount || 0,
+        expiringSoon: expiring || []
+      });
+    };
+    fetchStats();
+  }, []);
+
   return (
     <div className="grid grid-cols-12 auto-rows-fr gap-4 lg:gap-6 min-h-[600px]">
       {/* Top Banner - Span 12 in mobile, Span 8 in desktop */}

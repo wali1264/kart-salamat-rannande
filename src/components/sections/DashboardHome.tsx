@@ -6,7 +6,8 @@ import {
   FileText,
   TrendingUp,
   ArrowUpRight,
-  ShieldCheck
+  ShieldCheck,
+  User as UserIcon
 } from 'lucide-react';
 import { 
   BarChart, 

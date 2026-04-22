@@ -32,20 +32,9 @@ export const Auth: React.FC = () => {
         });
         
         if (signUpError) throw signUpError;
-        if (data.user) {
-          // Create profile record - defaults to is_approved = false
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              name: fullName,
-              email: email,
-              role: role,
-              is_approved: false
-            });
-          
-          if (profileError) throw profileError;
-        }
+        // Profile is handled by the DB trigger automatically now,
+        // but if we want to update it manually or check compatibility:
+        // The DB trigger handle_new_user() will insert into 'profiles' table.
       }
     } catch (err: any) {
       setError(err.message || 'خطایی رخ داد');

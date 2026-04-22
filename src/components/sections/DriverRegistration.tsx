@@ -18,6 +18,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     license_number: '',
     phone: '',
     id_number: '',
+    vehicle_type: 'باربری',
+    blood_type: 'O+',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,6 +140,33 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     />
                   </div>
+               </div>
+
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نوع موتر</label>
+                  <select 
+                    value={formData.vehicle_type}
+                    onChange={(e) => setFormData({...formData, vehicle_type: e.target.value})}
+                    className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                  >
+                    <option value="باربری">باربری (Truck)</option>
+                    <option value="مسافربری">مسافربری (Bus)</option>
+                    <option value="تیزرفتار">تیزرفتار (Taxi/Private)</option>
+                    <option value="ترانزیت">ترانزیت (Transit)</option>
+                  </select>
+               </div>
+
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">گروه خون</label>
+                  <select 
+                    value={formData.blood_type}
+                    onChange={(e) => setFormData({...formData, blood_type: e.target.value})}
+                    className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                  >
+                    {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
                </div>
 
                <div className="space-y-2">

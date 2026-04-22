@@ -1,8 +1,8 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Printer, ShieldCheck, MapPin, User, Hash, CreditCard } from 'lucide-react';
+import { ShieldCheck, User } from 'lucide-react';
 import { Driver, HealthCard } from '../types';
+import { renderToString } from 'react-dom/server';
 
 interface Props {
   isOpen: boolean;
@@ -13,131 +13,201 @@ interface Props {
 }
 
 export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card, autoPrint = false }) => {
-  const [showBack, setShowBack] = React.useState(false);
-
+  
   React.useEffect(() => {
     if (isOpen && autoPrint) {
-      // Small timeout to ensure QR codes are fully rendered
-      const timer = setTimeout(() => {
-        window.print();
-        onClose(); // Close the "invisible" modal after triggering print
-      }, 500);
-      return () => clearTimeout(timer);
+      handlePrint();
     }
-  }, [isOpen, autoPrint, onClose]);
+  }, [isOpen, autoPrint]);
 
-  if (!isOpen) return null;
+  const handlePrint = () => {
+    // 1. Create a hidden iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '100%';
+    iframe.style.bottom = '100%';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
 
-  // Shared Card Component for printing
-  const CardSide = ({ isBack = false }) => (
-    <div 
-      className="print-card-standard bg-white overflow-hidden relative" 
-      style={{ width: '85.6mm', height: '54mm' }}
-    >
-      {!isBack ? (
-        <>
-          {/* FRONT SIDE CONTENT */}
-          <div className="absolute inset-0 opacity-[0.03] pointer-events-none select-none overflow-hidden text-slate-800">
-              <ShieldCheck className="w-[120mm] h-[120mm] -mt-[30mm] -mr-[20mm] rotate-12" />
-          </div>
-          <div className="relative z-10 px-[4mm] pt-[2mm] flex justify-between items-start">
-              <div className="flex flex-col">
-                <span className="text-[5pt] font-bold text-slate-800">جمهوری اسلامی افغانستان</span>
-                <span className="text-[4.5pt] text-slate-600">وزارت صحت عامه</span>
+    // 2. Generate the HTML content
+    const cardHtml = `
+      <!DOCTYPE html>
+      <html dir="rtl">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+          body { font-family: 'Vazirmatn', sans-serif; margin: 0; padding: 0; background: white; }
+          .container { display: flex; flex-direction: column; align-items: center; gap: 20mm; padding: 10mm 0; }
+          .card { 
+            width: 85.6mm; 
+            height: 54mm; 
+            background: white; 
+            border: 0.1mm solid #e2e8f0; 
+            border-radius: 1mm; 
+            position: relative; 
+            overflow: hidden; 
+            page-break-inside: avoid;
+            box-sizing: border-box;
+          }
+          .absolute { position: absolute; }
+          .relative { position: relative; }
+          .flex { display: flex; }
+          .flex-col { flex-direction: column; }
+          .justify-between { justify-content: space-between; }
+          .items-start { align-items: flex-start; }
+          .items-center { align-items: center; }
+          .w-full { width: 100%; }
+          .h-full { height: 100%; }
+          .text-slate-800 { color: #1e293b; }
+          .text-slate-600 { color: #475569; }
+          .text-slate-400 { color: #94a3b8; }
+          .text-blue-600 { color: #2563eb; }
+          .text-rose-700 { color: #be123c; }
+          .font-bold { font-weight: 700; }
+          .uppercase { text-transform: uppercase; }
+          .italic { font-style: italic; }
+          
+          /* Specialized Card Styling */
+          .header { padding: 4mm 4mm 0; display: flex; justify-content: space-between; }
+          .photo-box { width: 23mm; height: 24mm; border: 0.1mm solid #e2e8f0; border-radius: 1mm; overflow: hidden; position: relative; }
+          .photo-box img { width: 100%; height: 100%; object-cover: cover; }
+          .blood-tag { position: absolute; bottom: 0; width: 100%; background: #2563eb; color: white; font-size: 4pt; font-weight: bold; text-align: center; padding: 0.5mm 0; }
+          .info-grid { display: grid; grid-template-columns: 1fr; gap: 1.8mm; }
+          .divider { border-top: 0.1mm solid #f1f5f9; margin-top: 1.5mm; padding-top: 1.5mm; display: grid; grid-template-columns: 1fr 1fr; }
+          
+          @page { size: auto; margin: 0; }
+          @media print { body { background: white; } }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- FRONT SIDE -->
+          <div class="card">
+            <div class="header">
+              <div class="flex-col">
+                <div style="font-size: 5pt; font-weight: bold;">جمهوری اسلامی افغانستان</div>
+                <div style="font-size: 4.5pt; color: #475569;">وزارت صحت عامه</div>
               </div>
-              <div className="absolute left-1/2 -translate-x-1/2 top-[1mm]">
-                <ShieldCheck className="w-[6mm] h-[6mm] text-amber-600" />
+              <div style="font-size: 5pt; font-weight: bold; text-align: left;">
+                <div class="uppercase">National Health Card</div>
+                <div class="italic" style="font-size: 4.5pt; color: #475569;">ID: ${driver.id.slice(0, 8)}</div>
               </div>
-              <div className="flex flex-col text-left">
-                <span className="text-[5pt] font-bold text-slate-800 uppercase">National Health Card</span>
-                <span className="text-[4.5pt] text-slate-600 italic">ID: {driver.id.slice(0, 8)}</span>
-              </div>
-          </div>
-          <div className="relative z-10 px-[4mm] mt-[1mm] flex gap-[3.5mm]">
-              <div className="flex flex-col items-center w-[23mm]">
-                <div className="w-[23mm] h-[24mm] bg-slate-50 border border-slate-200 rounded-[1mm] overflow-hidden relative">
-                    {driver.photo_url ? (
-                      <img src={driver.photo_url} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-[10mm] h-[10mm] text-slate-200 mt-6 mx-auto" />
-                    )}
-                    <div className="absolute bottom-0 inset-x-0 bg-blue-600 text-white text-[4pt] font-bold py-[0.5mm] text-center">
-                      BT: {driver.blood_type || 'O+'}
-                    </div>
+            </div>
+            
+            <div style="display: flex; padding: 2mm 4mm 0; gap: 3.5mm;">
+              <div class="flex-col items-center">
+                <div class="photo-box">
+                  ${driver.photo_url ? `<img src="${driver.photo_url}" />` : '<div style="background: #f8fafc; height: 100%;"></div>'}
+                  <div class="blood-tag">BT: ${driver.blood_type || 'O+'}</div>
                 </div>
-                <div className="bg-white p-[1.5mm] border border-slate-100 rounded-sm mt-[2mm]">
-                    <QRCodeSVG 
-                      value={`${window.location.origin}/verify/${card.id}`} 
-                      size={52} 
-                      level="H"
-                    />
+                <div style="margin-top: 2mm; background: white; padding: 1mm; border: 0.1mm solid #f1f5f9;">
+                  <div id="qrcode-front"></div>
                 </div>
               </div>
-              <div className="flex-1 pt-[1mm]">
-                <div className="grid grid-cols-1 gap-y-[1.8mm]">
-                    <div className="flex flex-col">
-                      <span className="text-[4.5pt] text-slate-400 font-bold uppercase">نام مکمل راننده</span>
-                      <span className="text-[9pt] font-bold text-slate-900 leading-tight">{driver.name}</span>
+              
+              <div style="flex: 1; padding-top: 1mm;">
+                <div class="info-grid">
+                  <div class="flex-col">
+                    <div style="font-size: 4.5pt; color: #94a3b8; font-weight: bold;">نام مکمل راننده</div>
+                    <div style="font-size: 9pt; font-weight: bold; line-height: 1;">${driver.name}</div>
+                  </div>
+                  <div class="flex-col">
+                    <div style="font-size: 4.5pt; color: #94a3b8; font-weight: bold;">نام پدر</div>
+                    <div style="font-size: 7.5pt; font-weight: bold; color: #334155;">${driver.father_name || '---'}</div>
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2mm;">
+                    <div class="flex-col">
+                      <div style="font-size: 4.5pt; color: #94a3b8; font-weight: bold;">نمبر جواز</div>
+                      <div style="font-size: 6.5pt; font-weight: bold; font-family: monospace;">${driver.license_number}</div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[4.5pt] text-slate-400 font-bold uppercase">نام پدر</span>
-                      <span className="text-[7.5pt] font-bold text-slate-700">{driver.father_name || '---'}</span>
+                    <div class="flex-col">
+                      <div style="font-size: 4.5pt; color: #94a3b8; font-weight: bold;">پلاک موتر</div>
+                      <div style="font-size: 6.5pt; font-weight: bold;">${driver.license_plate}</div>
                     </div>
-                    <div className="grid grid-cols-2 gap-[2mm]">
-                      <div className="flex flex-col">
-                          <span className="text-[4.5pt] text-slate-400 font-bold uppercase">نمبر جواز</span>
-                          <span className="text-[6.5pt] font-bold text-slate-800 font-mono">{driver.license_number}</span>
-                      </div>
-                      <div className="flex flex-col">
-                          <span className="text-[4.5pt] text-slate-400 font-bold uppercase">پلاک موتر</span>
-                          <span className="text-[6.5pt] font-bold text-slate-800">{driver.license_plate}</span>
-                      </div>
+                  </div>
+                  <div class="divider">
+                    <div class="flex-col">
+                      <div style="font-size: 4.5pt; color: #94a3b8; font-weight: bold;">تاریخ صدور</div>
+                      <div style="font-size: 6pt; font-weight: bold;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</div>
                     </div>
-                    <div className="grid grid-cols-2 gap-[2mm] mt-[1.5mm] pt-[1.5mm] border-t border-slate-100">
-                      <div className="flex flex-col">
-                          <span className="text-[4.5pt] text-slate-400 font-bold uppercase">تاریخ صدور</span>
-                          <span className="text-[6pt] font-bold text-slate-700">{new Date(card.issue_date).toLocaleDateString('fa-AF')}</span>
-                      </div>
-                      <div className="flex flex-col">
-                          <span className="text-[4.5pt] text-rose-400 font-bold uppercase">تاریخ انقضا</span>
-                          <span className="text-[6pt] font-bold text-rose-700">{new Date(card.expiry_date).toLocaleDateString('fa-AF')}</span>
-                      </div>
+                    <div class="flex-col">
+                      <div style="font-size: 4.5pt; color: #f43f5e; font-weight: bold;">تاریخ انقضا</div>
+                      <div style="font-size: 6pt; font-weight: bold; color: #be123c;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</div>
                     </div>
+                  </div>
                 </div>
               </div>
+            </div>
           </div>
-        </>
-      ) : (
-        <>
-          {/* BACK SIDE CONTENT */}
-          <div className="p-[4mm] h-full flex flex-col">
-              <div className="flex items-center gap-2 mb-[2mm] border-b border-slate-100 pb-[1mm]">
-                <ShieldCheck className="w-[4mm] h-[4mm] text-blue-600" />
-                <span className="text-[6pt] font-bold text-slate-800">مقررات و شرایط استفاده (Health Regulations)</span>
-              </div>
-              <div className="flex-1 space-y-[2mm]">
-                <p className="text-[5pt] text-slate-600 tracking-tighter">ماده ۱: این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</p>
-                <p className="text-[5pt] text-slate-600 tracking-tighter">ماده ۲: راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</p>
-                <p className="text-[5pt] text-slate-600 tracking-tighter">ماده ۳: جعل این کارت پیگرد قانونی داشته و منجر به ابطال جواز خواهد شد.</p>
-                <p className="text-[5pt] text-slate-600 tracking-tighter">ماده ۴: اعتبار این کارت تنها با استعلام از پایگاه داده مرکزی ANDHP قابل تایید است.</p>
-              </div>
-              <div className="mt-auto flex justify-between items-end">
-                <span className="text-[6.5pt] font-bold text-blue-600 font-mono">www.andhp.gov.af</span>
-                <div className="w-[20mm] h-[10mm] border border-dashed border-slate-200 rounded-sm" />
-              </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
 
-  return (
-    <div className="fixed inset-0 z-[99999] pointer-events-none opacity-0">
-      <div className="direct-print-zone">
-        <CardSide isBack={false} />
-        <div className="page-break" />
-        <CardSide isBack={true} />
-      </div>
-    </div>
-  );
+          <div style="page-break-after: always;"></div>
+
+          <!-- BACK SIDE -->
+          <div class="card">
+            <div style="padding: 4mm; height: 100%; display: flex; flex-direction: column;">
+              <div style="border-bottom: 0.1mm solid #f1f5f9; padding-bottom: 1mm; font-size: 6pt; font-weight: bold; display: flex; items-center: center; gap: 2mm;">
+                مقررات و شرایط استفاده (Health Regulations)
+              </div>
+              <div style="flex: 1; padding: 2mm 0; display: flex; flex-direction: column; gap: 2mm;">
+                <div style="font-size: 5pt; color: #475569;">ماده ۱: این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</div>
+                <div style="font-size: 5pt; color: #475569;">ماده ۲: راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</div>
+                <div style="font-size: 5pt; color: #475569;">ماده ۳: جعل این کارت پیگرد قانونی داشته و منجر به ابطال جواز خواهد شد.</div>
+                <div style="font-size: 5pt; color: #475569;">ماده ۴: اعتبار این کارت تنها با استعلام از پایگاه داده مرکزی ANDHP قابل تایید است.</div>
+              </div>
+              <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end;">
+                <div style="font-size: 6.5pt; font-weight: bold; color: #2563eb; font-family: monospace;">www.andhp.gov.af</div>
+                <div style="width: 20mm; height: 10mm; border: 0.1mm dashed #e2e8f0;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inject QR Code using the same library logic -->
+        <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+        <script>
+          function generateQR() {
+            var qr = qrcode(0, 'H');
+            qr.addData('${window.location.origin}/verify/${card.id}');
+            qr.make();
+            document.getElementById('qrcode-front').innerHTML = qr.createSvgTag(1.8);
+            
+            // Wait for images to load, then print
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.parent.postMessage('close-print', '*');
+              }, 500);
+            };
+          }
+          generateQR();
+        </script>
+      </body>
+      </html>
+    `;
+
+    const doc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (doc) {
+      doc.open();
+      doc.write(cardHtml);
+      doc.close();
+    }
+  };
+
+  // Listen for the iframe completion signal
+  React.useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data === 'close-print') {
+        const iframes = document.querySelectorAll('iframe[style*="right: 100%"]');
+        iframes.forEach(f => f.remove());
+        onClose();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onClose]);
+
+  return null; // The print engine is completely invisible
 };

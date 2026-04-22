@@ -14,6 +14,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
 
   const [formData, setFormData] = useState({
     name: '',
+    father_name: '',
     license_plate: '',
     license_number: '',
     phone: '',
@@ -21,6 +22,38 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     vehicle_type: 'باربری',
     blood_type: 'O+',
   });
+  const [photo, setPhoto] = useState<string | null>(null);
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (e) => {
+        const img = new Image();
+        img.src = e.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width;
+          let h = img.height;
+          const MAX_SIZE = 600;
+          if (w > h) { if (w > MAX_SIZE) { h *= MAX_SIZE / w; w = MAX_SIZE; } }
+          else { if (h > MAX_SIZE) { w *= MAX_SIZE / h; h = MAX_SIZE; } }
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.6));
+        };
+      };
+    });
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const compressed = await compressImage(file);
+      setPhoto(compressed);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +63,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     try {
       const { error: insertError } = await supabase
         .from('drivers')
-        .insert([formData]);
+        .insert([{ ...formData, photo_url: photo || '' }]);
 
       if (insertError) throw insertError;
 
@@ -79,7 +112,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
           <div className="col-span-12 lg:col-span-8 bento-card space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام و نام خانوادگی</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام راننده</label>
                   <div className="relative">
                     <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -88,6 +121,21 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
                       placeholder="احمد ولی"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                    />
+                  </div>
+               </div>
+
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام پدر</label>
+                  <div className="relative">
+                    <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 opacity-50" />
+                    <input 
+                      type="text" 
+                      required
+                      value={formData.father_name}
+                      onChange={(e) => setFormData({...formData, father_name: e.target.value})}
+                      placeholder="محمد علی"
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     />
                   </div>

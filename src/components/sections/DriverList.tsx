@@ -97,6 +97,7 @@ export const DriverList: React.FC = () => {
                 <tr className="text-slate-400 font-normal">
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest text-center">وضعیت سلامت</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نام راننده</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نام پدر</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">شماره جواز</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">پلاک موتر</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">عملیات</th>
@@ -125,6 +126,9 @@ export const DriverList: React.FC = () => {
                           </div>
                           <span className="font-bold text-slate-800">{driver.name}</span>
                         </div>
+                      </td>
+                      <td className="p-5">
+                        <span className="text-slate-600 text-sm">{driver.father_name || '---'}</span>
                       </td>
                       <td className="p-5 text-slate-600 font-mono text-xs">{driver.license_number}</td>
                       <td className="p-5 text-slate-600 text-xs">{driver.license_plate}</td>

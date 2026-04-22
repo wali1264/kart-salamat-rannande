@@ -1,6 +1,7 @@
-import React from 'react';
-import { User, Shield, Info, LogOut, Bell, Monitor, Globe } from 'lucide-react';
+import React, { useState } from 'react';
+import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
@@ -61,6 +62,62 @@ export const SettingsSection: React.FC = () => {
                   دری (پیش‌فرض)
                 </div>
               </div>
+            </div>
+          </div>
+          
+          {/* Backup & Restore */}
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+            <h4 className="font-bold text-slate-800 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-500" />
+              پشتیبان‌گیری و بازیابی
+            </h4>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              شما می‌توانید از تمام اطلاعات ثبت شده (رانندگان، کارت‌ها و تصاویر) یک خروجی JSON تهیه کرده و در مواقع لزوم آن را بازیابی کنید.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               <button 
+                  onClick={async () => {
+                    const { data: drivers } = await supabase.from('drivers').select('*');
+                    const { data: cards } = await supabase.from('health_cards').select('*');
+                    const backup = { drivers, cards, timestamp: new Date().toISOString() };
+                    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `andhp_backup_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                  }}
+                  className="flex items-center justify-center gap-2 py-4 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all"
+               >
+                 <Download className="w-4 h-4" /> دریافت فایل پشتیبان
+               </button>
+               <label className="flex items-center justify-center gap-2 py-4 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-2xl text-xs font-bold hover:bg-emerald-100 cursor-pointer transition-all">
+                 <Upload className="w-4 h-4" /> بازیابی اطلاعات (Restore)
+                 <input 
+                    type="file" 
+                    className="hidden" 
+                    accept=".json"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = async (event) => {
+                          try {
+                            const backup = JSON.parse(event.target?.result as string);
+                            if (backup.drivers) {
+                              await supabase.from('drivers').insert(backup.drivers);
+                              if (backup.cards) await supabase.from('health_cards').insert(backup.cards);
+                              alert('اطلاعات با موفقیت بازیابی شد. صفحه را رفرش کنید.');
+                            }
+                          } catch (err) {
+                            alert('فایل پشتیبان معتبر نیست');
+                          }
+                        };
+                        reader.readAsText(file);
+                      }
+                    }} 
+                 />
+               </label>
             </div>
           </div>
         </div>

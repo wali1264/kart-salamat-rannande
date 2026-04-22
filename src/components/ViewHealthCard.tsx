@@ -184,10 +184,11 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
         {/* PRINT ONLY SECTION - This is invisible in UI but becomes the only thing visible in Print */}
         <div className="direct-print-zone hidden print:flex">
           <CardSide isBack={false} printOnly={true} />
+          <div className="page-break" />
           <CardSide isBack={true} printOnly={true} />
         </div>
 

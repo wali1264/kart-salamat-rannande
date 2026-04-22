@@ -248,27 +248,23 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
                 <div class="info-value compact">${driver.father_name || '---'}</div>
               </div>
 
-              <div class="grid-info">
-                <div class="info-block">
-                  <div class="info-label"><span>نمبر جواز</span><span>License No.</span></div>
-                  <div class="info-value compact" style="font-family: monospace;">${driver.license_number}</div>
-                </div>
-                <div class="info-block">
-                  <div class="info-label"><span>پلاک موتر</span><span>Plate No.</span></div>
-                  <div class="info-value compact">${driver.license_plate}</div>
-                </div>
+              <div class="info-block">
+                <div class="info-label"><span>نمبر جواز</span><span>License No.</span></div>
+                <div class="info-value compact" style="font-family: monospace;">${driver.license_number}</div>
               </div>
+            </div>
 
-              <div class="grid-info" style="margin-top: 1mm; border-top: 0.1mm solid #eee; padding-top: 1.5mm;">
-                <div class="info-block">
-                  <div class="info-label"><span>تاریخ صدور</span><span>Issue Date</span></div>
-                  <div style="font-size: 5.5pt; font-weight: 700;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</div>
-                </div>
-                <div class="info-block">
-                  <div class="info-label"><span style="color: #900;">تاریخ انقضا</span><span style="color: #900;">Expiry</span></div>
-                  <div style="font-size: 5.5pt; font-weight: 700; color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</div>
-                </div>
-              </div>
+            <!-- Technical info column shifted right under the photo -->
+            <div style="position: absolute; top: 35mm; right: 4mm; width: 23mm; display: flex; flex-direction: column; gap: 1mm;">
+               <div class="info-block">
+                  <div class="info-label"><span>پلاک موتر</span><span>Plate</span></div>
+                  <div class="info-value compact" style="font-size: 7.5pt;">${driver.license_plate}</div>
+               </div>
+               <div style="display: flex; flex-direction: column; gap: 0.5mm; border-top: 0.1mm solid #eee; padding-top: 0.5mm;">
+                  <div class="info-label"><span>صدور / انقضا</span></div>
+                  <div style="font-size: 5pt; font-weight: 700; color: #1a365d;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</div>
+                  <div style="font-size: 5pt; font-weight: 700; color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</div>
+               </div>
             </div>
 
             <div class="qr-container" id="qrcode-front"></div>

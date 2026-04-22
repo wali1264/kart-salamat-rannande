@@ -1,0 +1,13 @@
+{
+  "name": "سلامت راننده (Driver Health Afghanistan)",
+  "description": "سیستم پیشرفته و ماژولار تایید صلاحیت و سلامت رانندگان در افغانستان برای جلوگیری از رانندگی تحت تاثیر مواد و مقابله با کارت‌های جعلی.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "Authentication",
+    "QR Code Generation",
+    "Real-time Database",
+    "Role-based Access Control"
+  ]
+}

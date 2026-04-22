@@ -38,84 +38,178 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
       <head>
         <meta charset="UTF-8">
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;700&display=swap');
+          
           body { 
             font-family: 'Vazirmatn', sans-serif; 
             margin: 0; 
             padding: 0; 
-            background: white; 
+            background: #f0f0f0; 
             display: flex;
             justify-content: center;
+            -webkit-print-color-adjust: exact;
           }
+          
           .a4-page {
             width: 210mm;
             padding: 10mm;
             display: flex;
             flex-direction: row;
-            justify-content: flex-start;
-            gap: 5mm;
+            justify-content: center;
+            gap: 8mm;
           }
+          
           .card { 
             width: 85.6mm; 
             height: 54mm; 
-            background: white; 
-            border: 0.2mm solid #000; 
+            background: #fff; 
+            border: 0.3mm solid #1a365d; 
+            border-radius: 2mm;
             position: relative; 
             overflow: hidden; 
             box-sizing: border-box;
-            -webkit-print-color-adjust: exact;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M54.627 0l.83.83L40 15.457l-.83-.83L54.627 0zM5.373 0l-.83.83L19.543 15.457l.83-.83L5.373 0zm49.254 60l-.83-.83L40 44.543l.83.83L54.627 60zM5.373 60l.83-.83L19.543 44.543l-.83.83L5.373 60zM30 45.457l-4.543-4.543L30 36.37l4.543 4.543L30 45.457zM0 30l4.543-4.543L9.086 30l-4.543 4.543L0 30zm60 0l-4.543 4.543L50.914 30l4.543-4.543L60 30zM30 14.543l4.543 4.543L30 23.63l-4.543-4.543L30 14.543z' fill='%231a365d' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
           }
           
-          .absolute { position: absolute; }
-          .text-right { text-align: right; }
-          
-          /* Positioning Strategy */
-          .driver-photo {
-            top: 2mm;
-            right: 2mm;
-            width: 22mm;
-            height: 28mm;
-            border: 0.1mm solid #ccc;
-            overflow: hidden;
-            background: #f1f5f9;
-          }
-          .driver-photo img { width: 100%; height: 100%; object-fit: cover; }
-          
-          .qr-code-box {
-            bottom: 2mm;
-            left: 2mm;
-            width: 18mm;
-            height: 18mm;
-            background: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+          /* Specialized Elements */
+          .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1.5mm;
+            background: linear-gradient(90deg, #d4af37, #1a365d, #d4af37);
           }
           
-          .card-header {
-            top: 2mm;
-            left: 2mm;
+          .security-mesh {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(#1a365d 0.5px, transparent 0.5px);
+            background-size: 4mm 4mm;
+            opacity: 0.05;
+            pointer-events: none;
+          }
+          
+          .emblem {
+            position: absolute;
+            top: 3mm;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10mm;
+            height: 10mm;
+            opacity: 0.8;
+          }
+          
+          .driver-photo-frame {
+            position: absolute;
+            top: 4mm;
+            right: 4mm;
+            width: 23mm;
+            height: 29mm;
+            padding: 0.8mm;
+            background: #fff;
+            border: 0.4mm solid #1a365d;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 10;
+          }
+          
+          .driver-photo-frame img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          
+          .blood-type-tag {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1a365d;
+            color: #fff;
+            font-size: 5pt;
+            font-weight: 700;
+            text-align: center;
+            padding: 0.6mm 0;
+          }
+          
+          .card-header-titles {
+            position: absolute;
+            top: 3mm;
+            left: 4mm;
             display: flex;
             flex-direction: column;
             gap: 0.5mm;
           }
           
-          .main-info {
-            top: 14mm;
-            right: 26mm;
-            left: 2mm;
+          .title-afg { font-size: 5.5pt; font-weight: 700; color: #1a365d; }
+          .title-ministry { font-size: 5pt; color: #444; }
+          .title-en { font-size: 5.5pt; font-weight: 700; color: #1a365d; text-transform: uppercase; border-top: 0.1mm solid #ddd; margin-top: 1mm; padding-top: 0.5mm; }
+          
+          .info-section {
+            position: absolute;
+            top: 15mm;
+            right: 31mm;
+            left: 4mm;
             display: flex;
             flex-direction: column;
-            gap: 2mm;
+            gap: 2.2mm;
           }
           
-          .label { font-size: 5pt; color: #666; font-weight: bold; }
-          .value { font-size: 8.5pt; font-weight: 700; color: #000; display: block; margin-top: -0.5mm; }
-          .value-small { font-size: 7.5pt; }
+          .info-block { display: flex; flex-direction: column; }
+          .info-label { 
+            font-size: 4.8pt; 
+            color: #777; 
+            font-weight: 500; 
+            display: flex; 
+            justify-content: space-between;
+          }
+          .info-value { 
+            font-size: 9.5pt; 
+            font-weight: 700; 
+            color: #1a365d; 
+            margin-top: -0.8mm;
+          }
+          .info-value.compact { font-size: 8pt; }
+          
+          .grid-info { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+          
+          .footer-strip {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 1.5mm 4mm;
+            background: #f8fafc;
+            border-top: 0.2mm solid #1a365d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          
+          .qr-container {
+            position: absolute;
+            bottom: 2.5mm;
+            left: 4mm;
+            width: 17mm;
+            height: 17mm;
+            background: #fff;
+            padding: 1mm;
+            border: 0.2mm solid #1a365d;
+            z-index: 20;
+          }
+          
+          .card-id {
+            position: absolute;
+            bottom: 1.5mm;
+            right: 4mm;
+            font-size: 4.5pt;
+            color: #999;
+            font-family: monospace;
+          }
 
           @media print {
             body { background: white; }
-            .card { border: 0.1mm solid #999; }
+            .a4-page { padding: 0; margin: 15mm auto; }
+            .card { box-shadow: none; border-width: 0.15mm; }
           }
         </style>
       </head>
@@ -123,72 +217,101 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
         <div class="a4-page">
           <!-- FRONT SIDE -->
           <div class="card">
-            <div class="card-header">
-              <div style="font-size: 5pt; font-weight: 700;">جمهوری اسلامی افغانستان</div>
-              <div style="font-size: 4.5pt;">وزارت صحت عامه</div>
-              <div style="font-size: 5pt; font-weight: 700; margin-top: 1mm; border-top: 0.1mm solid #eee; padding-top: 0.5mm;">NATIONAL HEALTH CARD</div>
+            <div class="security-mesh"></div>
+            
+            <div class="emblem">
+              <svg viewBox="0 0 24 24" fill="none" stroke="%23d4af37" stroke-width="2" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M12 8v4M12 16h.01" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
             </div>
 
-            <div class="driver-photo">
+            <div class="card-header-titles">
+              <div class="title-afg">جمهوری اسلامی افغانستان</div>
+              <div class="title-ministry">وزارت صحت عامه</div>
+              <div class="title-en">National Health Card</div>
+            </div>
+
+            <div class="driver-photo-frame">
               ${driver.photo_url ? `<img src="${driver.photo_url}" />` : ''}
-              <div style="position: absolute; bottom: 0; width: 100%; background: #000; color: #fff; font-size: 4.5pt; text-align: center; font-weight: bold;">
-                BT: ${driver.blood_type || 'O+'}
+              <div class="blood-type-tag">BT: ${driver.blood_type || 'O+'}</div>
+            </div>
+
+            <div class="info-section">
+              <div class="info-block">
+                <div class="info-label"><span>نام مکمل راننده</span><span>Full Name</span></div>
+                <div class="info-value">${driver.name}</div>
+              </div>
+              
+              <div class="info-block">
+                <div class="info-label"><span>نام پدر</span><span>Father Name</span></div>
+                <div class="info-value compact">${driver.father_name || '---'}</div>
+              </div>
+
+              <div class="grid-info">
+                <div class="info-block">
+                  <div class="info-label"><span>نمبر جواز</span><span>License No.</span></div>
+                  <div class="info-value compact" style="font-family: monospace;">${driver.license_number}</div>
+                </div>
+                <div class="info-block">
+                  <div class="info-label"><span>پلاک موتر</span><span>Plate No.</span></div>
+                  <div class="info-value compact">${driver.license_plate}</div>
+                </div>
+              </div>
+
+              <div class="grid-info" style="margin-top: 1mm; border-top: 0.1mm solid #eee; padding-top: 1.5mm;">
+                <div class="info-block">
+                  <div class="info-label"><span>تاریخ صدور</span><span>Issue Date</span></div>
+                  <div style="font-size: 5.5pt; font-weight: 700;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</div>
+                </div>
+                <div class="info-block">
+                  <div class="info-label"><span style="color: #900;">تاریخ انقضا</span><span style="color: #900;">Expiry</span></div>
+                  <div style="font-size: 5.5pt; font-weight: 700; color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</div>
+                </div>
               </div>
             </div>
 
-            <div class="main-info">
-              <div>
-                <span class="label">نام مکمل راننده:</span>
-                <span class="value">${driver.name}</span>
-              </div>
-              <div>
-                <span class="label">نام پدر:</span>
-                <span class="value-small" style="display:block; font-weight: 700;">${driver.father_name || '---'}</span>
-              </div>
-              <div style="display: flex; gap: 4mm; margin-top: 1mm;">
-                <div>
-                  <span class="label">نمبر جواز:</span>
-                  <span class="value-small" style="display:block; font-family: monospace; font-weight: 700;">${driver.license_number}</span>
-                </div>
-                <div>
-                  <span class="label">پلاک موتر:</span>
-                  <span class="value-small" style="display:block; font-weight: 700;">${driver.license_plate}</span>
-                </div>
-              </div>
-              <div style="display: flex; gap: 4mm; margin-top: 1mm; border-top: 0.1mm solid #eee; padding-top: 1mm;">
-                <div>
-                  <span class="label">تاریخ صدور:</span>
-                  <span style="font-size: 5pt; display:block;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</span>
-                </div>
-                <div>
-                  <span class="label" style="color: #900;">تاریخ انقضا:</span>
-                  <span style="font-size: 5pt; font-weight: bold; color: #900; display:block;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="qr-code-box" id="qrcode-front"></div>
-            <div style="position: absolute; bottom: 1mm; right: 2mm; font-size: 4pt; color: #999; font-family: monospace;">
-              ID: ${driver.id.slice(0, 8)}
-            </div>
+            <div class="qr-container" id="qrcode-front"></div>
+            <div class="card-id">ID: ${driver.id.slice(0, 8).toUpperCase()}</div>
           </div>
 
           <!-- BACK SIDE -->
           <div class="card">
-            <div style="padding: 4mm; display: flex; flex-direction: column; height: 100%;">
-              <div style="border-bottom: 0.1mm solid #000; padding-bottom: 1.5mm; margin-bottom: 2mm;">
-                <span style="font-size: 6pt; font-weight: 700;">مقررات و شرایط استفاده (Health Regulations)</span>
+            <div class="security-mesh"></div>
+            <div style="padding: 5mm; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+              <div style="display: flex; align-items: center; gap: 2mm; border-bottom: 0.3mm solid #1a365d; padding-bottom: 2mm; margin-bottom: 3mm;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="%231a365d" stroke-width="2.5" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span style="font-size: 6.5pt; font-weight: 700; color: #1a365d; letter-spacing: -0.1mm;">مقررات و شرایط استفاده (Regulations)</span>
               </div>
-              <div style="display: flex; flex-direction: column; gap: 2.5mm;">
-                <div style="font-size: 4.8pt; line-height: 1.4; color: #333;">۱. این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</div>
-                <div style="font-size: 4.8pt; line-height: 1.4; color: #333;">۲. راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</div>
-                <div style="font-size: 4.8pt; line-height: 1.4; color: #333;">۳. جعل یا استفاده سوء از این کارت پیگرد قانونی داشته و منجر به ابطال جواز خواهد شد.</div>
-                <div style="font-size: 4.8pt; line-height: 1.4; color: #333;">۴. اعتبار این کارت تنها با استعلام از پایگاه داده مرکزی ANDHP قابل تایید است.</div>
+              
+              <div style="display: flex; flex-direction: column; gap: 3mm;">
+                <div style="font-size: 5.2pt; line-height: 1.5; color: #333; display: flex; gap: 2mm;">
+                  <span style="color: #1a365d; font-weight: 700;">۱.</span>
+                  <span>این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</span>
+                </div>
+                <div style="font-size: 5.2pt; line-height: 1.5; color: #333; display: flex; gap: 2mm;">
+                  <span style="color: #1a365d; font-weight: 700;">۲.</span>
+                  <span>راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</span>
+                </div>
+                <div style="font-size: 5.2pt; line-height: 1.5; color: #333; display: flex; gap: 2mm;">
+                  <span style="color: #1a365d; font-weight: 700;">۳.</span>
+                  <span>جعل یا استفاده سوء از این کارت پیگرد قانونی داشته و منجر به ابطال جواز خواهد شد.</span>
+                </div>
+                <div style="font-size: 5.2pt; line-height: 1.5; color: #333; display: flex; gap: 2mm;">
+                  <span style="color: #1a365d; font-weight: 700;">۴.</span>
+                  <span>اعتبار این کارت تنها با استعلام از پایگاه داده مرکزی ANDHP قابل تایید است.</span>
+                </div>
               </div>
-              <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 2mm;">
-                <span style="font-size: 6pt; font-weight: bold; color: #000; font-family: monospace;">www.andhp.gov.af</span>
-                <div style="width: 18mm; height: 10mm; border: 0.1mm dashed #999; display: flex; align-items: center; justify-content: center;">
-                  <span style="font-size: 3pt; color: #ccc;">STAMP / امضا</span>
+
+              <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; border-top: 0.1mm solid #ddd; padding-top: 3mm;">
+                <div style="display: flex; flex-direction: column;">
+                  <span style="font-size: 6.5pt; font-weight: 700; color: #1a365d; font-family: monospace;">www.andhp.gov.af</span>
+                  <span style="font-size: 4pt; color: #999;">Islamic Republic of Afghanistan / MoPH</span>
+                </div>
+                <div style="width: 20mm; height: 12mm; border: 0.2mm dashed #1a365d; border-radius: 1mm; display: flex; align-items: center; justify-content: center; background: rgba(26,54,93,0.02);">
+                  <span style="font-size: 4pt; color: #1a365d; opacity: 0.5; font-weight: 700;">STAMP & SIGN</span>
                 </div>
               </div>
             </div>
@@ -201,13 +324,13 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             var qr = qrcode(0, 'M');
             qr.addData('${window.location.origin}/verify/${card.id}');
             qr.make();
-            document.getElementById('qrcode-front').innerHTML = qr.createSvgTag(2);
+            document.getElementById('qrcode-front').innerHTML = qr.createSvgTag(1.8);
             
             window.onload = function() {
               setTimeout(function() {
                 window.print();
                 window.parent.postMessage('close-print', '*');
-              }, 400);
+              }, 600);
             };
           }
           generateQR();

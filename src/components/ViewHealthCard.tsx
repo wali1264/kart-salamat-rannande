@@ -127,95 +127,91 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           
           .title-card-type { 
             position: absolute;
-            top: 11mm;
-            left: 0;
-            font-size: 5pt; 
+            top: 13.5mm;
+            left: 4mm;
+            font-size: 5.5pt; 
             font-weight: 700; 
-            color: #fff; 
-            background: #1a365d;
+            color: #1a365d; 
             text-transform: uppercase; 
-            padding: 0.6mm 2mm;
-            border-radius: 0.4mm 0 0 0.4mm;
-            letter-spacing: 0.2mm;
+            border-bottom: 0.2mm solid #1a365d;
+            padding-bottom: 0.4mm;
+            letter-spacing: 0.1mm;
           }
           
           .info-section {
             position: absolute;
-            top: 21mm; /* Shifted down to give breath */
+            top: 20mm;
             right: 31mm;
             left: 4mm;
             display: flex;
             flex-direction: column;
-            gap: 3.5mm; /* Increased gap */
+            gap: 4mm;
           }
           
           .info-block { display: flex; flex-direction: column; }
           .info-label { 
-            font-size: 5pt; /* Increased slightly */
-            color: #1a365d; /* Darker/Stronger */
-            font-weight: 600; /* Medium-Bold */
+            font-size: 4.8pt; 
+            color: #555; 
+            font-weight: 600; 
             display: flex; 
             justify-content: space-between;
-            border-bottom: 0.1mm solid #f0f0f0;
-            padding-bottom: 0.4mm;
-            margin-bottom: 0.8mm;
+            margin-bottom: 0.5mm;
           }
           .info-value { 
-            font-size: 9pt; /* Normalized font size */
-            font-weight: 700; 
-            color: #000; 
-            line-height: 1;
+            font-size: 8.5pt; 
+            font-weight: 600; 
+            color: #111; 
+            line-height: 1.1;
+            padding-right: 1mm;
           }
           
           .tech-info-grid {
             position: absolute;
-            bottom: 2mm;
+            bottom: 3mm;
             right: 4mm;
-            width: 58mm;
-            display: grid;
-            grid-template-columns: 1fr 1.2fr;
-            gap: 2mm;
+            width: 23mm; /* Matching photo width */
+            display: flex;
+            flex-direction: column;
+            gap: 1.5mm;
             z-index: 5;
           }
           
           .tech-block {
             display: flex;
             flex-direction: column;
-            background: rgba(26,54,93,0.02);
-            padding: 1.2mm;
-            border: 0.1mm solid #eee;
+            border-right: 0.6mm solid #1a365d;
+            padding-right: 1.5mm;
           }
           
-          .tech-label { font-size: 4pt; color: #888; font-weight: bold; margin-bottom: 0.5mm; }
-          .tech-value { font-size: 7.5pt; font-weight: bold; color: #1a365d; }
+          .tech-label { font-size: 3.8pt; color: #666; font-weight: bold; margin-bottom: 0.3mm; }
+          .tech-value { font-size: 7pt; font-weight: bold; color: #1a365d; }
           .tech-date { font-size: 5.5pt; font-weight: bold; }
           
           .qr-container {
             position: absolute;
-            bottom: 2.5mm;
+            bottom: 3mm;
             left: 4mm;
-            width: 17.5mm;
-            height: 17.5mm;
+            width: 17mm;
+            height: 17mm;
             background: #fff;
-            padding: 0.8mm;
-            border: 0.2mm solid #1a365d;
+            padding: 0.5mm;
+            border: 0.15mm solid #eee;
             z-index: 20;
           }
           
           .serial-no {
             position: absolute;
-            bottom: 1mm;
+            bottom: 1.5mm;
             left: 23mm;
-            font-size: 3.8pt;
-            color: #aaa;
+            font-size: 3.5pt;
+            color: #bbb;
             font-family: monospace;
-            z-index: 30;
           }
 
           @media print {
             body { background: white; }
             .a4-page { padding: 0; margin: 15mm auto; }
-            .card { border-width: 0.15mm; }
+            .card { border-width: 0.2mm; box-shadow: none; }
           }
         </style>
       </head>
@@ -227,9 +223,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             
             <div class="card-header-titles">
               <div class="title-afg">د افغانستان اسلامی امارت</div>
-              <div class="title-afg-ps" style="font-size: 5.5pt; font-weight: 700; color: #1a365d;">امارت اسلامی افغانستان</div>
-              <div class="title-en-ie">Islamic Emirate of Afghanistan</div>
-              <div style="font-size: 4.8pt; color: #333; font-weight: 700;">د عامې روغتیا وزارت / وزارت صحت عامه</div>
+              <div class="title-afg-ps" style="font-size: 5.2pt; font-weight: 500; color: #444;">امارت اسلامی افغانستان</div>
+              <div class="title-en-ie" style="font-size: 4.5pt; margin-bottom: 0.5mm;">Islamic Emirate of Afghanistan</div>
+              <div style="font-size: 4.2pt; color: #555; border-top: 0.1mm solid #f0f0f0; padding-top: 0.5mm;">د عامې روغتیا وزارت / وزارت صحت عامه</div>
               <div class="title-card-type">National Health Card</div>
             </div>
 
@@ -245,25 +241,27 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
               
               <div class="info-block">
                 <div class="info-label"><span>د پلار نوم / نام پدر</span><span>Father Name</span></div>
-                <div class="info-value" style="font-size: 8pt;">${driver.father_name || '---'}</div>
+                <div class="info-value" style="font-size: 7.5pt;">${driver.father_name || '---'}</div>
               </div>
             </div>
 
-            <!-- Bottom technical row organized as per request -->
+            <!-- Side technical panel under the photo -->
             <div class="tech-info-grid">
                <div class="tech-block">
                   <div class="tech-label">پلیت / پلاک موتر</div>
                   <div class="tech-value">${driver.license_plate}</div>
-                  <div class="tech-label" style="margin-top: 1mm;">د جواز نمبر / نمبر جواز</div>
-                  <div class="tech-value" style="font-size: 6.5pt; font-family: monospace;">${driver.license_number}</div>
-                  <div class="tech-label" style="margin-top: 1mm;">د وینې نوعه / گروه خون</div>
-                  <div class="tech-value" style="font-size: 6.5pt;">${driver.blood_type || 'O+'}</div>
                </div>
                <div class="tech-block">
-                  <div class="tech-label">د صادریدو نیټه / تاریخ صدور</div>
-                  <div class="tech-date" style="color: #1a365d;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</div>
-                  <div class="tech-label" style="margin-top: 1.5mm; color: #900;">د پای نیټه / تاریخ انقضا</div>
-                  <div class="tech-date" style="color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</div>
+                  <div class="tech-label">د جواز نمبر / نمبر جواز</div>
+                  <div class="tech-value" style="font-size: 6pt; font-family: monospace;">${driver.license_number}</div>
+               </div>
+               <div class="tech-block">
+                  <div class="tech-label">صدور / انقضا</div>
+                  <div class="tech-date" style="color: #1a365d;">${new Date(card.issue_date).toLocaleDateString('fa-AF')} / <span style="color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</span></div>
+               </div>
+               <div class="tech-block" style="border-right-color: #d4af37;">
+                  <div class="tech-label">د وینې نوعه / گروه خون</div>
+                  <div class="tech-value" style="font-size: 6.5pt; color: #111;">${driver.blood_type || 'O+'}</div>
                </div>
             </div>
 
@@ -275,32 +273,32 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           <div class="card">
             <div class="security-mesh"></div>
             <div style="padding: 5mm; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-              <div style="display: flex; align-items: center; gap: 2mm; border-bottom: 0.3mm solid #1a365d; padding-bottom: 1.5mm; margin-bottom: 3mm;">
-                <span style="font-size: 6pt; font-weight: 700; color: #1a365d;">مقررات و شرایط استفاده (Regulations)</span>
+              <div style="display: flex; align-items: center; gap: 2mm; border-bottom: 0.3mm solid #1a365d; padding-bottom: 1.5mm; margin-bottom: 3.5mm;">
+                <span style="font-size: 5.8pt; font-weight: 700; color: #1a365d; text-transform: uppercase;">Regulations / مقررات و شرایط استفاده</span>
               </div>
               
-              <div style="display: flex; flex-direction: column; gap: 2.5mm;">
-                <div style="font-size: 5pt; line-height: 1.4; color: #333; display: flex; gap: 1.5mm;">
+              <div style="display: flex; flex-direction: column; gap: 3.5mm;">
+                <div style="font-size: 4.9pt; line-height: 1.5; color: #222; display: flex; gap: 1.5mm;">
                   <span style="color: #1a365d; font-weight: 700;">۱.</span>
                   <span>این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</span>
                 </div>
-                <div style="font-size: 5pt; line-height: 1.4; color: #333; display: flex; gap: 1.5mm;">
+                <div style="font-size: 4.9pt; line-height: 1.5; color: #222; display: flex; gap: 1.5mm;">
                   <span style="color: #1a365d; font-weight: 700;">۲.</span>
                   <span>راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</span>
                 </div>
-                <div style="font-size: 5pt; line-height: 1.4; color: #333; display: flex; gap: 1.5mm;">
+                <div style="font-size: 4.9pt; line-height: 1.5; color: #222; display: flex; gap: 1.5mm;">
                   <span style="color: #1a365d; font-weight: 700;">۳.</span>
                   <span>جعل یا استفاده سوء از این کارت پیگرد قانونی داشته و منجر به ابطال جواز خواهد شد.</span>
                 </div>
               </div>
 
-              <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; border-top: 0.1mm solid #ddd; padding-top: 3mm;">
+              <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; border-top: 0.1mm solid #ddd; padding-top: 3.5mm;">
                 <div style="display: flex; flex-direction: column;">
                   <span style="font-size: 6.5pt; font-weight: 700; color: #1a365d; font-family: monospace;">www.andhp.gov.af</span>
-                  <span style="font-size: 3.8pt; color: #999;">Islamic Emirate of Afghanistan / MoPH</span>
+                  <span style="font-size: 3.6pt; color: #888;">Islamic Emirate of Afghanistan / MoPH</span>
                 </div>
-                <div style="width: 18mm; height: 11mm; border: 0.2mm dashed #1a365d; border-radius: 1mm; display: flex; align-items: center; justify-content: center; background: rgba(26,54,93,0.01);">
-                  <span style="font-size: 3.5pt; color: #1a365d; opacity: 0.4; font-weight: 700; text-align: center;">STAMP / SIGN<br>امضا او مهر</span>
+                <div style="width: 17mm; height: 10mm; border: 0.2mm dashed #ccc; border-radius: 0.5mm; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.01);">
+                  <span style="font-size: 3.2pt; color: #999; text-align: center;">STAMP & SIGN<br>مهر او امضا</span>
                 </div>
               </div>
             </div>

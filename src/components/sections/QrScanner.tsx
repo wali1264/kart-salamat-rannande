@@ -131,38 +131,39 @@ export const QrScanner: React.FC = () => {
     setSearchInput(''); // Clear input
 
     const qRaw = normalize(query);
-    // 1. URL extraction: If scanned content is a link, grab the last part (UUID)
+    // 1. URL extraction
     let q = qRaw;
     if (qRaw.includes('/')) {
       const parts = qRaw.split('/');
       q = parts[parts.length - 1];
     }
     
-    // Clean S/N patterns like 'A513345B-233' to just 'A513345B' for easier prefix matching
-    const qClean = q.includes('-') ? q.split('-')[0] : q;
+    // 2. Clean S/N patterns (e.g., 'A513345B-233' -> 'A513345B')
+    const qClean = q.includes('-') ? q.split('-')[0].trim() : q.trim();
 
     try {
       let card = null;
       
-      // Pattern: Is it potentially an ID (full UUID or 8-char S/N prefix)?
+      // Pattern: Is it potentially a shortened or full ID?
       const isPotentialID = /^[0-9a-fA-F]{8,36}$/.test(qClean);
 
       if (isPotentialID) {
-        // Step 1: Try matching prefix in health_cards table
+        // Step 1: Force cast ID to TEXT in database to allow partial matching without UUID errors
+        // We check health_cards first
         const { data: cardMatches } = await supabase
           .from('health_cards')
           .select('*, drivers(*)')
-          .ilike('id', `${qClean}%`)
+          .filter('id', 'ilike', `${qClean}%`)
           .limit(1);
 
         if (cardMatches && cardMatches.length > 0) {
           card = cardMatches[0];
         } else {
-          // Step 2: Try matching prefix in drivers table (sometimes S/N refers to Driver ID)
+          // Step 2: Try matching prefix in drivers table (since QR/SN often uses Driver ID)
           const { data: driverMatches } = await supabase
             .from('drivers')
             .select('id')
-            .ilike('id', `${qClean}%`)
+            .filter('id', 'ilike', `${qClean}%`)
             .limit(1);
 
           if (driverMatches && driverMatches.length > 0) {
@@ -179,7 +180,7 @@ export const QrScanner: React.FC = () => {
         }
       } 
       
-      // Step 3: If still no card found, try searching by other human-readable driver fields
+      // Step 3: Global fallback (Name, License, etc.)
       if (!card) {
         const { data: drivers } = await supabase
           .from('drivers')

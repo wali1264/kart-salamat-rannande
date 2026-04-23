@@ -150,9 +150,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .main-logo-container {
             position: absolute;
             top: 3.5mm;
-            right: 30.5mm; /* Perfect center: 2mm to the right from previous 32.5mm */
-            width: 15mm;
-            height: 15mm;
+            right: 30.0mm; /* Shifted 0.5mm right from 30.5mm to give more space to text */
+            width: 14mm; /* Reduced by 1mm as requested to ensure no text pulling effect */
+            height: 14mm;
             display: flex;
             align-items: center;
             justify-content: center;

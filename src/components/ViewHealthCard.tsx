@@ -121,102 +121,101 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             gap: 0.3mm;
           }
           
-          .title-afg { font-size: 5.5pt; font-weight: 700; color: #1a365d; }
-          .title-afg-ps { font-size: 4.5pt; color: #444; font-weight: 500; }
-          .title-en-ie { font-size: 4.8pt; color: #666; text-transform: uppercase; margin-bottom: 1mm; }
+          .title-afg { font-size: 5.8pt; font-weight: 800; color: #1a365d; }
+          .title-afg-ps { font-size: 5.2pt; color: #333; font-weight: 600; margin: 0.3mm 0; }
+          .title-en-ie { font-size: 4.8pt; color: #666; text-transform: uppercase; margin-bottom: 1.5mm; font-weight: 500; }
           
           .title-card-type { 
             position: absolute;
             top: 15.5mm;
-            left: 0;
-            right: 0;
-            font-size: 5.2pt; 
+            left: 5mm;
+            right: 5mm;
+            font-size: 5.5pt; 
             font-weight: 700; 
-            color: #fff; 
-            background: #1a365d;
+            color: #1a365d; 
             text-transform: uppercase; 
             text-align: center;
-            padding: 0.8mm 0;
-            letter-spacing: 0.5mm;
+            padding: 0.6mm 0;
+            letter-spacing: 1.2mm;
+            border-top: 0.15mm solid rgba(26,54,93,0.3);
+            border-bottom: 0.15mm solid rgba(26,54,93,0.3);
             z-index: 5;
           }
           
           .info-section {
             position: absolute;
-            top: 22mm;
+            top: 22.5mm;
             right: 32mm;
-            left: 24mm;
+            left: 23mm;
             display: flex;
             flex-direction: column;
-            gap: 4mm;
+            gap: 4.2mm;
             z-index: 10;
           }
           
           .info-block { display: flex; flex-direction: column; align-items: flex-start; text-align: right; width: 100%; }
           .info-label { 
-            font-size: 5pt; 
+            font-size: 5.2pt; 
             color: #1a365d; 
             font-weight: 700; 
             display: flex;
             flex-direction: column;
             gap: 0.2mm;
-            margin-bottom: 0.6mm;
+            margin-bottom: 0.8mm;
             line-height: 1;
           }
           .info-label span:last-child {
             font-size: 3.8pt;
-            color: #666;
+            color: #777;
             font-weight: 500;
             text-transform: uppercase;
           }
           .info-value { 
-            font-size: 9pt; 
+            font-size: 9.5pt; 
             font-weight: 700; 
-            color: #000; 
+            color: #111; 
             line-height: 1;
           }
           
           .technical-panel {
             position: absolute;
             bottom: 3.5mm;
-            right: 4mm;
-            width: 23mm;
+            right: 4.5mm;
+            width: 25mm;
             display: flex;
             flex-direction: column;
-            gap: 2mm;
-            background: rgba(26,54,93,0.03);
-            padding: 1.5mm;
-            border-radius: 0.5mm;
-            border: 0.1mm solid rgba(26,54,93,0.1);
+            gap: 1.8mm;
           }
           
           .tech-item {
             display: flex;
             flex-direction: column;
+            border-right: 0.8mm solid #1a365d;
+            padding-right: 2.2mm;
           }
           
           .tech-label { 
-            font-size: 4pt; 
+            font-size: 4.2pt; 
             color: #1a365d; 
             font-weight: 800; 
-            margin-bottom: 0.4mm;
+            margin-bottom: 0.5mm;
             display: flex;
             justify-content: space-between;
           }
-          .tech-label span:last-child { font-size: 3.2pt; color: #777; font-weight: 500; }
+          .tech-label span:last-child { font-size: 3.5pt; color: #888; font-weight: 500; }
           
-          .tech-value { font-size: 7pt; font-weight: bold; color: #111; }
-          .tech-date { font-size: 5.5pt; font-weight: bold; }
+          .tech-value { font-size: 7.2pt; font-weight: bold; color: #111; }
+          .tech-date { font-size: 5.8pt; font-weight: bold; }
           
           .qr-container {
             position: absolute;
-            bottom: 3.5mm;
-            left: 4mm;
-            width: 17mm;
-            height: 17mm;
+            bottom: 4mm;
+            left: 4.5mm;
+            width: 17.5mm;
+            height: 17.5mm;
             background: #fff;
-            padding: 0.5mm;
-            border: 0.15mm solid #ddd;
+            padding: 0.8mm;
+            border: 0.1mm solid #ddd;
             z-index: 20;
           }
           
@@ -224,8 +223,8 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             position: absolute;
             bottom: 1.5mm;
             left: 23mm;
-            font-size: 4pt;
-            color: #999;
+            font-size: 4.2pt;
+            color: #aaa;
             font-family: monospace;
           }
 

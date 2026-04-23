@@ -222,26 +222,25 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <div class="security-mesh"></div>
             
             <div class="card-header-titles">
-              <div class="title-afg">امارت اسلامی افغانستان</div>
-              <div class="title-afg-ps">د افغانستان اسلامی امارت</div>
+              <div class="title-afg">د افغانستان اسلامی امارت</div>
+              <div class="title-afg-ps" style="font-size: 5.5pt; font-weight: 700; color: #1a365d;">امارت اسلامی افغانستان</div>
               <div class="title-en-ie">Islamic Emirate of Afghanistan</div>
-              <div style="font-size: 4.5pt; color: #333;">وزارت صحت عامه / د عامې روغتیا وزارت</div>
+              <div style="font-size: 4.8pt; color: #333; font-weight: 700;">د عامې روغتیا وزارت / وزارت صحت عامه</div>
               <div class="title-card-type">National Health Card</div>
             </div>
 
             <div class="driver-photo-frame">
               ${driver.photo_url ? `<img src="${driver.photo_url}" />` : ''}
-              <div class="blood-type-tag">BT: ${driver.blood_type || 'O+'}</div>
             </div>
 
             <div class="info-section">
               <div class="info-block">
-                <div class="info-label"><span>نام / نوم</span><span>Name</span></div>
+                <div class="info-label"><span>نوم / نام</span><span>Name</span></div>
                 <div class="info-value">${driver.name}</div>
               </div>
               
               <div class="info-block">
-                <div class="info-label"><span>نام پدر / د پلار نوم</span><span>Father Name</span></div>
+                <div class="info-label"><span>د پلار نوم / نام پدر</span><span>Father Name</span></div>
                 <div class="info-value" style="font-size: 8pt;">${driver.father_name || '---'}</div>
               </div>
             </div>
@@ -249,15 +248,17 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <!-- Bottom technical row organized as per request -->
             <div class="tech-info-grid">
                <div class="tech-block">
-                  <div class="tech-label">پلاک موتر / پلیت</div>
+                  <div class="tech-label">پلیت / پلاک موتر</div>
                   <div class="tech-value">${driver.license_plate}</div>
-                  <div class="tech-label" style="margin-top: 1mm;">نمبر جواز / د جواز نمبر</div>
+                  <div class="tech-label" style="margin-top: 1mm;">د جواز نمبر / نمبر جواز</div>
                   <div class="tech-value" style="font-size: 6.5pt; font-family: monospace;">${driver.license_number}</div>
+                  <div class="tech-label" style="margin-top: 1mm;">د وینې نوعه / گروه خون</div>
+                  <div class="tech-value" style="font-size: 6.5pt;">${driver.blood_type || 'O+'}</div>
                </div>
                <div class="tech-block">
-                  <div class="tech-label">تاریخ صدور / د صادریدو نیټه</div>
+                  <div class="tech-label">د صادریدو نیټه / تاریخ صدور</div>
                   <div class="tech-date" style="color: #1a365d;">${new Date(card.issue_date).toLocaleDateString('fa-AF')}</div>
-                  <div class="tech-label" style="margin-top: 1.5mm; color: #900;">تاریخ انقضا / د پای نیټه</div>
+                  <div class="tech-label" style="margin-top: 1.5mm; color: #900;">د پای نیټه / تاریخ انقضا</div>
                   <div class="tech-date" style="color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</div>
                </div>
             </div>

@@ -141,7 +141,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .card-header-titles {
             position: absolute;
             top: 2.5mm;
-            left: ${settings?.mini_logo_url ? '12mm' : '4mm'};
+            left: 12.5mm; /* Fixed position so text never moves regardless of mini logo */
             display: flex;
             flex-direction: column;
             gap: 0.3mm;
@@ -150,7 +150,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .main-logo-container {
             position: absolute;
             top: 3.5mm;
-            right: 29mm; /* Between photo (starts at right 4mm, width 23mm -> ends at 27mm) and info */
+            right: 32.5mm; /* Centered between photo and center titles, avoiding frame sticking */
             width: 15mm;
             height: 15mm;
             display: flex;
@@ -172,6 +172,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden; /* Ensure it never goes beyond its 7mm frame */
           }
           .mini-logo-container img {
             max-width: 100%;

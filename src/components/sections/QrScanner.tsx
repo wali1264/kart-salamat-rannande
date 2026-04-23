@@ -138,30 +138,53 @@ export const QrScanner: React.FC = () => {
       q = parts[parts.length - 1];
     }
     
+    // Clean S/N patterns like 'A513345B-233' to just 'A513345B' for easier prefix matching
+    const qClean = q.includes('-') ? q.split('-')[0] : q;
+
     try {
       let card = null;
-      // UUID Check (Usually from QR)
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
-      const isSN = /^[a-zA-Z0-9]{8}$/.test(q); // S/N is 8 chars
+      
+      // Pattern: Is it potentially an ID (full UUID or 8-char S/N prefix)?
+      const isPotentialID = /^[0-9a-fA-F]{8,36}$/.test(qClean);
 
-      if (isUUID || isSN) {
-        // Try direct ID match or prefix (S/N) match
-        const { data, error: uuidError } = await supabase
+      if (isPotentialID) {
+        // Step 1: Try matching prefix in health_cards table
+        const { data: cardMatches } = await supabase
           .from('health_cards')
           .select('*, drivers(*)')
-          .ilike('id', `${q}%`) // This handles both full UUID and S/N (prefix)
+          .ilike('id', `${qClean}%`)
           .limit(1);
 
-        if (!uuidError && data && data.length > 0) card = data[0];
+        if (cardMatches && cardMatches.length > 0) {
+          card = cardMatches[0];
+        } else {
+          // Step 2: Try matching prefix in drivers table (sometimes S/N refers to Driver ID)
+          const { data: driverMatches } = await supabase
+            .from('drivers')
+            .select('id')
+            .ilike('id', `${qClean}%`)
+            .limit(1);
+
+          if (driverMatches && driverMatches.length > 0) {
+            // Found a driver, now fetch their latest health card
+            const { data: driverCard } = await supabase
+              .from('health_cards')
+              .select('*, drivers(*)')
+              .eq('driver_id', driverMatches[0].id)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            
+            if (driverCard && driverCard.length > 0) card = driverCard[0];
+          }
+        }
       } 
       
-      // If still no card found, try searching by other driver fields
+      // Step 3: If still no card found, try searching by other human-readable driver fields
       if (!card) {
-        // Driver Search logic
         const { data: drivers } = await supabase
           .from('drivers')
           .select('id')
-          .or(`name.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%`)
+          .or(`name.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,phone.ilike.%${q}%,id_number.ilike.%${q}%`)
           .limit(1);
 
         if (drivers && drivers.length > 0) {

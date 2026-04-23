@@ -150,7 +150,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .main-logo-container {
             position: absolute;
             top: 3.5mm;
-            right: 32.5mm; /* Centered between photo and center titles, avoiding frame sticking */
+            right: 30.5mm; /* Perfect center: 2mm to the right from previous 32.5mm */
             width: 15mm;
             height: 15mm;
             display: flex;

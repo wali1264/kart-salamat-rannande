@@ -185,11 +185,15 @@ export const Landing: React.FC = () => {
 
 
           <div className="flex items-center gap-3">
-            <button className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl relative transition-colors">
-              <Bell className="w-5 h-5 text-slate-600" />
-              <span className="absolute top-2.5 left-2.5 w-2 h-2 bg-red-500 border-2 border-white rounded-full" />
-            </button>
-            <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block" />
+            {activeSection !== 'scanner' && (
+              <>
+                <button className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl relative transition-colors">
+                  <Bell className="w-5 h-5 text-slate-600" />
+                  <span className="absolute top-2.5 left-2.5 w-2 h-2 bg-red-500 border-2 border-white rounded-full" />
+                </button>
+                <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block" />
+              </>
+            )}
             <div className="text-left hidden sm:block">
                <p className="text-[10px] text-slate-500 font-medium">امروز</p>
                <p className="text-xs font-bold text-slate-800">{new Date().toLocaleDateString('fa-AF', { dateStyle: 'medium' })}</p>

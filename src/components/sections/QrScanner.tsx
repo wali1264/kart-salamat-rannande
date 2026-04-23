@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { QrCode, ShieldCheck, XCircle, Loader2, AlertCircle, RefreshCw, Camera, Info, ShieldAlert, Clock, User as UserIcon } from 'lucide-react';
+import { QrCode, ShieldCheck, XCircle, Loader2, AlertCircle, RefreshCw, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 
@@ -118,60 +118,60 @@ export const QrScanner: React.FC<{ searchQuery?: string }> = ({ searchQuery }) =
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pb-20">
-      {/* Network Alert */}
+    <div className="max-w-xl mx-auto px-2">
+      {/* Mobile-First Search Top */}
+      <div className="mb-4">
+        <div className="relative group">
+          <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input 
+            type="text" 
+            defaultValue={searchQuery || ''}
+            onChange={(e) => e.target.value.length > 2 && verifyCard(e.target.value)}
+            placeholder="جستجوی سریع (نمبر جواز یا پلاک...)"
+            className="w-full bg-white border border-slate-200 rounded-2xl py-3 pr-11 pl-4 text-sm outline-none focus:border-blue-500 transition-all shadow-sm"
+          />
+        </div>
+      </div>
+
+      {/* Network Alert - Compact */}
       {!isOnline && (
-        <div className="fixed top-24 left-4 right-4 z-50 bg-rose-600 text-white p-4 rounded-2xl shadow-lg flex items-center gap-3 animate-bounce">
-          <AlertCircle className="w-6 h-6 shrink-0" />
-          <p className="text-sm font-bold">ارتباط با مرکز قطع گردیده است! استعلام اعتبار ممکن نیست.</p>
+        <div className="mb-4 bg-rose-600 text-white p-2 rounded-xl flex items-center justify-center gap-2 animate-pulse">
+          <AlertCircle className="w-4 h-4" />
+          <span className="font-bold text-[10px]">قطع ارتباط با مرکز!</span>
         </div>
       )}
 
-      {/* Header Area */}
-      <div className="text-center mb-8 pt-4">
-        <div className="w-14 h-14 bg-white shadow-xl rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-100">
-          <QrCode className="w-7 h-7 text-blue-600" />
-        </div>
-        <h2 className="text-2xl font-black text-slate-800 mb-1">استعلام هوشمند</h2>
-        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Driver Health Authentication</p>
-      </div>
-
-      {/* Scanner Window / Camera View */}
+      {/* Camera Section */}
       {!cardData && !error && (
-        <div className="relative aspect-square md:aspect-video bg-black rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white ring-1 ring-slate-200">
-          <div id="reader" className="w-full h-full"></div>
-          
-          {/* Custom Overlay */}
-          <div className="absolute inset-0 pointer-events-none z-10">
-            {/* The Scanning Frame */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-64 h-64 border-2 border-white/30 rounded-3xl relative">
-                {/* Glowing Corners */}
-                <div className="absolute -top-1 -right-1 w-10 h-10 border-t-4 border-r-4 border-blue-500 rounded-tr-2xl animate-pulse" />
-                <div className="absolute -top-1 -left-1 w-10 h-10 border-t-4 border-l-4 border-blue-500 rounded-tl-2xl animate-pulse" />
-                <div className="absolute -bottom-1 -right-1 w-10 h-10 border-b-4 border-r-4 border-blue-500 rounded-br-2xl animate-pulse" />
-                <div className="absolute -bottom-1 -left-1 w-10 h-10 border-b-4 border-l-4 border-blue-500 rounded-bl-2xl animate-pulse" />
-                
-                {/* Scanning Laser Line */}
-                <div className="absolute left-4 right-4 h-0.5 bg-blue-500/50 shadow-[0_0_15px_rgba(59,130,246,0.8)] animate-[scan_2s_infinite]" />
-              </div>
-            </div>
-
-            {/* Status Label */}
-            <div className="absolute bottom-10 left-0 right-0 text-center">
-              <div className="inline-flex items-center gap-2 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-                <Camera className="w-3 h-3 text-blue-400" />
-                <span className="text-[10px] font-bold text-white uppercase tracking-widest">Camera Tracking Active</span>
-              </div>
-            </div>
+        <div className="space-y-4">
+          <div className="text-center">
+            <h2 className="text-lg font-black text-slate-800">کارت را اسکن کنید</h2>
           </div>
 
-          {loading && (
-            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-md flex flex-col items-center justify-center gap-4 z-20">
-              <div className="w-16 h-16 border-4 border-white/20 border-t-white rounded-full animate-spin" />
-              <p className="font-black text-white text-lg tracking-widest">Checking Database...</p>
+          <div className="relative aspect-square bg-black rounded-[2.5rem] overflow-hidden shadow-xl border-2 border-white">
+            <div id="reader" className="w-full h-full"></div>
+            
+            <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
+              <div className="w-48 h-48 border-2 border-white/20 rounded-3xl relative">
+                <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl animate-pulse" />
+                <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl animate-pulse" />
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl animate-pulse" />
+                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl animate-pulse" />
+                <div className="absolute left-2 right-2 h-0.5 bg-blue-500/40 animate-[scan_2s_infinite]" />
+              </div>
             </div>
-          )}
+
+            {loading && (
+              <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
+              </div>
+            )}
+          </div>
+
+          {/* Minimal Instruction */}
+          <p className="text-[9px] text-center text-slate-400 font-bold">
+            در صورت خرابی کد QR، از فیلد جستجوی بالا استفاده کنید.
+          </p>
         </div>
       )}
 
@@ -271,16 +271,6 @@ export const QrScanner: React.FC<{ searchQuery?: string }> = ({ searchQuery }) =
               استعلام جدید
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Global Search Hint */}
-      {!cardData && !error && (
-        <div className="mt-8 text-center bg-blue-50 p-6 rounded-[2rem] border border-blue-100">
-          <Info className="w-5 h-5 text-blue-600 mx-auto mb-2" />
-          <p className="text-[10px] text-blue-700 font-bold leading-relaxed">
-            مأمور محترم؛ در صورت خرابی کد QR، از فیلد جستجوی بالای صفحه برای یافتن راننده بر اساس نام یا نمبر جواز استفاده کنید.
-          </p>
         </div>
       )}
 

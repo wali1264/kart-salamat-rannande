@@ -287,8 +287,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             position: absolute;
             bottom: 1.5mm;
             left: 23mm;
-            font-size: 4.2pt;
-            color: #aaa;
+            font-size: 5.8pt;
+            color: #000;
+            font-weight: 700;
             font-family: monospace;
           }
 

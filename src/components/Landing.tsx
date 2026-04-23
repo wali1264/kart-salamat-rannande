@@ -20,32 +20,51 @@ import { DriverRegistration } from './sections/DriverRegistration';
 import { DriverList } from './sections/DriverList';
 import { QrScanner } from './sections/QrScanner';
 import { SettingsSection } from './sections/SettingsSection';
+import { Auth } from './Auth';
 
-type Section = 'home' | 'registration' | 'drivers' | 'scanner' | 'settings';
+type Section = 'home' | 'registration' | 'drivers' | 'scanner' | 'settings' | 'auth';
+
+const SectionWrapper: React.FC<{ 
+  activeSection: Section; 
+  user: any; 
+  profile: any; 
+  signOut: () => void; 
+  setActiveSection: (s: Section) => void;
+  searchQuery?: string;
+}> = ({ activeSection, user, profile, signOut, setActiveSection, searchQuery }) => {
+  switch (activeSection) {
+    case 'home': return <DashboardHome />;
+    case 'registration': return <DriverRegistration onComplete={() => setActiveSection('drivers')} />;
+    case 'drivers': return <DriverList />;
+    case 'scanner': return <QrScanner searchQuery={searchQuery} />;
+    case 'settings': return <SettingsSection />;
+    case 'auth': return <Auth />;
+    default: return <DashboardHome />;
+  }
+};
 
 export const Landing: React.FC = () => {
-  const { profile, signOut } = useAuth();
-  const [activeSection, setActiveSection] = useState<Section>('home');
+  const { user, profile, signOut } = useAuth();
+  const [activeSection, setActiveSection] = useState<Section>(user ? 'home' : 'scanner');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const navItems = [
-    { id: 'home', label: 'داشبورد', icon: LayoutDashboard },
-    { id: 'drivers', label: 'لیست رانندگان', icon: Users },
-    { id: 'registration', label: 'ثبت راننده جدید', icon: PlusCircle },
-    { id: 'scanner', label: 'اسکنر QR', icon: QrCode },
-    { id: 'settings', label: 'تنظیمات', icon: Settings },
-  ];
-
-  const renderSection = () => {
-    switch (activeSection) {
-      case 'home': return <DashboardHome />;
-      case 'registration': return <DriverRegistration onComplete={() => setActiveSection('drivers')} />;
-      case 'drivers': return <DriverList />;
-      case 'scanner': return <QrScanner />;
-      case 'settings': return <SettingsSection />;
-      default: return <DashboardHome />;
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      setActiveSection('scanner');
     }
   };
+
+  const navItems = [
+    { id: 'home', label: 'داشبورد', icon: LayoutDashboard, protected: true },
+    { id: 'drivers', label: 'لیست رانندگان', icon: Users, protected: true },
+    { id: 'registration', label: 'ثبت راننده جدید', icon: PlusCircle, protected: true },
+    { id: 'scanner', label: 'اسکنر QR', icon: QrCode, protected: false },
+    { id: 'settings', label: 'تنظیمات', icon: Settings, protected: true },
+  ];
+
+  const visibleNavItems = navItems.filter(item => !item.protected || user);
 
   return (
     <div className="min-h-screen bg-slate-50 flex" dir="rtl">
@@ -77,12 +96,13 @@ export const Landing: React.FC = () => {
           </div>
 
           <nav className="flex-1 space-y-2">
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => {
                   setActiveSection(item.id as Section);
                   setIsSidebarOpen(false);
+                  setSearchQuery('');
                 }}
                 className={`
                   w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all text-xs
@@ -98,29 +118,43 @@ export const Landing: React.FC = () => {
           </nav>
 
           <div className="mt-auto pt-8 border-t border-slate-100 space-y-4 text-right">
-            <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden shadow-sm">
-                  <UserIcon className="w-6 h-6 text-slate-300" />
+            {user ? (
+              <div className="bg-slate-50 p-5 rounded-[2rem] border border-slate-100">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 bg-white border border-slate-200 rounded-2xl flex items-center justify-center overflow-hidden shadow-sm">
+                    <UserIcon className="w-6 h-6 text-slate-300" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">{profile?.name || 'کاربر سیستم'}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role === 'doctor' ? 'داکتر موظف' : 'اپراتور سیستم'}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-800">{profile?.name || 'کاربر سیستم'}</p>
-                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role || 'بدون نقش'}</p>
+                <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100">
+                   <span className="text-[9px] text-slate-400 font-bold">وضعیت حساب:</span>
+                   <span className={`status-chip ${profile?.is_approved ? 'status-approved' : 'status-pending'} !px-2 !py-0.5`}>
+                     {profile?.is_approved ? 'تایید شده' : 'در انتظار تایید'}
+                   </span>
                 </div>
               </div>
-              <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100">
-                 <span className="text-[9px] text-slate-400 font-bold">وضعیت حساب:</span>
-                 <span className="status-chip status-approved !px-2 !py-0.5">تایید شده</span>
-              </div>
-            </div>
+            ) : (
+              <button 
+                onClick={() => setActiveSection('auth')}
+                className={`w-full flex items-center gap-3 px-5 py-4 rounded-2xl font-bold text-xs transition-all border-2 ${activeSection === 'auth' ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-slate-50 border-transparent text-slate-600 hover:bg-slate-100'}`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                ورود کارکنان (ادمین)
+              </button>
+            )}
             
-            <button 
-              onClick={() => signOut()}
-              className="w-full flex items-center gap-3 px-5 py-3 text-rose-500 hover:bg-rose-50 rounded-2xl font-bold text-xs transition-all"
-            >
-              <LogOut className="w-4 h-4 opacity-70" />
-              خروج از سامانه
-            </button>
+            {user && (
+              <button 
+                onClick={() => signOut()}
+                className="w-full flex items-center gap-3 px-5 py-3 text-rose-500 hover:bg-rose-50 rounded-2xl font-bold text-xs transition-all"
+              >
+                <LogOut className="w-4 h-4 opacity-70" />
+                خروج از سامانه
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -137,14 +171,16 @@ export const Landing: React.FC = () => {
           </button>
 
           <div className="flex-1 max-w-xl mx-6 hidden md:block">
-            <div className="relative group">
+            <form onSubmit={handleSearch} className="relative group">
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
               <input 
                 type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="جستجوی سریع راننده (نمبر جواز، پلاک...)"
                 className="w-full bg-white border border-slate-200 rounded-2xl py-3 pr-11 pl-4 text-xs focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
               />
-            </div>
+            </form>
           </div>
 
 
@@ -172,7 +208,14 @@ export const Landing: React.FC = () => {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              {renderSection()}
+              <SectionWrapper 
+                activeSection={activeSection} 
+                user={user} 
+                profile={profile} 
+                signOut={signOut} 
+                setActiveSection={setActiveSection}
+                searchQuery={searchQuery}
+              />
             </motion.div>
           </AnimatePresence>
         </div>

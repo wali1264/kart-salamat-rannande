@@ -100,26 +100,6 @@ export const Auth: React.FC = () => {
                       className="w-full bg-white/5 border border-white/10 text-white placeholder-slate-400 rounded-xl py-4 pr-12 pl-4 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                     />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-sm text-slate-400 mr-2">نقش کاربری:</label>
-                    <div className="flex gap-4">
-                      <button 
-                        type="button"
-                        onClick={() => setRole('officer')}
-                        className={`flex-1 py-3 rounded-xl border transition-all text-sm ${role === 'officer' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-transparent border-white/10 text-slate-400'}`}
-                      >
-                        مامور ترافیک
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setRole('doctor')}
-                        className={`flex-1 py-3 rounded-xl border transition-all text-sm ${role === 'doctor' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-transparent border-white/10 text-slate-400'}`}
-                      >
-                        داکتر موظف
-                      </button>
-                    </div>
-                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

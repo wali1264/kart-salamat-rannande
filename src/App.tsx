@@ -30,17 +30,12 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 3. Auth Gate
-  if (!user) {
-    return <Auth />;
-  }
-
-  // 4. Waiting/Approval Logic
-  if (!profile || !profile.is_approved) {
+  // 3. Waiting/Approval Logic (Only for people who attempted to log in)
+  if (user && (!profile || !profile.is_approved)) {
     return <WaitingRoom />;
   }
 
-  // 5. Success
+  // 4. Always show Landing (Landing will handle public vs private view internally)
   return <Landing />;
 };
 

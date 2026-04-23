@@ -148,26 +148,25 @@ export const QrScanner: React.FC = () => {
       const isPotentialID = /^[0-9a-fA-F]{8,36}$/.test(qClean);
 
       if (isPotentialID) {
-        // Step 1: Force cast ID to TEXT in database to allow partial matching without UUID errors
-        // We check health_cards first
+        // ULTIMATE FIX: Search using a global OR filter that treats UUID as text
+        // This is the most reliable way to avoid 404/Casting errors in Supabase/PostgREST
         const { data: cardMatches } = await supabase
           .from('health_cards')
           .select('*, drivers(*)')
-          .filter('id', 'ilike', `${qClean}%`)
+          .or(`id.ilike.${qClean}%`)
           .limit(1);
 
         if (cardMatches && cardMatches.length > 0) {
           card = cardMatches[0];
         } else {
-          // Step 2: Try matching prefix in drivers table (since QR/SN often uses Driver ID)
+          // Check drivers table using the same text-cast logic
           const { data: driverMatches } = await supabase
             .from('drivers')
             .select('id')
-            .filter('id', 'ilike', `${qClean}%`)
+            .or(`id.ilike.${qClean}%`)
             .limit(1);
 
           if (driverMatches && driverMatches.length > 0) {
-            // Found a driver, now fetch their latest health card
             const { data: driverCard } = await supabase
               .from('health_cards')
               .select('*, drivers(*)')

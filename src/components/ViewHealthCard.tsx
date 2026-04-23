@@ -23,17 +23,18 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
     }
   }, [isOpen]);
 
-  const fetchSettings = async () => {
+  const fetchSettings = () => {
     try {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('*')
-        .eq('id', 'system_logos')
-        .single();
+      const main = localStorage.getItem('andhp_main_logo');
+      const mini = localStorage.getItem('andhp_mini_logo');
       
-      if (data) setSettings(data);
+      setSettings({
+        id: 'local',
+        main_logo_url: main || undefined,
+        mini_logo_url: mini || undefined
+      });
     } catch (err) {
-      console.error('Error fetching settings for card:', err);
+      console.error('Error fetching logos for card from localStorage:', err);
     } finally {
       setLoading(false);
     }

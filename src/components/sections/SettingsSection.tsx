@@ -14,42 +14,25 @@ export const SettingsSection: React.FC = () => {
     fetchSettings();
   }, []);
 
-  const fetchSettings = async () => {
+  const fetchSettings = () => {
     try {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('*')
-        .eq('id', 'system_logos')
-        .single();
-      
-      if (data) {
-        setLogos({
-          main: data.main_logo_url || '',
-          mini: data.mini_logo_url || ''
-        });
-      }
+      const main = localStorage.getItem('andhp_main_logo') || '';
+      const mini = localStorage.getItem('andhp_mini_logo') || '';
+      setLogos({ main, mini });
     } catch (err) {
-      console.error('Error fetching settings:', err);
+      console.error('Error fetching logos from localStorage:', err);
     }
   };
 
-  const saveLogos = async (newLogos: { main: string; mini: string }) => {
+  const saveLogos = (newLogos: { main: string; mini: string }) => {
     setLogoLoading(true);
     try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          id: 'system_logos',
-          main_logo_url: newLogos.main,
-          mini_logo_url: newLogos.mini,
-          updated_at: new Date().toISOString()
-        });
-
-      if (error) throw error;
+      localStorage.setItem('andhp_main_logo', newLogos.main);
+      localStorage.setItem('andhp_mini_logo', newLogos.mini);
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) {
-      console.error('Error saving logos:', err);
+      console.error('Error saving logos to localStorage:', err);
       setSaveStatus('error');
     } finally {
       setLogoLoading(false);
@@ -62,7 +45,7 @@ export const SettingsSection: React.FC = () => {
       const compressed = await compressImage(file, type === 'main' ? 400 : 200);
       const updatedLogos = { ...logos, [type]: compressed };
       setLogos(updatedLogos);
-      await saveLogos(updatedLogos);
+      saveLogos(updatedLogos);
     }
   };
 

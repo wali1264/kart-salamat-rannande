@@ -189,17 +189,21 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             top: 15.5mm;
             left: 5mm;
             right: 5mm;
-            font-size: 5.5pt; 
-            font-weight: 700; 
             color: #1a365d; 
-            text-transform: uppercase; 
             text-align: center;
-            padding: 0.6mm 0;
-            letter-spacing: 1.2mm;
             border-top: 0.15mm solid rgba(26,54,93,0.3);
             border-bottom: 0.15mm solid rgba(26,54,93,0.3);
+            padding: 0.4mm 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.2mm;
             z-index: 5;
           }
+          
+          .title-card-type .ps { font-size: 6.2pt; font-weight: 800; line-height: 1; }
+          .title-card-type .dr { font-size: 5.8pt; font-weight: 600; line-height: 1; }
+          .title-card-type .en { font-size: 4.8pt; font-weight: 500; line-height: 1; text-transform: uppercase; letter-spacing: 0.5mm; color: #666; }
           
           .info-section {
             position: absolute;
@@ -308,7 +312,11 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
               <div class="title-afg-ps" style="font-size: 5.5pt; font-weight: 600; color: #333;">امارت اسلامی افغانستان</div>
               <div class="title-en-ie" style="font-size: 4.8pt; margin-bottom: 0.5mm; font-weight: 500;">Islamic Emirate of Afghanistan</div>
               <div style="font-size: 5pt; color: #1a365d; font-weight: 700; margin-top: 1mm; border-top: 0.1mm solid #eee; padding-top: 0.8mm;">د عامې روغتیا وزارت / وزارت صحت عامه</div>
-              <div class="title-card-type">National Health Card</div>
+            <div class="title-card-type">
+              <div class="ps">د چلوونکي د روغتیا کارت</div>
+              <div class="dr">کارت صحت راننده</div>
+              <div class="en">Driver's Health Card</div>
+            </div>
             </div>
 
             <div class="driver-photo-frame">

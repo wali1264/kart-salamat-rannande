@@ -370,34 +370,49 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           <!-- BACK SIDE -->
           <div class="card">
             <div class="security-mesh"></div>
-            <div style="padding: 5mm; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
-              <div style="display: flex; align-items: center; gap: 2mm; border-bottom: 0.3mm solid #1a365d; padding-bottom: 2mm; margin-bottom: 4mm;">
-                <span style="font-size: 6.5pt; font-weight: 800; color: #1a365d; text-transform: uppercase;">Regulations / د استفادې مقررات</span>
+            <div style="padding: 4mm; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
+              <div style="display: flex; align-items: center; justify-content: center; gap: 2mm; border-bottom: 0.2mm solid #1a365d; padding-bottom: 1.5mm; margin-bottom: 3mm;">
+                <span style="font-size: 6pt; font-weight: 800; color: #1a365d; text-transform: uppercase;">Regulations / د استفادې مقررات</span>
               </div>
               
-              <div style="display: flex; flex-direction: column; gap: 4mm;">
-                <div style="font-size: 5.5pt; line-height: 1.5; color: #222; display: flex; gap: 2mm;">
-                  <span style="color: #1a365d; font-weight: 800;">۱.</span>
-                  <span>این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</span>
+              <div style="display: flex; flex-direction: column; gap: 2.5mm;">
+                <!-- Pashto Section -->
+                <div style="display: flex; flex-direction: column; gap: 1mm;">
+                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <span style="color: #1a365d; font-weight: 800;">۱.</span>
+                    <span>دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.</span>
+                  </div>
+                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <span style="color: #1a365d; font-weight: 800;">۲.</span>
+                    <span>چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو په رامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.</span>
+                  </div>
+                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <span style="color: #1a365d; font-weight: 800;">۳.</span>
+                    <span>دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.</span>
+                  </div>
                 </div>
-                <div style="font-size: 5.5pt; line-height: 1.5; color: #222; display: flex; gap: 2mm;">
-                  <span style="color: #1a365d; font-weight: 800;">۲.</span>
-                  <span>راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</span>
-                </div>
-                <div style="font-size: 5.5pt; line-height: 1.5; color: #222; display: flex; gap: 2mm;">
-                  <span style="color: #1a365d; font-weight: 800;">۳.</span>
-                  <span>جعل یا استفاده سوء از این کارت پیگرد قانونی داشته و منجر به ابطال جواز خواهد شد.</span>
+
+                <div style="height: 0.1mm; background: rgba(0,0,0,0.05); margin: 0.5mm 0;"></div>
+
+                <!-- Dari Section -->
+                <div style="display: flex; flex-direction: column; gap: 1mm;">
+                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <span style="color: #1a365d; font-weight: 800;">۱.</span>
+                    <span>این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</span>
+                  </div>
+                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <span style="color: #1a365d; font-weight: 800;">۲.</span>
+                    <span>راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</span>
+                  </div>
+                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <span style="color: #1a365d; font-weight: 800;">۳.</span>
+                    <span>این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.</span>
+                  </div>
                 </div>
               </div>
 
-              <div style="margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; border-top: 0.1mm solid #ddd; padding-top: 4mm;">
-                <div style="display: flex; flex-direction: column;">
-                  <span style="font-size: 7.5pt; font-weight: 800; color: #1a365d; font-family: monospace;">www.andhp.gov.af</span>
-                  <span style="font-size: 4pt; color: #666; font-weight: 600;">Islamic Emirate of Afghanistan / MoPH</span>
-                </div>
-                <div style="width: 20mm; height: 12mm; border: 0.3mm dashed #1a365d; border-radius: 0.5mm; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.01);">
-                  <span style="font-size: 4pt; color: #1a365d; text-align: center; font-weight: 700;">STAMP & SIGN<br>مهر او امضا</span>
-                </div>
+              <div style="margin-top: auto; display: flex; justify-content: center; border-top: 0.1mm solid #eee; padding-top: 2mm;">
+                <span style="font-size: 4pt; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3mm;">Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)</span>
               </div>
             </div>
           </div>

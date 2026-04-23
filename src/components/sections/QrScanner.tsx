@@ -127,43 +127,78 @@ export const QrScanner: React.FC = () => {
     setLoading(true);
     setError(null);
     setScanStatus('idle');
-    setSuggestions([]); // Close suggestions
-    setSearchInput(''); // Clear input
+    setSuggestions([]);
+    setSearchInput('');
 
     const qRaw = normalize(query);
-    // 1. URL extraction
+    // 1. URL/SN Extraction: Get the core identifier
     let q = qRaw;
     if (qRaw.includes('/')) {
       const parts = qRaw.split('/');
       q = parts[parts.length - 1];
     }
     
-    // 2. Clean S/N patterns (e.g., 'A513345B-233' -> 'A513345B')
+    // Clean S/N patterns (e.g., 'A513345B-233' -> 'A513345B')
+    // We keep the prefix to match the start of the UUID
     const qClean = q.includes('-') ? q.split('-')[0].trim() : q.trim();
 
     try {
-      // THE ULTIMATE FIX: Using a database RPC function
-      // This eliminates all UUID vs TEXT casting problems forever.
-      const { data, error: rpcError } = await supabase
-        .rpc('search_driver_by_sn', { search_term: qClean });
+      let card = null;
 
-      if (rpcError) throw rpcError;
+      // STEP 1: Search by all driver fields (Name, License, Plate, ID, etc.)
+      const { data: drivers, error: dError } = await supabase
+        .from('drivers')
+        .select('id, name')
+        .or(`name.ilike.%${qClean}%,license_number.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%`);
 
-      if (data && data.length > 0) {
-        const result = data[0];
-        const card = result.card;
-        const driver = result.driver;
-        const isExpired = new Date(card.expiry_date) < new Date();
-        
-        setCardData({ card, driver });
-        setScanStatus(isExpired ? 'expired' : 'success');
+      if (dError) throw dError;
+
+      let targetDriverId = null;
+
+      if (drivers && drivers.length > 0) {
+        // If we found a direct match, use it
+        targetDriverId = drivers[0].id;
       } else {
-        setScanStatus('fake');
-        throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است!');
+        // STEP 2: If no direct match by name/license, try the "Ali Special" - check the UUID prefix manually
+        // We'll fetch all drivers (limited) and see if our SN matches the start of their UUID
+        // This avoids the 404 Casting error entirely
+        const { data: allDrivers } = await supabase.from('drivers').select('id').limit(100);
+        const match = allDrivers?.find(d => d.id.toLowerCase().startsWith(qClean.toLowerCase()));
+        if (match) targetDriverId = match.id;
       }
+
+      if (targetDriverId) {
+        // STEP 3: Now fetch the actual card for this driver
+        const { data: cData } = await supabase
+          .from('health_cards')
+          .select('*, drivers(*)')
+          .eq('driver_id', targetDriverId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        if (cData && cData.length > 0) card = cData[0];
+      }
+
+      // FINAL STEP: If still no card, check if the query itself was a CARD ID
+      if (!card) {
+        const { data: directCard } = await supabase.from('health_cards').select('*, drivers(*)').limit(100);
+        const cardMatch = directCard?.find(c => c.id.toLowerCase().startsWith(qClean.toLowerCase()));
+        if (cardMatch) card = cardMatch;
+      }
+
+      if (!card) {
+        setScanStatus('fake');
+        throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است یا با این مشخصات راننده‌ای وجود ندارد.');
+      }
+
+      const isExpired = new Date(card.expiry_date) < new Date();
+      setCardData({ card, driver: card.drivers });
+      setScanStatus(isExpired ? 'expired' : 'success');
+
     } catch (err: any) {
+      console.error("Verification error:", err);
       setError(err.message);
-      if (err.message.includes('found') || err.message.includes(' یافت نشد')) setScanStatus('fake');
+      setScanStatus('fake');
     } finally {
       setLoading(false);
     }

@@ -142,74 +142,28 @@ export const QrScanner: React.FC = () => {
     const qClean = q.includes('-') ? q.split('-')[0].trim() : q.trim();
 
     try {
-      let card = null;
-      
-      // Pattern: Is it potentially a shortened or full ID?
-      const isPotentialID = /^[0-9a-fA-F]{8,36}$/.test(qClean);
+      // THE ULTIMATE FIX: Using a database RPC function
+      // This eliminates all UUID vs TEXT casting problems forever.
+      const { data, error: rpcError } = await supabase
+        .rpc('search_driver_by_sn', { search_term: qClean });
 
-      if (isPotentialID) {
-        // ULTIMATE FIX: Search using a global OR filter that treats UUID as text
-        // This is the most reliable way to avoid 404/Casting errors in Supabase/PostgREST
-        const { data: cardMatches } = await supabase
-          .from('health_cards')
-          .select('*, drivers(*)')
-          .or(`id.ilike.${qClean}%`)
-          .limit(1);
+      if (rpcError) throw rpcError;
 
-        if (cardMatches && cardMatches.length > 0) {
-          card = cardMatches[0];
-        } else {
-          // Check drivers table using the same text-cast logic
-          const { data: driverMatches } = await supabase
-            .from('drivers')
-            .select('id')
-            .or(`id.ilike.${qClean}%`)
-            .limit(1);
-
-          if (driverMatches && driverMatches.length > 0) {
-            const { data: driverCard } = await supabase
-              .from('health_cards')
-              .select('*, drivers(*)')
-              .eq('driver_id', driverMatches[0].id)
-              .order('created_at', { ascending: false })
-              .limit(1);
-            
-            if (driverCard && driverCard.length > 0) card = driverCard[0];
-          }
-        }
-      } 
-      
-      // Step 3: Global fallback (Name, License, etc.)
-      if (!card) {
-        const { data: drivers } = await supabase
-          .from('drivers')
-          .select('id')
-          .or(`name.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,phone.ilike.%${q}%,id_number.ilike.%${q}%`)
-          .limit(1);
-
-        if (drivers && drivers.length > 0) {
-          const { data: cData } = await supabase
-            .from('health_cards')
-            .select('*, drivers(*)')
-            .eq('driver_id', drivers[0].id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          if (cData && cData.length > 0) card = cData[0];
-        }
-      }
-
-      if (!card) {
+      if (data && data.length > 0) {
+        const result = data[0];
+        const card = result.card;
+        const driver = result.driver;
+        const isExpired = new Date(card.expiry_date) < new Date();
+        
+        setCardData({ card, driver });
+        setScanStatus(isExpired ? 'expired' : 'success');
+      } else {
         setScanStatus('fake');
         throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است!');
       }
-
-      const isExpired = new Date(card.expiry_date) < new Date();
-      setCardData({ card, driver: card.drivers });
-      setScanStatus(isExpired ? 'expired' : 'success');
-
     } catch (err: any) {
       setError(err.message);
-      if (err.message.includes('جعلی')) setScanStatus('fake');
+      if (err.message.includes('found') || err.message.includes(' یافت نشد')) setScanStatus('fake');
     } finally {
       setLoading(false);
     }

@@ -141,11 +141,11 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .card-header-titles {
             position: absolute;
             top: 1.5mm;
-            left: 0;
-            right: 0;
+            left: 15mm; /* Leave space for mini logo area */
+            right: 15mm; /* Leave space for main logo area */
             display: flex;
             flex-direction: column;
-            align-items: center; /* Center horizontally */
+            align-items: center;
             text-align: center;
             gap: 0.2mm;
             z-index: 10;
@@ -153,9 +153,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
 
           .main-logo-container {
             position: absolute;
-            top: 2.5mm;
-            right: 27.5mm; /* Placed near the photo frame to leave center for text */
-            width: 10mm; /* 30% smaller as requested */
+            top: 1.5mm; /* Aligned with titles */
+            right: 4mm; /* Far right corner */
+            width: 10mm;
             height: 10mm;
             display: flex;
             align-items: center;
@@ -169,14 +169,14 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
 
           .mini-logo-container {
             position: absolute;
-            top: 3.5mm;
-            left: 4mm;
+            top: 1.5mm; /* Aligned with titles */
+            left: 4mm; /* Far left corner */
             width: 5mm;
             height: 5mm;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden; /* Ensure it never goes beyond its 5mm frame */
+            overflow: hidden;
           }
           .mini-logo-container img {
             max-width: 100%;

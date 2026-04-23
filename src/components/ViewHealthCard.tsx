@@ -189,21 +189,22 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             top: 15.5mm;
             left: 5mm;
             right: 5mm;
+            height: 6.5mm; /* Fixed height to ensure borders never move regardless of content */
             color: #1a365d; 
             text-align: center;
             border-top: 0.15mm solid rgba(26,54,93,0.3);
             border-bottom: 0.15mm solid rgba(26,54,93,0.3);
-            padding: 0.4mm 0;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            gap: 0.2mm;
+            gap: 0.1mm;
             z-index: 5;
+            white-space: nowrap;
           }
           
-          .title-card-type .ps { font-size: 6.2pt; font-weight: 800; line-height: 1; }
-          .title-card-type .dr { font-size: 5.8pt; font-weight: 600; line-height: 1; }
-          .title-card-type .en { font-size: 4.8pt; font-weight: 500; line-height: 1; text-transform: uppercase; letter-spacing: 0.5mm; color: #666; }
+          .title-card-type .ps { font-size: 5.2pt; font-weight: 800; line-height: 1.1; }
+          .title-card-type .dr { font-size: 4.8pt; font-weight: 600; line-height: 1.1; }
+          .title-card-type .en { font-size: 3.8pt; font-weight: 500; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.3mm; color: #666; }
           
           .info-section {
             position: absolute;

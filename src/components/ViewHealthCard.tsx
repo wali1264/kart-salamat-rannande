@@ -126,40 +126,44 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .title-en-ie { font-size: 4.8pt; color: #666; text-transform: uppercase; margin-bottom: 1mm; }
           
           .title-card-type { 
-            font-size: 5.5pt; 
+            position: absolute;
+            top: 11mm;
+            left: 0;
+            font-size: 5pt; 
             font-weight: 700; 
-            color: #1a365d; 
+            color: #fff; 
+            background: #1a365d;
             text-transform: uppercase; 
-            border-top: 0.1mm solid #ddd; 
-            padding-top: 0.5mm; 
-            margin-top: 0.5mm;
+            padding: 0.6mm 2mm;
+            border-radius: 0.4mm 0 0 0.4mm;
+            letter-spacing: 0.2mm;
           }
           
           .info-section {
             position: absolute;
-            top: 17mm;
+            top: 21mm; /* Shifted down to give breath */
             right: 31mm;
             left: 4mm;
             display: flex;
             flex-direction: column;
-            gap: 2.5mm;
+            gap: 3.5mm; /* Increased gap */
           }
           
           .info-block { display: flex; flex-direction: column; }
           .info-label { 
-            font-size: 4.5pt; 
-            color: #777; 
-            font-weight: 500; 
+            font-size: 5pt; /* Increased slightly */
+            color: #1a365d; /* Darker/Stronger */
+            font-weight: 600; /* Medium-Bold */
             display: flex; 
             justify-content: space-between;
-            border-bottom: 0.05mm solid #f0f0f0;
-            padding-bottom: 0.2mm;
-            margin-bottom: 0.2mm;
+            border-bottom: 0.1mm solid #f0f0f0;
+            padding-bottom: 0.4mm;
+            margin-bottom: 0.8mm;
           }
           .info-value { 
-            font-size: 9.5pt; 
+            font-size: 9pt; /* Normalized font size */
             font-weight: 700; 
-            color: #1a365d; 
+            color: #000; 
             line-height: 1;
           }
           

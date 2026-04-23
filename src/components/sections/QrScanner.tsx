@@ -44,21 +44,35 @@ export const QrScanner: React.FC = () => {
       setIsSearching(true);
       try {
         // Advanced Search: Look up drivers by Name, License, Plate, ID, Phone
-        const { data, error: searchError } = await supabase
+        // Plus S/N (first 8 chars of health card ID)
+        const { data: drivers, error: dError } = await supabase
           .from('drivers')
-          .select(`
-            *,
-            health_cards (
-              id,
-              expiry_date
-            )
-          `)
+          .select(`*, health_cards(id, expiry_date)`)
           .or(`name.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%`)
-          .limit(6);
+          .limit(5);
 
-        if (!searchError && data) {
-          setSuggestions(data);
+        // Also search by S/N directly in health_cards if query is short/alphanumeric
+        let snResults: any[] = [];
+        if (q.length >= 4 && /^[a-zA-Z0-9]+$/.test(q)) {
+          const { data: cards } = await supabase
+            .from('health_cards')
+            .select('*, drivers(*)')
+            .ilike('id', `${q}%`)
+            .limit(3);
+          
+          if (cards) {
+            snResults = cards.map(c => ({
+              ...c.drivers,
+              health_cards: [{ id: c.id, expiry_date: c.expiry_date }]
+            }));
+          }
         }
+
+        const combined = [...drivers || [], ...snResults];
+        // Remove duplicates by ID
+        const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+        setSuggestions(unique.slice(0, 6));
+
       } catch (err) {
         console.error("Search error:", err);
       } finally {
@@ -116,23 +130,35 @@ export const QrScanner: React.FC = () => {
     setSuggestions([]); // Close suggestions
     setSearchInput(''); // Clear input
 
-    const q = normalize(query);
+    const qRaw = normalize(query);
+    // 1. URL extraction: If scanned content is a link, grab the last part (UUID)
+    let q = qRaw;
+    if (qRaw.includes('/')) {
+      const parts = qRaw.split('/');
+      q = parts[parts.length - 1];
+    }
     
     try {
       let card = null;
       // UUID Check (Usually from QR)
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
+      const isSN = /^[a-zA-Z0-9]{8}$/.test(q); // S/N is 8 chars
 
-      if (isUUID) {
+      if (isUUID || isSN) {
+        // Try direct ID match or prefix (S/N) match
         const { data, error: uuidError } = await supabase
           .from('health_cards')
           .select('*, drivers(*)')
-          .eq('id', q)
-          .single();
-        if (!uuidError && data) card = data;
-      } else {
+          .ilike('id', `${q}%`) // This handles both full UUID and S/N (prefix)
+          .limit(1);
+
+        if (!uuidError && data && data.length > 0) card = data[0];
+      } 
+      
+      // If still no card found, try searching by other driver fields
+      if (!card) {
         // Driver Search logic
-        const { data: drivers, error: dError } = await supabase
+        const { data: drivers } = await supabase
           .from('drivers')
           .select('id')
           .or(`name.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%`)

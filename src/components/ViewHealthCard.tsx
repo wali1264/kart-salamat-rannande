@@ -127,25 +127,29 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           
           .title-card-type { 
             position: absolute;
-            top: 14mm;
-            left: 4mm;
-            font-size: 6pt; 
+            top: 15.5mm;
+            left: 0;
+            right: 0;
+            font-size: 5.2pt; 
             font-weight: 700; 
-            color: #1a365d; 
+            color: #fff; 
+            background: #1a365d;
             text-transform: uppercase; 
-            letter-spacing: 0.3mm;
-            border-left: 0.8mm solid #1a365d;
-            padding-left: 1.5mm;
+            text-align: center;
+            padding: 0.8mm 0;
+            letter-spacing: 0.5mm;
+            z-index: 5;
           }
           
           .info-section {
             position: absolute;
-            top: 19mm;
-            right: 31mm;
-            width: 35mm;
+            top: 22mm;
+            right: 32mm;
+            left: 24mm;
             display: flex;
             flex-direction: column;
-            gap: 4.5mm;
+            gap: 4mm;
+            z-index: 10;
           }
           
           .info-block { display: flex; flex-direction: column; align-items: flex-start; text-align: right; width: 100%; }
@@ -156,13 +160,14 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             display: flex;
             flex-direction: column;
             gap: 0.2mm;
-            margin-bottom: 0.8mm;
-            line-height: 1.1;
+            margin-bottom: 0.6mm;
+            line-height: 1;
           }
           .info-label span:last-child {
-            font-size: 4pt;
+            font-size: 3.8pt;
             color: #666;
             font-weight: 500;
+            text-transform: uppercase;
           }
           .info-value { 
             font-size: 9pt; 
@@ -171,22 +176,23 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             line-height: 1;
           }
           
-          .tech-info-grid {
+          .technical-panel {
             position: absolute;
             bottom: 3.5mm;
             right: 4mm;
-            width: 25mm;
+            width: 23mm;
             display: flex;
             flex-direction: column;
-            gap: 1.2mm;
-            z-index: 5;
+            gap: 2mm;
+            background: rgba(26,54,93,0.03);
+            padding: 1.5mm;
+            border-radius: 0.5mm;
+            border: 0.1mm solid rgba(26,54,93,0.1);
           }
           
-          .tech-block {
+          .tech-item {
             display: flex;
             flex-direction: column;
-            border-right: 0.8mm solid #1a365d;
-            padding-right: 2mm;
           }
           
           .tech-label { 
@@ -195,19 +201,19 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             font-weight: 800; 
             margin-bottom: 0.4mm;
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
           }
           .tech-label span:last-child { font-size: 3.2pt; color: #777; font-weight: 500; }
           
-          .tech-value { font-size: 7.5pt; font-weight: bold; color: #111; }
-          .tech-date { font-size: 6pt; font-weight: bold; }
+          .tech-value { font-size: 7pt; font-weight: bold; color: #111; }
+          .tech-date { font-size: 5.5pt; font-weight: bold; }
           
           .qr-container {
             position: absolute;
-            bottom: 4mm;
+            bottom: 3.5mm;
             left: 4mm;
-            width: 17.5mm;
-            height: 17.5mm;
+            width: 17mm;
+            height: 17mm;
             background: #fff;
             padding: 0.5mm;
             border: 0.15mm solid #ddd;
@@ -267,21 +273,21 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             </div>
 
             <!-- Side technical panel under the photo -->
-            <div class="tech-info-grid">
-               <div class="tech-block">
-                  <div class="tech-label"><span>پلیت / پلاک موتر</span><span>License Plate</span></div>
+            <div class="technical-panel">
+               <div class="tech-item">
+                  <div class="tech-label"><span>پلیت / پلاک</span><span>Plate</span></div>
                   <div class="tech-value">${driver.license_plate}</div>
                </div>
-               <div class="tech-block">
-                  <div class="tech-label"><span>د جواز نمبر / نمبر جواز</span><span>License Number</span></div>
+               <div class="tech-item">
+                  <div class="tech-label"><span>د جواز نمبر</span><span>Lic. No</span></div>
                   <div class="tech-value" style="font-size: 6.5pt; font-family: monospace;">${driver.license_number}</div>
                </div>
-               <div class="tech-block">
-                  <div class="tech-label"><span>صدور / انقضا</span><span>Issue / Expiry</span></div>
+               <div class="tech-item">
+                  <div class="tech-label"><span>صدور / انقضا</span><span>Dates</span></div>
                   <div class="tech-date" style="color: #1a365d;">${new Date(card.issue_date).toLocaleDateString('fa-AF')} / <span style="color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</span></div>
                </div>
-               <div class="tech-block" style="border-right-color: #d4af37;">
-                  <div class="tech-label"><span>د وینې نوعه / گروه خون</span><span>Blood Type</span></div>
+               <div class="tech-item">
+                  <div class="tech-label"><span>د وینې نوعه</span><span>BT</span></div>
                   <div class="tech-value" style="font-size: 6.5pt;">${driver.blood_type || 'O+'}</div>
                </div>
             </div>

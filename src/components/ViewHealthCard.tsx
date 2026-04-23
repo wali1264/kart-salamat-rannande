@@ -140,19 +140,23 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           
           .card-header-titles {
             position: absolute;
-            top: 2.5mm;
-            left: 12.5mm; /* Fixed position so text never moves regardless of mini logo */
+            top: 1.5mm;
+            left: 0;
+            right: 0;
             display: flex;
             flex-direction: column;
-            gap: 0.3mm;
+            align-items: center; /* Center horizontally */
+            text-align: center;
+            gap: 0.2mm;
+            z-index: 10;
           }
 
           .main-logo-container {
             position: absolute;
-            top: 3.5mm;
-            right: 30.0mm; /* Shifted 0.5mm right from 30.5mm to give more space to text */
-            width: 14mm; /* Reduced by 1mm as requested to ensure no text pulling effect */
-            height: 14mm;
+            top: 2.5mm;
+            right: 27.5mm; /* Placed near the photo frame to leave center for text */
+            width: 10mm; /* 30% smaller as requested */
+            height: 10mm;
             display: flex;
             align-items: center;
             justify-content: center;

@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { ShieldCheck, User } from 'lucide-react';
-import { Driver, HealthCard } from '../types';
+import { Driver, HealthCard, AppSettings } from '../types';
 import { renderToString } from 'react-dom/server';
+import { supabase } from '../lib/supabase';
 
 interface Props {
   isOpen: boolean;
@@ -13,12 +14,36 @@ interface Props {
 }
 
 export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card, autoPrint = false }) => {
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [loading, setLoading] = useState(true);
   
   React.useEffect(() => {
-    if (isOpen && autoPrint) {
+    if (isOpen) {
+      fetchSettings();
+    }
+  }, [isOpen]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('id', 'system_logos')
+        .single();
+      
+      if (data) setSettings(data);
+    } catch (err) {
+      console.error('Error fetching settings for card:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (isOpen && autoPrint && !loading) {
       handlePrint();
     }
-  }, [isOpen, autoPrint]);
+  }, [isOpen, autoPrint, loading]);
 
   const handlePrint = () => {
     // 1. Create a hidden iframe
@@ -115,10 +140,42 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .card-header-titles {
             position: absolute;
             top: 2.5mm;
-            left: 4mm;
+            left: ${settings?.mini_logo_url ? '12mm' : '4mm'};
             display: flex;
             flex-direction: column;
             gap: 0.3mm;
+          }
+
+          .main-logo-container {
+            position: absolute;
+            top: 3.5mm;
+            right: 29mm; /* Between photo (starts at right 4mm, width 23mm -> ends at 27mm) and info */
+            width: 15mm;
+            height: 15mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .main-logo-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+          }
+
+          .mini-logo-container {
+            position: absolute;
+            top: 3.5mm;
+            left: 4mm;
+            width: 7mm;
+            height: 7mm;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+          .mini-logo-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
           }
           
           .title-afg { font-size: 5.8pt; font-weight: 800; color: #1a365d; }
@@ -241,6 +298,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           <div class="card">
             <div class="security-mesh"></div>
             
+            ${settings?.mini_logo_url ? `<div class="mini-logo-container"><img src="${settings.mini_logo_url}" alt="Mini Logo" /></div>` : ''}
+            ${settings?.main_logo_url ? `<div class="main-logo-container"><img src="${settings.main_logo_url}" alt="Main Logo" /></div>` : ''}
+
             <div class="card-header-titles">
               <div class="title-afg">د افغانستان اسلامی امارت</div>
               <div class="title-afg-ps" style="font-size: 5.5pt; font-weight: 600; color: #333;">امارت اسلامی افغانستان</div>

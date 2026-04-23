@@ -1,10 +1,70 @@
-import React, { useState } from 'react';
-import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/utils';
 
 export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logos, setLogos] = useState({ main: '', mini: '' });
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('*')
+        .eq('id', 'system_logos')
+        .single();
+      
+      if (data) {
+        setLogos({
+          main: data.main_logo_url || '',
+          mini: data.mini_logo_url || ''
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
+
+  const saveLogos = async (newLogos: { main: string; mini: string }) => {
+    setLogoLoading(true);
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .upsert({
+          id: 'system_logos',
+          main_logo_url: newLogos.main,
+          mini_logo_url: newLogos.mini,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch (err) {
+      console.error('Error saving logos:', err);
+      setSaveStatus('error');
+    } finally {
+      setLogoLoading(false);
+    }
+  };
+
+  const handleLogoUpload = async (type: 'main' | 'mini', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const compressed = await compressImage(file, type === 'main' ? 400 : 200);
+      const updatedLogos = { ...logos, [type]: compressed };
+      setLogos(updatedLogos);
+      await saveLogos(updatedLogos);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
@@ -15,6 +75,83 @@ export const SettingsSection: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+          {/* Logo Management Section */}
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-blue-600" />
+                مدیریت لوگوهای کارت سلامت
+              </h4>
+              {saveStatus === 'success' && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full flex items-center gap-1 font-bold animate-pulse">
+                  <Check className="w-3 h-3" /> ذخیره شد
+                </span>
+              )}
+            </div>
+            
+            <p className="text-[11px] text-slate-500 leading-relaxed bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
+              در این بخش می‌توانید لوگوهای رسمی وزارت صحت عامه و امارت اسلامی را برای نمایش روی کارت‌های سلامت آپلود نمایید. در صورت عدم آپلود، فضای مربوطه در کارت خالی می‌ماند.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Main Logo */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">لوگوی اصلی (سمت راست عنوان)</label>
+                <label className="relative block h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-300 transition-all overflow-hidden group">
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleLogoUpload('main', e)} />
+                  {logos.main ? (
+                    <div className="absolute inset-0 flex items-center justify-center p-4 bg-white">
+                      <img src={logos.main} alt="Main Logo" className="max-w-full max-h-full object-contain" />
+                      <div className="absolute inset-0 bg-blue-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <Upload className="w-6 h-6 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                      <span className="text-[10px] font-bold text-slate-400">آپلود لوگوی اصلی</span>
+                    </div>
+                  )}
+                  {logoLoading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}
+                </label>
+              </div>
+
+              {/* Mini Logo */}
+              <div className="space-y-3">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">لوگوی ثانویه (سمت چپ عنوان)</label>
+                <label className="relative block h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-blue-300 transition-all overflow-hidden group text-center">
+                  <input type="file" className="hidden" accept="image/*" onChange={(e) => handleLogoUpload('mini', e)} />
+                  {logos.mini ? (
+                    <div className="absolute inset-0 flex items-center justify-center p-4 bg-white">
+                      <img src={logos.mini} alt="Mini Logo" className="max-w-full max-h-full object-contain" />
+                      <div className="absolute inset-0 bg-blue-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Upload className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                      <Upload className="w-6 h-6 text-slate-300 group-hover:text-blue-500 transition-colors" />
+                      <span className="text-[10px] font-bold text-slate-400">آپلود لوگوی ثانویه</span>
+                    </div>
+                  )}
+                  {logoLoading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div></div>}
+                </label>
+              </div>
+            </div>
+            
+            {(logos.main || logos.mini) && (
+              <button 
+                onClick={async () => {
+                   setLogos({ main: '', mini: '' });
+                   await saveLogos({ main: '', mini: '' });
+                }}
+                className="text-[10px] font-bold text-red-500 hover:text-red-600 underline"
+              >
+                حذف لوگوها و بازگشت به حالت پیش‌فرض
+              </button>
+            )}
+          </div>
+
           {/* Profile Card */}
           <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden">
             <div className="flex flex-col md:flex-row items-center gap-6 relative z-10">

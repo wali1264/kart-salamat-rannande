@@ -41,3 +41,10 @@ export interface ActivityLog {
   details: any;
   created_at: string;
 }
+
+export interface AppSettings {
+  id: string;
+  main_logo_url?: string;
+  mini_logo_url?: string;
+  updated_at?: string;
+}

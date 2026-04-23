@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/utils';
 
 interface Props {
   onComplete: () => void;
@@ -23,29 +24,6 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     blood_type: 'O+',
   });
   const [photo, setPhoto] = useState<string | null>(null);
-
-  const compressImage = (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (e) => {
-        const img = new Image();
-        img.src = e.target?.result as string;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let w = img.width;
-          let h = img.height;
-          const MAX_SIZE = 600;
-          if (w > h) { if (w > MAX_SIZE) { h *= MAX_SIZE / w; w = MAX_SIZE; } }
-          else { if (h > MAX_SIZE) { w *= MAX_SIZE / h; h = MAX_SIZE; } }
-          canvas.width = w; canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, w, h);
-          resolve(canvas.toDataURL('image/jpeg', 0.6));
-        };
-      };
-    });
-  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

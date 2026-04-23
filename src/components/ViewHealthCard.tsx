@@ -167,12 +167,12 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             position: absolute;
             top: 3.5mm;
             left: 4mm;
-            width: 7mm;
-            height: 7mm;
+            width: 5mm;
+            height: 5mm;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden; /* Ensure it never goes beyond its 7mm frame */
+            overflow: hidden; /* Ensure it never goes beyond its 5mm frame */
           }
           .mini-logo-container img {
             max-width: 100%;

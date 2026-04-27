@@ -41,7 +41,11 @@ export const SettingsSection: React.FC = () => {
 
       const storedCustom = localStorage.getItem('andhp_card_customization');
       if (storedCustom) {
-        setCustomization(JSON.parse(storedCustom));
+        const parsed = JSON.parse(storedCustom);
+        // Ensure all fields exist
+        if (!parsed.regulations_ps) parsed.regulations_ps = customization.regulations_ps;
+        if (!parsed.regulations_dr) parsed.regulations_dr = customization.regulations_dr;
+        setCustomization(parsed);
       }
     } catch (err) {
       console.error('Error fetching settings from localStorage:', err);
@@ -240,25 +244,50 @@ export const SettingsSection: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-4">
-                <label className="text-[10px] font-bold text-slate-800 uppercase">مقررات پشت کارت (۳ مورد)</label>
-                <div className="space-y-2">
-                  {customization.regulations_dr.map((reg: string, idx: number) => (
-                    <div key={`reg-dr-${idx}`} className="flex gap-2">
-                      <span className="flex-shrink-0 w-5 h-5 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
-                      <input 
-                        type="text"
-                        value={reg}
-                        onChange={(e) => {
-                          const newRegs = [...customization.regulations_dr];
-                          newRegs[idx] = e.target.value;
-                          updateCustomization('regulations_dr', newRegs);
-                        }}
-                        className="flex-1 bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-[11px] outline-none focus:border-indigo-300"
-                        placeholder={`مورد ${idx + 1} (دری)`}
-                      />
-                    </div>
-                  ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <label className="text-[10px] font-bold text-slate-800 uppercase">مقررات پشت کارت (دری - ۳ مورد)</label>
+                  <div className="space-y-2">
+                    {customization.regulations_dr.map((reg: string, idx: number) => (
+                      <div key={`reg-dr-${idx}`} className="flex gap-2">
+                        <span className="flex-shrink-0 w-5 h-5 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                        <input 
+                          type="text"
+                          value={reg}
+                          onChange={(e) => {
+                            const newRegs = [...customization.regulations_dr];
+                            newRegs[idx] = e.target.value;
+                            updateCustomization('regulations_dr', newRegs);
+                          }}
+                          className="flex-1 bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-[11px] outline-none focus:border-indigo-300"
+                          placeholder={`مورد ${idx + 1} (دری)`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-bold text-slate-800 uppercase text-right block" dir="rtl">مقررات پشت کارت (پشتو - ۳ مورد)</label>
+                  <div className="space-y-2">
+                    {customization.regulations_ps.map((reg: string, idx: number) => (
+                      <div key={`reg-ps-${idx}`} className="flex gap-2">
+                        <span className="flex-shrink-0 w-5 h-5 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                        <input 
+                          type="text"
+                          value={reg}
+                          onChange={(e) => {
+                            const newRegs = [...customization.regulations_ps];
+                            newRegs[idx] = e.target.value;
+                            updateCustomization('regulations_ps', newRegs);
+                          }}
+                          className="flex-1 bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-[11px] outline-none focus:border-indigo-300"
+                          placeholder={`مورد ${idx + 1} (پشتو)`}
+                          dir="rtl"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

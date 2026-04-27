@@ -48,6 +48,24 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
         ]
       };
+
+      // Safety merge for missing fields in old stored customization
+      if (customizationRaw) {
+        if (!customization.regulations_ps) {
+          customization.regulations_ps = [
+            'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
+            'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
+            'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+          ];
+        }
+        if (!customization.regulations_dr) {
+          customization.regulations_dr = [
+            'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
+            'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
+            'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+          ];
+        }
+      }
       
       setSettings({
         id: 'local',
@@ -167,18 +185,21 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .card-header-titles {
             position: absolute;
             top: 2.2mm;
-            left: 11mm; /* Re-adjusted for balance with mini logo */
+            left: 11mm; 
+            width: 31mm; /* Strictly limit width to prevent overlapping main logo */
             display: flex;
             flex-direction: column;
-            gap: 0.2mm;
+            gap: 0.1mm;
+            text-align: center;
+            align-items: center;
           }
 
           .main-logo-container {
             position: absolute;
-            top: 3.5mm;
-            right: 30.0mm;
-            width: 14mm;
-            height: 14mm;
+            top: 3.2mm;
+            right: 32mm; /* Shifted more to the right to clear space for text */
+            width: 13.5mm;
+            height: 13.5mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -205,9 +226,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             object-fit: contain;
           }
           
-          .title-afg { font-size: 5.5pt; font-weight: 800; color: #1a365d; width: 45mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .title-afg-ps { font-size: 5.0pt; color: #333; font-weight: 600; margin: 0.1mm 0; width: 45mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-          .title-en-ie { font-size: 4.5pt; color: #666; text-transform: uppercase; margin-bottom: 1mm; font-weight: 500; width: 45mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .title-afg { font-size: 5.5pt; font-weight: 800; color: #1a365d; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .title-afg-ps { font-size: 5.0pt; color: #333; font-weight: 600; margin: 0.1mm 0; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .title-en-ie { font-size: 4.2pt; color: #666; text-transform: uppercase; margin-bottom: 0.8mm; font-weight: 500; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           
           .title-card-type { 
             position: absolute;
@@ -342,7 +363,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
               <div class="title-afg">${customization.title_primary_dr}</div>
               <div class="title-afg-ps">${customization.title_primary_ps}</div>
               <div class="title-en-ie">${customization.title_primary_en}</div>
-              <div style="font-size: 4.8pt; color: #1a365d; font-weight: 700; margin-top: 0.8mm; border-top: 0.1mm solid #eee; padding-top: 0.6mm; width: 45mm; overflow: hidden; text-overflow: ellipsis;">${customization.title_secondary_dr}</div>
+              <div style="font-size: 4.5pt; color: #1a365d; font-weight: 700; margin-top: 0.6mm; border-top: 0.1mm solid #eee; padding-top: 0.4mm; width: 100%; overflow: hidden; text-overflow: ellipsis;">${customization.title_secondary_dr}</div>
             </div>
 
             <div class="title-card-type">
@@ -405,11 +426,19 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
                 <span style="font-size: 6pt; font-weight: 800; color: #1a365d; text-transform: uppercase;">Regulations / د استفادې مقررات</span>
               </div>
               
-              <div style="display: flex; flex-direction: column; gap: 2.2mm;">
+              <div style="display: flex; flex-direction: column; gap: 1.5mm;">
                 <!-- Customized Regulations -->
-                <div style="display: flex; flex-direction: column; gap: 1.2mm;">
+                <div style="display: flex; flex-direction: column; gap: 0.8mm; border-bottom: 0.1mm solid #f0f0f0; padding-bottom: 1mm; margin-bottom: 1mm;">
+                  ${customization.regulations_ps.map((reg: string, idx: number) => `
+                    <div style="font-size: 4.5pt; line-height: 1.2; color: #1a365d; display: flex; gap: 1.2mm; font-weight: 600;">
+                      <span style="color: #c00; font-weight: 800;">${idx + 1}.</span>
+                      <span>${reg}</span>
+                    </div>
+                  `).join('')}
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.8mm;">
                   ${customization.regulations_dr.map((reg: string, idx: number) => `
-                    <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                    <div style="font-size: 4.5pt; line-height: 1.2; color: #222; display: flex; gap: 1.2mm;">
                       <span style="color: #1a365d; font-weight: 800;">${idx + 1}.</span>
                       <span>${reg}</span>
                     </div>

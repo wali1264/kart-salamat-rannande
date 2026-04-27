@@ -422,9 +422,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             </div>
 
             <div class="qr-container" id="qrcode-front"></div>
-            <div class="serial-no">
-              S/N: ${driver.id.slice(0, 12).toUpperCase()} 
-              <span style="margin-left: 8mm; color: #444;">د تذکرې شمېره / نمبر تذکره: (${driver.id_number || '---'})</span>
+            <div class="serial-no">S/N: ${driver.id.slice(0, 12).toUpperCase()}</div>
+            <div style="position: absolute; bottom: 1.5mm; right: 4.5mm; font-size: 5.2pt; color: #444; font-weight: 600; text-align: right;">
+              د تذکرې شمېره / نمبر تذکره: (${driver.id_number || '---'})
             </div>
           </div>
 

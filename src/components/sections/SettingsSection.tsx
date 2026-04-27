@@ -8,6 +8,25 @@ export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
   const [logoLoading, setLogoLoading] = useState(false);
   const [logos, setLogos] = useState({ main: '', mini: '' });
+  const [customization, setCustomization] = useState<any>({
+    title_primary_dr: 'د افغانستان اسلامی امارت',
+    title_primary_ps: 'امارت اسلامی افغانستان',
+    title_primary_en: 'Islamic Emirate of Afghanistan',
+    title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
+    title_secondary_ps: 'د چلوونکي د روغتیا کارت',
+    title_secondary_en: 'Driver\'s Health Card',
+    footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
+    regulations_ps: [
+      'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
+      'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
+      'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+    ],
+    regulations_dr: [
+      'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
+      'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
+      'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+    ]
+  });
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -19,20 +38,26 @@ export const SettingsSection: React.FC = () => {
       const main = localStorage.getItem('andhp_main_logo') || '';
       const mini = localStorage.getItem('andhp_mini_logo') || '';
       setLogos({ main, mini });
+
+      const storedCustom = localStorage.getItem('andhp_card_customization');
+      if (storedCustom) {
+        setCustomization(JSON.parse(storedCustom));
+      }
     } catch (err) {
-      console.error('Error fetching logos from localStorage:', err);
+      console.error('Error fetching settings from localStorage:', err);
     }
   };
 
-  const saveLogos = (newLogos: { main: string; mini: string }) => {
+  const saveSettings = (newLogos: { main: string; mini: string }, newCustom: any) => {
     setLogoLoading(true);
     try {
       localStorage.setItem('andhp_main_logo', newLogos.main);
       localStorage.setItem('andhp_mini_logo', newLogos.mini);
+      localStorage.setItem('andhp_card_customization', JSON.stringify(newCustom));
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) {
-      console.error('Error saving logos to localStorage:', err);
+      console.error('Error saving settings to localStorage:', err);
       setSaveStatus('error');
     } finally {
       setLogoLoading(false);
@@ -45,8 +70,14 @@ export const SettingsSection: React.FC = () => {
       const compressed = await compressImage(file, type === 'main' ? 400 : 200);
       const updatedLogos = { ...logos, [type]: compressed };
       setLogos(updatedLogos);
-      saveLogos(updatedLogos);
+      saveSettings(updatedLogos, customization);
     }
+  };
+
+  const updateCustomization = (key: string, value: any) => {
+    const updated = { ...customization, [key]: value };
+    setCustomization(updated);
+    saveSettings(logos, updated);
   };
 
   return (
@@ -126,13 +157,142 @@ export const SettingsSection: React.FC = () => {
               <button 
                 onClick={async () => {
                    setLogos({ main: '', mini: '' });
-                   await saveLogos({ main: '', mini: '' });
+                   saveSettings({ main: '', mini: '' }, customization);
                 }}
                 className="text-[10px] font-bold text-red-500 hover:text-red-600 underline"
               >
                 حذف لوگوها و بازگشت به حالت پیش‌فرض
               </button>
             )}
+          </div>
+
+          {/* Card Text Customization */}
+          <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+            <h4 className="font-bold text-slate-800 flex items-center gap-2">
+              <Globe className="w-5 h-5 text-indigo-600" />
+              شخصی‌سازی متون روی کارت
+            </h4>
+            <p className="text-[11px] text-slate-500 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100/50">
+              در این بخش می‌توانید عناوین و متون ثابت روی کارت (مانند نام وزارتخانه، شعارها و مقررات پشت کارت) را بر اساس نیاز ارگان خود تغییر دهید.
+            </p>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">عنوان اصلی (دری/پشتو)</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_primary_dr}
+                    onChange={(e) => updateCustomization('title_primary_dr', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">عنوان ثانویه (پشتو/دری)</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_primary_ps}
+                    onChange={(e) => updateCustomization('title_primary_ps', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all font-bold"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">عنوان انگلیسی</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_primary_en}
+                    onChange={(e) => updateCustomization('title_primary_en', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all font-bold font-mono"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">نام دیپارتمنت/وزارت (دری/پشتو)</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_secondary_dr}
+                    onChange={(e) => updateCustomization('title_secondary_dr', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">نام کارت (پشتو/دری)</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_secondary_ps}
+                    onChange={(e) => updateCustomization('title_secondary_ps', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400">پاورقی کارت (English)</label>
+                <input 
+                  type="text" 
+                  value={customization.footer_en}
+                  onChange={(e) => updateCustomization('footer_en', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-[10px] outline-none focus:border-indigo-300 transition-all font-mono"
+                  dir="ltr"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold text-slate-800 uppercase">مقررات پشت کارت (۳ مورد)</label>
+                <div className="space-y-2">
+                  {customization.regulations_dr.map((reg: string, idx: number) => (
+                    <div key={`reg-dr-${idx}`} className="flex gap-2">
+                      <span className="flex-shrink-0 w-5 h-5 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
+                      <input 
+                        type="text"
+                        value={reg}
+                        onChange={(e) => {
+                          const newRegs = [...customization.regulations_dr];
+                          newRegs[idx] = e.target.value;
+                          updateCustomization('regulations_dr', newRegs);
+                        }}
+                        className="flex-1 bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-[11px] outline-none focus:border-indigo-300"
+                        placeholder={`مورد ${idx + 1} (دری)`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                if (confirm('آیا مطمئن هستید که می‌خواهید تمام متون را به حالت پیش‌فرض برگردانید؟')) {
+                  const defaultCustom = {
+                    title_primary_dr: 'د افغانستان اسلامی امارت',
+                    title_primary_ps: 'امارت اسلامی افغانستان',
+                    title_primary_en: 'Islamic Emirate of Afghanistan',
+                    title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
+                    title_secondary_ps: 'د چلوونکي د روغتیا کارت',
+                    title_secondary_en: 'Driver\'s Health Card',
+                    footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
+                    regulations_ps: [
+                      'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
+                      'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
+                      'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+                    ],
+                    regulations_dr: [
+                      'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
+                      'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
+                      'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+                    ]
+                  };
+                  setCustomization(defaultCustom);
+                  saveSettings(logos, defaultCustom);
+                }
+              }}
+              className="text-[10px] font-bold text-indigo-500 hover:text-indigo-600 underline"
+            >
+              بازنشانی متون به پیش‌فرض سامانه
+            </button>
           </div>
 
           {/* Profile Card */}

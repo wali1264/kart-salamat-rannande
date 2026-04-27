@@ -45,9 +45,22 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface CardCustomization {
+  title_primary_dr: string;
+  title_primary_ps: string;
+  title_primary_en: string;
+  title_secondary_dr: string;
+  title_secondary_ps: string;
+  title_secondary_en: string;
+  footer_en: string;
+  regulations_ps: string[];
+  regulations_dr: string[];
+}
+
 export interface AppSettings {
   id: string;
   main_logo_url?: string;
   mini_logo_url?: string;
+  customization?: CardCustomization;
   updated_at?: string;
 }

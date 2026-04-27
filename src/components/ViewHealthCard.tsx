@@ -27,11 +27,33 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
     try {
       const main = localStorage.getItem('andhp_main_logo');
       const mini = localStorage.getItem('andhp_mini_logo');
+      const customizationRaw = localStorage.getItem('andhp_card_customization');
+      
+      const customization = customizationRaw ? JSON.parse(customizationRaw) : {
+        title_primary_dr: 'د افغانستان اسلامی امارت',
+        title_primary_ps: 'امارت اسلامی افغانستان',
+        title_primary_en: 'Islamic Emirate of Afghanistan',
+        title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
+        title_secondary_ps: 'د چلوونکي د روغتیا کارت',
+        title_secondary_en: 'Driver\'s Health Card',
+        footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
+        regulations_ps: [
+          'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
+          'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
+          'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+        ],
+        regulations_dr: [
+          'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
+          'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
+          'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+        ]
+      };
       
       setSettings({
         id: 'local',
         main_logo_url: main || undefined,
-        mini_logo_url: mini || undefined
+        mini_logo_url: mini || undefined,
+        customization
       });
     } catch (err) {
       console.error('Error fetching logos for card from localStorage:', err);
@@ -47,6 +69,10 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
   }, [isOpen, autoPrint, loading]);
 
   const handlePrint = () => {
+    if (!settings) return;
+    const { customization } = settings;
+    if (!customization) return;
+
     // 1. Create a hidden iframe
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
@@ -140,18 +166,18 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           
           .card-header-titles {
             position: absolute;
-            top: 2.5mm;
-            left: 12.5mm; /* Fixed position so text never moves regardless of mini logo */
+            top: 2.2mm;
+            left: 11mm; /* Re-adjusted for balance with mini logo */
             display: flex;
             flex-direction: column;
-            gap: 0.3mm;
+            gap: 0.2mm;
           }
 
           .main-logo-container {
             position: absolute;
             top: 3.5mm;
-            right: 30.0mm; /* Shifted 0.5mm right from 30.5mm to give more space to text */
-            width: 14mm; /* Reduced by 1mm as requested to ensure no text pulling effect */
+            right: 30.0mm;
+            width: 14mm;
             height: 14mm;
             display: flex;
             align-items: center;
@@ -167,12 +193,11 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             position: absolute;
             top: 3.5mm;
             left: 4mm;
-            width: 5mm;
-            height: 5mm;
+            width: 6mm;
+            height: 6mm;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden; /* Ensure it never goes beyond its 5mm frame */
           }
           .mini-logo-container img {
             max-width: 100%;
@@ -180,16 +205,16 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             object-fit: contain;
           }
           
-          .title-afg { font-size: 5.8pt; font-weight: 800; color: #1a365d; }
-          .title-afg-ps { font-size: 5.2pt; color: #333; font-weight: 600; margin: 0.3mm 0; }
-          .title-en-ie { font-size: 4.8pt; color: #666; text-transform: uppercase; margin-bottom: 1.5mm; font-weight: 500; }
+          .title-afg { font-size: 5.5pt; font-weight: 800; color: #1a365d; width: 45mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .title-afg-ps { font-size: 5.0pt; color: #333; font-weight: 600; margin: 0.1mm 0; width: 45mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+          .title-en-ie { font-size: 4.5pt; color: #666; text-transform: uppercase; margin-bottom: 1mm; font-weight: 500; width: 45mm; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
           
           .title-card-type { 
             position: absolute;
-            top: 15.5mm;
+            top: 15.2mm;
             left: 5mm;
             right: 5mm;
-            height: 6.5mm; /* Fixed height to ensure borders never move regardless of content */
+            height: 6.8mm;
             color: #1a365d; 
             text-align: center;
             border-top: 0.15mm solid rgba(26,54,93,0.3);
@@ -202,9 +227,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             white-space: nowrap;
           }
           
-          .title-card-type .ps { font-size: 5.2pt; font-weight: 800; line-height: 1.1; }
-          .title-card-type .dr { font-size: 4.8pt; font-weight: 600; line-height: 1.1; }
-          .title-card-type .en { font-size: 3.8pt; font-weight: 500; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.3mm; color: #666; }
+          .title-card-type .ps { font-size: 5.2pt; font-weight: 800; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
+          .title-card-type .dr { font-size: 4.8pt; font-weight: 600; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; }
+          .title-card-type .en { font-size: 3.8pt; font-weight: 500; line-height: 1.1; text-transform: uppercase; letter-spacing: 0.1mm; color: #666; overflow: hidden; text-overflow: ellipsis; }
           
           .info-section {
             position: absolute;
@@ -239,6 +264,10 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             font-weight: 700; 
             color: #111; 
             line-height: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
           }
           
           .technical-panel {
@@ -310,15 +339,16 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             ${settings?.main_logo_url ? `<div class="main-logo-container"><img src="${settings.main_logo_url}" alt="Main Logo" /></div>` : ''}
 
             <div class="card-header-titles">
-              <div class="title-afg">د افغانستان اسلامی امارت</div>
-              <div class="title-afg-ps" style="font-size: 5.5pt; font-weight: 600; color: #333;">امارت اسلامی افغانستان</div>
-              <div class="title-en-ie" style="font-size: 4.8pt; margin-bottom: 0.5mm; font-weight: 500;">Islamic Emirate of Afghanistan</div>
-              <div style="font-size: 5pt; color: #1a365d; font-weight: 700; margin-top: 1mm; border-top: 0.1mm solid #eee; padding-top: 0.8mm;">د عامې روغتیا وزارت / وزارت صحت عامه</div>
-            <div class="title-card-type">
-              <div class="ps">د چلوونکي د روغتیا کارت</div>
-              <div class="dr">کارت صحت راننده</div>
-              <div class="en">Driver's Health Card</div>
+              <div class="title-afg">${customization.title_primary_dr}</div>
+              <div class="title-afg-ps">${customization.title_primary_ps}</div>
+              <div class="title-en-ie">${customization.title_primary_en}</div>
+              <div style="font-size: 4.8pt; color: #1a365d; font-weight: 700; margin-top: 0.8mm; border-top: 0.1mm solid #eee; padding-top: 0.6mm; width: 45mm; overflow: hidden; text-overflow: ellipsis;">${customization.title_secondary_dr}</div>
             </div>
+
+            <div class="title-card-type">
+              <div class="ps">${customization.title_secondary_ps}</div>
+              <div class="dr">${customization.title_secondary_dr.split(' / ').pop()}</div>
+              <div class="en">${customization.title_secondary_en}</div>
             </div>
 
             <div class="driver-photo-frame">
@@ -375,44 +405,20 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
                 <span style="font-size: 6pt; font-weight: 800; color: #1a365d; text-transform: uppercase;">Regulations / د استفادې مقررات</span>
               </div>
               
-              <div style="display: flex; flex-direction: column; gap: 2.5mm;">
-                <!-- Pashto Section -->
-                <div style="display: flex; flex-direction: column; gap: 1mm;">
-                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
-                    <span style="color: #1a365d; font-weight: 800;">۱.</span>
-                    <span>دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.</span>
-                  </div>
-                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
-                    <span style="color: #1a365d; font-weight: 800;">۲.</span>
-                    <span>چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو په رامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.</span>
-                  </div>
-                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
-                    <span style="color: #1a365d; font-weight: 800;">۳.</span>
-                    <span>دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.</span>
-                  </div>
-                </div>
-
-                <div style="height: 0.1mm; background: rgba(0,0,0,0.05); margin: 0.5mm 0;"></div>
-
-                <!-- Dari Section -->
-                <div style="display: flex; flex-direction: column; gap: 1mm;">
-                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
-                    <span style="color: #1a365d; font-weight: 800;">۱.</span>
-                    <span>این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.</span>
-                  </div>
-                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
-                    <span style="color: #1a365d; font-weight: 800;">۲.</span>
-                    <span>راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.</span>
-                  </div>
-                  <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
-                    <span style="color: #1a365d; font-weight: 800;">۳.</span>
-                    <span>این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.</span>
-                  </div>
+              <div style="display: flex; flex-direction: column; gap: 2.2mm;">
+                <!-- Customized Regulations -->
+                <div style="display: flex; flex-direction: column; gap: 1.2mm;">
+                  ${customization.regulations_dr.map((reg: string, idx: number) => `
+                    <div style="font-size: 4.8pt; line-height: 1.3; color: #222; display: flex; gap: 1.5mm;">
+                      <span style="color: #1a365d; font-weight: 800;">${idx + 1}.</span>
+                      <span>${reg}</span>
+                    </div>
+                  `).join('')}
                 </div>
               </div>
 
-              <div style="margin-top: auto; display: flex; justify-content: center; border-top: 0.1mm solid #eee; padding-top: 2mm;">
-                <span style="font-size: 4pt; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3mm;">Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)</span>
+              <div style="margin-top: auto; display: flex; justify-content: center; border-top: 0.1mm solid #eee; padding-top: 2mm; text-align: center;">
+                <span style="font-size: 3.8pt; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1mm; line-height: 1.2;">${customization.footer_en}</span>
               </div>
             </div>
           </div>

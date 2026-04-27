@@ -350,6 +350,17 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             font-family: monospace;
           }
 
+          .id-no {
+            position: absolute;
+            bottom: 1.5mm;
+            right: 4.5mm;
+            font-size: 5.8pt;
+            color: #000;
+            font-weight: 700;
+            font-family: monospace;
+            text-align: right;
+          }
+
           @media print {
             body { background: white; }
             .a4-page { padding: 0; margin: 15mm auto; }
@@ -423,6 +434,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
 
             <div class="qr-container" id="qrcode-front"></div>
             <div class="serial-no">S/N: ${driver.id.slice(0, 12).toUpperCase()}</div>
+            <div class="id-no">ID: ${driver.id_number || '---'}</div>
           </div>
 
           <!-- BACK SIDE -->
@@ -430,7 +442,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <div class="security-mesh"></div>
             <div style="padding: 4mm; display: flex; flex-direction: column; height: 100%; box-sizing: border-box;">
               <div style="display: flex; align-items: center; justify-content: center; gap: 2mm; border-bottom: 0.2mm solid #1a365d; padding-bottom: 1.5mm; margin-bottom: 3mm;">
-                <span style="font-size: 6pt; font-weight: 800; color: #1a365d; text-transform: uppercase;">Regulations / د استفادې مقررات</span>
+                <span style="font-size: 5.8pt; font-weight: 800; color: #1a365d; text-transform: uppercase;">Regulations / مقررات استفاده / د استفادې مقررات</span>
               </div>
               
               <div style="display: flex; flex-direction: column; gap: 1.5mm;">

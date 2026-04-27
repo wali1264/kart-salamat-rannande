@@ -350,17 +350,6 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             font-family: monospace;
           }
 
-          .id-no {
-            position: absolute;
-            bottom: 1.5mm;
-            right: 4.5mm;
-            font-size: 5.8pt;
-            color: #000;
-            font-weight: 700;
-            font-family: monospace;
-            text-align: right;
-          }
-
           @media print {
             body { background: white; }
             .a4-page { padding: 0; margin: 15mm auto; }
@@ -433,8 +422,10 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             </div>
 
             <div class="qr-container" id="qrcode-front"></div>
-            <div class="serial-no">S/N: ${driver.id.slice(0, 12).toUpperCase()}</div>
-            <div class="id-no">ID: ${driver.id_number || '---'}</div>
+            <div class="serial-no">
+              S/N: ${driver.id.slice(0, 12).toUpperCase()} 
+              <span style="margin-left: 8mm; color: #444;">د تذکرې شمېره / نمبر تذکره: (${driver.id_number || '---'})</span>
+            </div>
           </div>
 
           <!-- BACK SIDE -->

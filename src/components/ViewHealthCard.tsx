@@ -66,10 +66,10 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
           ];
         }
-        if (!customization.title_card_dr) {
-          customization.title_card_ps = customization.title_secondary_ps || 'د چلوونکي د روغتیا کارت';
+        if (!customization.title_card_dr || customization.title_card_dr.includes('وزارت')) {
+          customization.title_card_ps = 'د چلوونکي د روغتیا کارت';
           customization.title_card_dr = 'کارت صحت راننده';
-          customization.title_card_en = customization.title_secondary_en || 'Driver\'s Health Card';
+          customization.title_card_en = 'Driver\'s Health Card';
         }
       }
       
@@ -191,8 +191,8 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .card-header-titles {
             position: absolute;
             top: 2.2mm;
-            left: 11mm; 
-            width: 31mm; /* Strictly limit width to prevent overlapping main logo */
+            left: 10.5mm; 
+            width: 34mm;
             display: flex;
             flex-direction: column;
             gap: 0.1mm;
@@ -203,7 +203,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .main-logo-container {
             position: absolute;
             top: 3.2mm;
-            left: 42.5mm; /* Changed from right positioning to fixed left to prevent anchor shift */
+            left: 42.5mm; /* Fixed position */
             width: 14mm;
             height: 14mm;
             display: flex;
@@ -219,9 +219,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .mini-logo-container {
             position: absolute;
             top: 3.5mm;
-            left: 4mm;
-            width: 6mm;
-            height: 6mm;
+            left: 3.5mm; /* Shifted slightly for balance */
+            width: 6.5mm;
+            height: 6.5mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -239,8 +239,8 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .title-card-type { 
             position: absolute;
             top: 15.2mm;
-            left: 5mm;
-            width: 33mm; /* Fixed width to ensure stability and distance from photo */
+            left: 10.5mm; /* Exactly aligned with header */
+            width: 34mm; /* Exactly aligned with header */
             height: 6.8mm;
             color: #1a365d; 
             text-align: center;
@@ -249,6 +249,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             display: flex;
             flex-direction: column;
             justify-content: center;
+            align-items: center;
             gap: 0.1mm;
             z-index: 5;
             white-space: nowrap;

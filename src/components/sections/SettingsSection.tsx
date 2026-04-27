@@ -46,10 +46,10 @@ export const SettingsSection: React.FC = () => {
         // Ensure all fields exist
         if (!parsed.regulations_ps) parsed.regulations_ps = customization.regulations_ps;
         if (!parsed.regulations_dr) parsed.regulations_dr = customization.regulations_dr;
-        if (!parsed.title_card_dr) {
-          parsed.title_card_ps = parsed.title_secondary_ps || customization.title_card_ps;
-          parsed.title_card_dr = customization.title_card_dr;
-          parsed.title_card_en = parsed.title_secondary_en || customization.title_card_en;
+        if (!parsed.title_card_dr || parsed.title_card_dr.includes('وزارت')) {
+          parsed.title_card_ps = 'د چلوونکي د روغتیا کارت';
+          parsed.title_card_dr = 'کارت صحت راننده';
+          parsed.title_card_en = 'Driver\'s Health Card';
         }
         setCustomization(parsed);
       }

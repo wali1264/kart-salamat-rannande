@@ -1,0 +1,12 @@
+{
+  "name": "okok: سامانه ملی سلامت رانندگان افغانستان (ANDHP)",
+  "description": "سیستم مدیریت سلامت و صدور کارت‌های صحی برای وزارت صحت عامه و ترافیک افغانستان.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "PWA",
+    "RTL support",
+    "Supabase Integration"
+  ]
+}

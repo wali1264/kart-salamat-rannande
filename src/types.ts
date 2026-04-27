@@ -50,8 +50,9 @@ export interface CardCustomization {
   title_primary_ps: string;
   title_primary_en: string;
   title_secondary_dr: string;
-  title_secondary_ps: string;
-  title_secondary_en: string;
+  title_card_ps: string;
+  title_card_dr: string;
+  title_card_en: string;
   footer_en: string;
   regulations_ps: string[];
   regulations_dr: string[];

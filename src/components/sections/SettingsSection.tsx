@@ -13,8 +13,9 @@ export const SettingsSection: React.FC = () => {
     title_primary_ps: 'امارت اسلامی افغانستان',
     title_primary_en: 'Islamic Emirate of Afghanistan',
     title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
-    title_secondary_ps: 'د چلوونکي د روغتیا کارت',
-    title_secondary_en: 'Driver\'s Health Card',
+    title_card_ps: 'د چلوونکي د روغتیا کارت',
+    title_card_dr: 'کارت صحت راننده',
+    title_card_en: 'Driver\'s Health Card',
     footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
     regulations_ps: [
       'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
@@ -45,6 +46,11 @@ export const SettingsSection: React.FC = () => {
         // Ensure all fields exist
         if (!parsed.regulations_ps) parsed.regulations_ps = customization.regulations_ps;
         if (!parsed.regulations_dr) parsed.regulations_dr = customization.regulations_dr;
+        if (!parsed.title_card_dr) {
+          parsed.title_card_ps = parsed.title_secondary_ps || customization.title_card_ps;
+          parsed.title_card_dr = customization.title_card_dr;
+          parsed.title_card_en = parsed.title_secondary_en || customization.title_card_en;
+        }
         setCustomization(parsed);
       }
     } catch (err) {
@@ -219,15 +225,36 @@ export const SettingsSection: React.FC = () => {
                     type="text" 
                     value={customization.title_secondary_dr}
                     onChange={(e) => updateCustomization('title_secondary_dr', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">نام کارت - پشتو (Line 5)</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_card_ps}
+                    onChange={(e) => updateCustomization('title_card_ps', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400">نام کارت (پشتو/دری)</label>
+                  <label className="text-[10px] font-bold text-slate-400">نام کارت - دری (Line 6)</label>
                   <input 
                     type="text" 
-                    value={customization.title_secondary_ps}
-                    onChange={(e) => updateCustomization('title_secondary_ps', e.target.value)}
+                    value={customization.title_card_dr}
+                    onChange={(e) => updateCustomization('title_card_dr', e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400">نام کارت - انگلیسی (Line 7)</label>
+                  <input 
+                    type="text" 
+                    value={customization.title_card_en}
+                    onChange={(e) => updateCustomization('title_card_en', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all"
                   />
                 </div>
@@ -300,8 +327,9 @@ export const SettingsSection: React.FC = () => {
                     title_primary_ps: 'امارت اسلامی افغانستان',
                     title_primary_en: 'Islamic Emirate of Afghanistan',
                     title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
-                    title_secondary_ps: 'د چلوونکي د روغتیا کارت',
-                    title_secondary_en: 'Driver\'s Health Card',
+                    title_card_ps: 'د چلوونکي د روغتیا کارت',
+                    title_card_dr: 'کارت صحت راننده',
+                    title_card_en: 'Driver\'s Health Card',
                     footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
                     regulations_ps: [
                       'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',

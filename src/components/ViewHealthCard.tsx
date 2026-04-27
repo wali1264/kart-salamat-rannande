@@ -34,8 +34,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
         title_primary_ps: 'امارت اسلامی افغانستان',
         title_primary_en: 'Islamic Emirate of Afghanistan',
         title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
-        title_secondary_ps: 'د چلوونکي د روغتیا کارت',
-        title_secondary_en: 'Driver\'s Health Card',
+        title_card_ps: 'د چلوونکي د روغتیا کارت',
+        title_card_dr: 'کارت صحت راننده',
+        title_card_en: 'Driver\'s Health Card',
         footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
         regulations_ps: [
           'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
@@ -64,6 +65,11 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
             'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
           ];
+        }
+        if (!customization.title_card_dr) {
+          customization.title_card_ps = customization.title_secondary_ps || 'د چلوونکي د روغتیا کارت';
+          customization.title_card_dr = 'کارت صحت راننده';
+          customization.title_card_en = customization.title_secondary_en || 'Driver\'s Health Card';
         }
       }
       
@@ -197,9 +203,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           .main-logo-container {
             position: absolute;
             top: 3.2mm;
-            right: 32mm; /* Shifted more to the right to clear space for text */
-            width: 13.5mm;
-            height: 13.5mm;
+            left: 42.5mm; /* Changed from right positioning to fixed left to prevent anchor shift */
+            width: 14mm;
+            height: 14mm;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -234,7 +240,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             position: absolute;
             top: 15.2mm;
             left: 5mm;
-            right: 5mm;
+            width: 33mm; /* Fixed width to ensure stability and distance from photo */
             height: 6.8mm;
             color: #1a365d; 
             text-align: center;
@@ -363,13 +369,13 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
               <div class="title-afg">${customization.title_primary_dr}</div>
               <div class="title-afg-ps">${customization.title_primary_ps}</div>
               <div class="title-en-ie">${customization.title_primary_en}</div>
-              <div style="font-size: 4.5pt; color: #1a365d; font-weight: 700; margin-top: 0.6mm; border-top: 0.1mm solid #eee; padding-top: 0.4mm; width: 100%; overflow: hidden; text-overflow: ellipsis;">${customization.title_secondary_dr}</div>
+              <div style="font-size: 4.5pt; color: #1a365d; font-weight: 700; margin-top: 0.4mm; border-top: 0.1mm solid #eee; padding-top: 0.3mm; width: 100%; overflow: hidden; text-overflow: ellipsis;">${customization.title_secondary_dr}</div>
             </div>
 
             <div class="title-card-type">
-              <div class="ps">${customization.title_secondary_ps}</div>
-              <div class="dr">${customization.title_secondary_dr.split(' / ').pop()}</div>
-              <div class="en">${customization.title_secondary_en}</div>
+              <div class="ps">${customization.title_card_ps}</div>
+              <div class="dr">${customization.title_card_dr}</div>
+              <div class="en">${customization.title_card_en}</div>
             </div>
 
             <div class="driver-photo-frame">

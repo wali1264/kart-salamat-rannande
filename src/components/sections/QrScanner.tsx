@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
+import { useSystem } from '../../contexts/SystemContext';
 
 export const QrScanner: React.FC = () => {
+  const { mode, isTeacherMode } = useSystem();
   const [loading, setLoading] = useState(false);
   const [cardData, setCardData] = useState<{ card: any, student: any } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showScanner, setShowScanner] = useState(false);
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'expired' | 'fake'>('idle');
+  const [fingerprintMode, setFingerprintMode] = useState(false);
   
   // Search states
   const [searchInput, setSearchInput] = useState('');
@@ -47,6 +50,7 @@ export const QrScanner: React.FC = () => {
         const { data: students, error: dError } = await supabase
           .from('students')
           .select(`*, health_cards(id, expiry_date)`)
+          .eq('type', mode)
           .or(`name.ilike.%${q}%,student_id_no.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%,father_name.ilike.%${q}%`)
           .limit(5);
 
@@ -55,8 +59,9 @@ export const QrScanner: React.FC = () => {
         if (q.length >= 4 && /^[a-zA-Z0-9]+$/.test(q)) {
           const { data: cards } = await supabase
             .from('health_cards')
-            .select('*, students(*)')
+            .select('*, students!inner(*)')
             .ilike('id', `${q}%`)
+            .eq('students.type', mode)
             .limit(3);
           
           if (cards) {
@@ -148,6 +153,7 @@ export const QrScanner: React.FC = () => {
       const { data: students, error: dError } = await supabase
         .from('students')
         .select('id, name')
+        .eq('type', mode)
         .or(`name.ilike.%${qClean}%,student_id_no.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%,father_name.ilike.%${qClean}%`);
 
       if (dError) throw dError;
@@ -165,8 +171,9 @@ export const QrScanner: React.FC = () => {
       if (targetStudentId) {
         const { data: cData } = await supabase
           .from('health_cards')
-          .select('*, students(*)')
+          .select('*, students!inner(*)')
           .eq('driver_id', targetStudentId)
+          .eq('students.type', mode)
           .order('created_at', { ascending: false })
           .limit(1);
         
@@ -174,7 +181,7 @@ export const QrScanner: React.FC = () => {
       }
 
       if (!card) {
-        const { data: directCard } = await supabase.from('health_cards').select('*, students(*)').limit(100);
+        const { data: directCard } = await supabase.from('health_cards').select('*, students!inner(*)').eq('students.type', mode).limit(100);
         const cardMatch = directCard?.find(c => c.id.toLowerCase().startsWith(qClean.toLowerCase()));
         if (cardMatch) card = cardMatch;
       }
@@ -203,6 +210,34 @@ export const QrScanner: React.FC = () => {
     setScanStatus('idle');
     setShowScanner(false);
     setSearchInput('');
+    setFingerprintMode(false);
+  };
+
+  const handleFingerprintSearch = async (fingerprintId: string) => {
+    if (!fingerprintId || !navigator.onLine) return;
+    
+    setLoading(true);
+    try {
+      // Search for a student who has this fingerprint ID in their fingerprints array
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .contains('fingerprints', [fingerprintId])
+        .limit(1)
+        .single();
+
+      if (error || !data) {
+        throw new Error('شاگردی با این اثر انگشت یافت نشد.');
+      }
+
+      // If found, trigger the normal verification using the student ID
+      verifyCard(data.id);
+    } catch (err: any) {
+      setError(err.message);
+      setScanStatus('fake');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -233,7 +268,7 @@ export const QrScanner: React.FC = () => {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && verifyCard(searchInput)}
-              placeholder="جستجوی پیشرفته (نام، پلاک، جواز...)"
+              placeholder={isTeacherMode ? "جستجوی استاد (نام، کد، موبایل...)" : "جستجوی شاگرد (نام، پلاک، جواز...)"}
               className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pr-11 pl-4 text-sm outline-none focus:border-blue-500 shadow-sm transition-all"
             />
             {isSearching && (
@@ -271,8 +306,8 @@ export const QrScanner: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-800 truncate text-sm mb-1">{driver.name}</h4>
                   <div className="flex gap-2 items-center">
-                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">صنف: {driver.class_name}</span>
-                    <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">نمبر اساس: {driver.student_id_no}</span>
+                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">{isTeacherMode ? 'رتبه' : 'صنف'}: {driver.class_name}</span>
+                    <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}: {driver.student_id_no}</span>
                   </div>
                 </div>
                 <div className="bg-blue-100 text-blue-600 p-2 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -284,19 +319,62 @@ export const QrScanner: React.FC = () => {
         )}
       </div>
 
-      {/* 2. Manual Scanner Toggle */}
+      {/* 2. Manual Scanner Toggles */}
       {!cardData && !error && (
-        <div className="flex justify-center mb-4">
+        <div className="flex justify-center gap-3 mb-4">
           <button 
-            onClick={() => setShowScanner(!showScanner)}
-            className={`flex items-center gap-2 px-8 py-3 rounded-full font-black text-sm transition-all shadow-md active:scale-95 ${showScanner ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-600 text-white shadow-blue-100'}`}
+            onClick={() => {
+              setShowScanner(!showScanner);
+              setFingerprintMode(false);
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 ${showScanner ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-600 text-white shadow-blue-100'}`}
           >
             {showScanner ? (
-              <><PowerOff className="w-4 h-4" /> توقف دوربین</>
+              <><PowerOff className="w-4 h-4" /> قطع کمره</>
             ) : (
-              <><Camera className="w-4 h-4" /> اسکن بارکد</>
+              <><Camera className="w-4 h-4" /> اسکن کمره</>
             )}
           </button>
+
+          <button 
+            onClick={() => {
+              setFingerprintMode(!fingerprintMode);
+              setShowScanner(false);
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 ${fingerprintMode ? 'bg-blue-600 text-white shadow-blue-100' : 'bg-white text-blue-600 border border-blue-100'}`}
+          >
+            <Fingerprint className="w-4 h-4" />
+            {fingerprintMode ? 'درحال انتظار...' : 'اسکن اثر انگشت'}
+          </button>
+        </div>
+      )}
+
+      {/* Fingerprint Active UI */}
+      {!cardData && !error && fingerprintMode && (
+        <div className="mb-6 p-10 bg-blue-50 border-2 border-dashed border-blue-200 rounded-[3rem] text-center animate-in zoom-in duration-300">
+           <div className="relative mx-auto w-24 h-24 mb-6">
+              <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping" />
+              <div className="relative bg-blue-600 w-24 h-24 rounded-full flex items-center justify-center shadow-xl">
+                 <Fingerprint className="w-12 h-12 text-white animate-pulse" />
+              </div>
+           </div>
+           <h3 className="text-xl font-black text-blue-900 mb-2">آماده شناسایی اثر انگشت</h3>
+           <p className="text-xs text-blue-600 font-bold mb-6">لطفاً انگشت خود را روی دستگاه قرار دهید</p>
+           
+           <div className="bg-white/60 p-4 rounded-2xl border border-blue-100">
+              <p className="text-[10px] text-slate-500 font-bold">دستگاه سختافزاری متصل است. سیستم منتظر داده میباشد...</p>
+           </div>
+           
+           {/* Mock simulation for development */}
+           <button 
+             onClick={() => {
+                // In a real scenario, this would come from a keyboard/USB event
+                handleFingerprintSearch('MOCK_FP_DATA');
+             }}
+             className="mt-6 text-[10px] text-blue-400 hover:text-blue-600 underline font-black"
+           >
+             شبیه‌سازی اثر کپی شده (برای توسعه)
+           </button>
         </div>
       )}
 

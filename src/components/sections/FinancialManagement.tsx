@@ -6,6 +6,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSystem } from '../../contexts/SystemContext';
 import { logActivity } from '../../lib/logger';
 
 const AFGHAN_MONTHS = [
@@ -19,6 +20,7 @@ const YEARS = Array.from({ length: 11 }, (_, i) => (1402 + i).toString());
 
 export const FinancialManagement: React.FC = () => {
   const { user } = useAuth();
+  const { mode, isTeacherMode } = useSystem();
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -45,13 +47,24 @@ export const FinancialManagement: React.FC = () => {
   useEffect(() => {
     fetchFees();
     fetchSystemSettings();
-  }, []);
+  }, [mode]);
 
   const fetchSystemSettings = async () => {
     const { data } = await supabase.from('system_settings').select('*').eq('id', '00000000-0000-0000-0000-000000000000').single();
     if (data) {
       setSystemSettings(data);
-      setTaxSettings({ threshold: data.fee_tax_threshold || 500, rate: data.fee_tax_rate || 5 });
+      if (isTeacherMode) {
+        // Teacher tax settings from system settings if they exist, or defaults
+        setTaxSettings({ 
+          threshold: data.teacher_tax_threshold || 5000, 
+          rate: data.teacher_tax_rate || 10 
+        });
+      } else {
+        setTaxSettings({ 
+          threshold: data.fee_tax_threshold || 500, 
+          rate: data.fee_tax_rate || 5 
+        });
+      }
     }
   };
 
@@ -73,7 +86,8 @@ export const FinancialManagement: React.FC = () => {
             balance_remaining,
             notes
           )
-        `);
+        `)
+        .eq('type', mode);
       
       if (error) throw error;
       setRecords(data || []);
@@ -125,7 +139,7 @@ export const FinancialManagement: React.FC = () => {
           await logActivity(
             user.email, 
             'payment', 
-            `پرداخت فیس شاگرد ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
+            `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
             { payment_id: editingPayment.id, student_id: selectedStudent.id }
           );
         }
@@ -152,7 +166,7 @@ export const FinancialManagement: React.FC = () => {
           await logActivity(
             user.email, 
             'payment', 
-            `پرداخت فیس شاگرد ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
+            `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
             { payment_id: insertData?.id, student_id: selectedStudent.id }
           );
         }
@@ -215,9 +229,9 @@ export const FinancialManagement: React.FC = () => {
   const exportToExcel = () => {
     if (!historyStudent || !historyStudent.fee_payments) return;
     const data = historyStudent.fee_payments.map((p: any) => ({
-      'نام شاگرد': historyStudent.name,
+      [isTeacherMode ? 'نام معلم' : 'نام شاگرد']: historyStudent.name,
       'ماه': p.for_month,
-      'مبلغ پرداختی': p.amount_paid,
+      [isTeacherMode ? 'حقوق پرداختی' : 'مبلغ پرداختی']: p.amount_paid,
       'مالیات': p.tax_amount,
       'مبلغ خالص': p.net_amount,
       'تاریخ پرداخت': new Date(p.payment_date).toLocaleDateString('fa-AF'),
@@ -225,7 +239,7 @@ export const FinancialManagement: React.FC = () => {
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'تاریخچه فیس');
+    XLSX.utils.book_append_sheet(workbook, worksheet, isTeacherMode ? 'تاریخچه حقوق' : 'تاریخچه فیس');
     XLSX.writeFile(workbook, `${historyStudent.name}_History.xlsx`);
   };
 
@@ -336,13 +350,13 @@ export const FinancialManagement: React.FC = () => {
             <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <h3 className="font-bold text-slate-800 flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
-                لیست شاگردان و وضعیت فیس
+                {isTeacherMode ? 'لیست معلمین و وضعیت حقوق' : 'لیست شاگردان و وضعیت فیس'}
               </h3>
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
                   type="text"
-                  placeholder="جستجوی شاگرد..."
+                  placeholder={isTeacherMode ? "جستجوی معلم..." : "جستجوی شاگرد..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="bg-white border border-slate-200 rounded-xl py-2 pr-10 pl-4 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all w-full md:w-64"
@@ -354,10 +368,10 @@ export const FinancialManagement: React.FC = () => {
               <table className="w-full text-right">
                 <thead className="sticky top-0 bg-white z-10">
                   <tr className="bg-slate-50/50 text-slate-400 text-[10px] font-bold uppercase tracking-widest border-b border-slate-100">
-                    <th className="px-6 py-4">معلومات شاگرد</th>
-                    <th className="px-6 py-4">صنف / بخش</th>
-                    <th className="px-6 py-4">فیس ماهانه</th>
-                    <th className="px-6 py-4">آخرین پرداخت</th>
+                    <th className="px-6 py-4">{isTeacherMode ? 'معلومات معلم' : 'معلومات شاگرد'}</th>
+                    <th className="px-6 py-4">{isTeacherMode ? 'رتبه / بست' : 'صنف / بخش'}</th>
+                    <th className="px-6 py-4">{isTeacherMode ? 'حقوق ماهانه' : 'فیس ماهانه'}</th>
+                    <th className="px-6 py-4">{isTeacherMode ? 'آخرین دریافتی' : 'آخرین پرداخت'}</th>
                     <th className="px-6 py-4">عملیات</th>
                   </tr>
                 </thead>

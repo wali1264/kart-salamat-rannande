@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSystem } from '../../contexts/SystemContext';
 import { 
   BarChart, 
   Bar, 
@@ -35,6 +36,7 @@ const data = [
 
 export const DashboardHome: React.FC = () => {
   const { profile } = useAuth();
+  const { mode, isTeacherMode } = useSystem();
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeCards: 0,
@@ -46,16 +48,25 @@ export const DashboardHome: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   const fetchStats = async () => {
-    const { count: studentsCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
-    const { count: cardsCount } = await supabase.from('health_cards').select('*', { count: 'exact', head: true }).eq('status', 'active');
+    const { count: studentsCount } = await supabase
+      .from('students')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', mode);
+      
+    const { count: cardsCount } = await supabase
+      .from('health_cards')
+      .select('*, students!inner(id)')
+      .eq('status', 'active')
+      .eq('students.type', mode);
     
     const oneMonthFromNow = new Date();
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
     
     const { data: expiring } = await supabase
       .from('health_cards')
-      .select('*, students(*)')
+      .select('*, students!inner(*)')
       .eq('status', 'active')
+      .eq('students.type', mode)
       .lt('expiry_date', oneMonthFromNow.toISOString())
       .limit(3);
 
@@ -108,15 +119,15 @@ export const DashboardHome: React.FC = () => {
   useEffect(() => {
     fetchStats();
     fetchActivities();
-  }, [filter, selectedDate]);
+  }, [filter, selectedDate, mode]);
 
   const getActionLabel = (action: string) => {
     switch (action) {
       case 'login': return 'ورود به سیستم';
       case 'logout': return 'خروج از سیستم';
-      case 'create_student': return 'ثبت شاگرد جدید';
-      case 'update_student': return 'ویرایش اطلاعات شاگرد';
-      case 'delete_student': return 'حذف شاگرد';
+      case 'create_student': return isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید';
+      case 'update_student': return isTeacherMode ? 'ویرایش اطلاعات معلم' : 'ویرایش اطلاعات شاگرد';
+      case 'delete_student': return isTeacherMode ? 'حذف معلم' : 'حذف شاگرد';
       case 'issue_card': return 'صدور کارت هویت';
       case 'renew_card': return 'تمدید کارت هویت';
       case 'payment': return 'ثبت پرداخت مالی';
@@ -137,8 +148,8 @@ export const DashboardHome: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
         <div className="bento-card !p-8 bg-white border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
-            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">مجموع شاگردان</span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{isTeacherMode ? 'مجموع معلمین' : 'مجموع شاگردان'}</span>
+            <div className={`w-10 h-10 rounded-xl ${isTeacherMode ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center`}>
               <Users className="w-5 h-5" />
             </div>
           </div>
@@ -150,13 +161,13 @@ export const DashboardHome: React.FC = () => {
 
         <div className="bento-card !p-8 bg-white border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
-            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">کارت‌های صادر شده</span>
+            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{isTeacherMode ? 'کارهای صادر شده معلمین' : 'کارت‌های صادر شده'}</span>
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
           <div className="text-5xl font-black text-slate-800 tracking-tighter mb-2">{stats.activeCards.toLocaleString('fa-AF')}</div>
-          <div className="text-blue-600 text-[10px] font-bold">کارت‌های هویت دارای اعتبار</div>
+          <div className="text-blue-600 text-[10px] font-bold">{isTeacherMode ? 'کارت‌های هویت دارای اعتبار معلمان' : 'کارت‌های هویت دارای اعتبار'}</div>
         </div>
 
         <div className="bento-card !p-8 bg-amber-50/30 border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow border-amber-100">

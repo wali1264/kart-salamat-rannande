@@ -25,10 +25,12 @@ import { HealthCardModal } from '../HealthCardModal';
 import { ViewHealthCard } from '../ViewHealthCard';
 import { EditDriverModal } from '../EditDriverModal';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSystem } from '../../contexts/SystemContext';
 import { logActivity } from '../../lib/logger';
 
 export const DriverList: React.FC = () => {
   const { user } = useAuth();
+  const { mode, isTeacherMode } = useSystem();
   const [drivers, setDrivers] = useState<(Driver & { health_cards: HealthCard[] })[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -43,13 +45,14 @@ export const DriverList: React.FC = () => {
 
   useEffect(() => {
     fetchDrivers();
-  }, []);
+  }, [mode]);
 
   const fetchDrivers = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from('students')
       .select('*, health_cards(*)')
+      .eq('type', mode)
       .order('created_at', { ascending: false });
 
     if (error) console.error(error);
@@ -59,7 +62,7 @@ export const DriverList: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     const driverToDelete = drivers.find(d => d.id === id);
-    if (!window.confirm('آیا از حذف این شاگرد اطمینان دارید؟')) return;
+    if (!window.confirm(`آیا از حذف این ${isTeacherMode ? 'معلم' : 'شاگرد'} اطمینان دارید؟`)) return;
     
     try {
       const { error } = await supabase
@@ -70,7 +73,7 @@ export const DriverList: React.FC = () => {
       if (error) throw error;
 
       if (user?.email && driverToDelete) {
-        await logActivity(user.email, 'delete_student', `شاگرد به نام ${driverToDelete.name} از سیستم حذف گردید.`);
+        await logActivity(user.email, 'delete_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`);
       }
 
       fetchDrivers();
@@ -95,8 +98,8 @@ export const DriverList: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">لیست شاگردان</h2>
-          <p className="text-slate-500">مدیریت شاگردان و صدور کارت هویت مکتب</p>
+          <h2 className="text-2xl font-bold text-slate-800">{isTeacherMode ? 'لیست معلمین' : 'لیست شاگردان'}</h2>
+          <p className="text-slate-500">مدیریت {isTeacherMode ? 'معلمان' : 'شاگردان'} و صدور کارت هویت مکتب</p>
         </div>
         
         <div className="flex gap-2">
@@ -124,7 +127,7 @@ export const DriverList: React.FC = () => {
             <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-2">
               <Search className="w-8 h-8 opacity-20" />
             </div>
-            <p className="font-bold text-slate-800">هیچ شاگردی یافت نشد</p>
+            <p className="font-bold text-slate-800">{isTeacherMode ? 'هیچ معلمی یافت نشد' : 'هیچ شاگردی یافت نشد'}</p>
             <p className="text-[10px] uppercase">No Match for Search Query</p>
           </div>
         ) : (
@@ -133,10 +136,10 @@ export const DriverList: React.FC = () => {
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr className="text-slate-400 font-normal">
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest text-center">وضعیت کارت</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نام شاگرد</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نام پدر</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نمبر اساس</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">صنف</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'نمبر موبایل' : 'نمبر اساس'}</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'رتبه/بست' : 'صنف'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">عملیات</th>
                 </tr>
               </thead>

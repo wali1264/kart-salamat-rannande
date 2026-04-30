@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SystemProvider, useSystem } from './contexts/SystemContext';
 import { Auth } from './components/Auth';
 import { WaitingRoom } from './components/WaitingRoom';
 import { Landing } from './components/Landing';
@@ -42,7 +43,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <SystemProvider>
+        <AppContent />
+      </SystemProvider>
     </AuthProvider>
   );
 }

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
+import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign, Fingerprint } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/utils';
 import { logActivity } from '../../lib/logger';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSystem } from '../../contexts/SystemContext';
 
 interface Props {
   onComplete: () => void;
@@ -12,6 +13,7 @@ interface Props {
 
 export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const { user } = useAuth();
+  const { mode, isTeacherMode } = useSystem();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +30,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     total_monthly_fee: '1500', // Default fee
   });
   const [photo, setPhoto] = useState<string | null>(null);
+  const [fingerprints, setFingerprints] = useState<string[]>([]);
+  const [activeFingerIndex, setActiveFingerIndex] = useState<number | null>(null);
 
   // Fetch dynamic categories from localStorage
   const [categories, setCategories] = useState<string[]>([]);
@@ -76,6 +80,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         blood_type: formData.blood_type,
         photo_url: photo || '',
         total_monthly_fee: parseFloat(formData.total_monthly_fee),
+        fingerprints: fingerprints.filter(f => f),
+        type: mode,
         // Use new specialized columns if they exist, or fallback to repurposed ones
         class_name: formData.vehicle_type, // Grade
         student_id_no: formData.license_number, // Roll Number
@@ -92,7 +98,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
 
       // Log activity
       if (user?.email) {
-        await logActivity(user.email, 'create_student', `شاگرد جدید به نام ${formData.name} ثبت گردید.`, { student_id_no: formData.license_number });
+        await logActivity(user.email, 'create_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} ثبت گردید.`, { student_id_no: formData.license_number });
       }
 
       setSuccess(true);
@@ -109,8 +115,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="mb-2">
-        <h2 className="text-2xl font-bold text-slate-800">ثبت شاگرد جدید</h2>
-        <p className="text-slate-500 text-sm">مشخصات شاگرد را طبق اسناد رسمی وارد نمایید.</p>
+        <h2 className="text-2xl font-bold text-slate-800">{isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید'}</h2>
+        <p className="text-slate-500 text-sm">{isTeacherMode ? 'مشخصات معلم را طبق اسناد رسمی وارد نمایید.' : 'مشخصات شاگرد را طبق اسناد رسمی وارد نمایید.'}</p>
       </div>
 
       {success ? (
@@ -147,7 +153,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500" />
                 </div>
                 <div className="text-center">
-                  <h4 className="font-bold text-slate-700 text-sm">تصویر شاگرد</h4>
+                  <h4 className="font-bold text-slate-700 text-sm">{isTeacherMode ? 'تصویر معلم' : 'تصویر شاگرد'}</h4>
                   <p className="text-[10px] text-slate-400 mt-1 uppercase">کلیک کنید یا عکس را بکشید (MAX 10MB)</p>
                 </div>
               </>
@@ -157,7 +163,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
           <div className="col-span-12 lg:col-span-8 bento-card space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام شاگرد</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</label>
                   <div className="relative">
                     <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -165,7 +171,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      placeholder="احمد ولی"
+                      placeholder={isTeacherMode ? "استاد محمد علی" : "احمد ولی"}
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     />
                   </div>
@@ -201,6 +207,75 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   </div>
                </div>
             </div>
+          </div>
+
+          {/* Fingerprint Section */}
+          <div className="col-span-12 bento-card bg-slate-50/50 border-slate-100 flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-100">
+                  <Fingerprint className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-800 text-sm">ثبت اثر انگشت (اختیاری)</h4>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">ثبت اطلاعات بیومتریک برای سیستم شناسایی هوشمند (روزنامچه)</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-[10px] text-emerald-600 font-black tracking-tighter">آماده اتصال دستگاه</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => setActiveFingerIndex(num - 1)}
+                  className={`flex flex-col items-center justify-center p-6 rounded-3xl border-2 transition-all relative group ${
+                    activeFingerIndex === num - 1
+                      ? 'bg-blue-50 border-blue-500 text-blue-600 shadow-inner'
+                      : fingerprints[num - 1]
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                      : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300 hover:text-slate-600'
+                  }`}
+                >
+                  <Fingerprint className={`w-10 h-10 mb-2 transition-transform group-hover:scale-110 ${fingerprints[num - 1] ? 'text-emerald-500' : ''}`} />
+                  <span className="text-[10px] font-black">انگشت {num}</span>
+                  {fingerprints[num - 1] && (
+                    <div className="absolute top-2 left-2 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white" />
+                  )}
+                  {activeFingerIndex === num - 1 && (
+                     <div className="mt-2 text-[8px] font-black animate-bounce">منتظر دستگاه...</div>
+                  )}
+                </button>
+              ))}
+            </div>
+            {activeFingerIndex !== null && (
+              <div className="bg-blue-600 text-white p-4 rounded-2xl flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center animate-spin">
+                    <Fingerprint className="w-4 h-4" />
+                  </div>
+                  <span className="text-xs font-bold">لطفاً انگشت مورد نظر را روی دستگاه قرار دهید...</span>
+                </div>
+                <button 
+                   onClick={(e) => {
+                     e.preventDefault();
+                     // Simulated Fingerprint Capture
+                     const mockFingerprint = `FP_${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+                     const newFingerprints = [...fingerprints];
+                     newFingerprints[activeFingerIndex] = mockFingerprint;
+                     setFingerprints(newFingerprints);
+                     setActiveFingerIndex(null);
+                   }}
+                   className="bg-white text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-100"
+                >
+                  شبیه‌سازی اسکن انگشت
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="col-span-12 lg:col-span-12 bento-card">
@@ -277,7 +352,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                </div>
 
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">فیس ماهانه (افغانی)</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'حقوق ماهانه (افغانی)' : 'فیس ماهانه (افغانی)'}</label>
                   <div className="relative">
                     <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -304,7 +379,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   disabled={loading}
                   className="bg-blue-900 hover:bg-blue-950 text-white font-bold py-4 px-12 rounded-xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 mr-auto"
                 >
-                  {loading ? 'در حال ثبت...' : 'ثبت شاگرد جدید +'}
+                  {loading ? 'در حال ثبت...' : isTeacherMode ? 'ثبت معلم جدید +' : 'ثبت شاگرد جدید +'}
                 </button>
             </div>
           </div>

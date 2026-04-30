@@ -20,6 +20,8 @@ export interface Driver {
   id_number: string;
   vehicle_type?: string;
   blood_type?: string;
+  fingerprints?: string[];
+  type: 'student' | 'teacher';
   created_at: string;
 }
 

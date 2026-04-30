@@ -16,6 +16,7 @@ import {
   CreditCard as FinanceIcon
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSystem } from '../contexts/SystemContext';
 import { DashboardHome } from './sections/DashboardHome';
 import { DriverRegistration } from './sections/DriverRegistration';
 import { DriverList } from './sections/DriverList';
@@ -48,6 +49,7 @@ const SectionWrapper: React.FC<{
 
 export const Landing: React.FC = () => {
   const { user, profile, signOut } = useAuth();
+  const { mode, setMode, isTeacherMode } = useSystem();
   const [activeSection, setActiveSection] = useState<Section>(user ? 'home' : 'scanner');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,9 +63,9 @@ export const Landing: React.FC = () => {
 
   const navItems = [
     { id: 'home', label: 'روزنامچه', icon: LayoutDashboard, protected: true },
-    { id: 'drivers', label: 'لیست شاگردان', icon: Users, protected: true },
-    { id: 'registration', label: 'ثبت شاگرد جدید', icon: PlusCircle, protected: true },
-    { id: 'finance', label: 'مدیریت مالی', icon: FinanceIcon, protected: true },
+    { id: 'drivers', label: isTeacherMode ? 'لیست معلمین' : 'لیست شاگردان', icon: Users, protected: true },
+    { id: 'registration', label: isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید', icon: PlusCircle, protected: true },
+    { id: 'finance', label: isTeacherMode ? 'حقوق و دستمزد' : 'مدیریت مالی', icon: FinanceIcon, protected: true },
     { id: 'scanner', label: 'اسکنر QR', icon: QrCode, protected: false },
     { id: 'settings', label: 'تنظیمات', icon: Settings, protected: true },
   ];
@@ -92,7 +94,7 @@ export const Landing: React.FC = () => {
       `}>
         <div className="h-full flex flex-col p-8">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-12 h-12 navy-gradient rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl">S</div>
+            <div className={`w-12 h-12 ${isTeacherMode ? 'emerald-gradient' : 'navy-gradient'} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl`}>{isTeacherMode ? 'T' : 'S'}</div>
             <div>
               <h1 className="font-bold text-slate-800 leading-tight text-sm">سامانه مدیریت مکاتب</h1>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">School Management System</p>
@@ -182,7 +184,7 @@ export const Landing: React.FC = () => {
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="جستجوی سریع شاگرد (نمبر تذکره، نام...)"
+                  placeholder={isTeacherMode ? "جستجوی سریع معلم (نمبر تذکره، نام...)" : "جستجوی سریع شاگرد (نمبر تذکره، نام...)"}
                   className="w-full bg-white border border-slate-200 rounded-2xl py-3 pr-11 pl-4 text-xs focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
                 />
               </div>
@@ -195,8 +197,22 @@ export const Landing: React.FC = () => {
             </form>
           </div>
 
-
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            {/* Mode Toggle Switch */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
+               <button 
+                 onClick={() => setMode('student')}
+                 className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${!isTeacherMode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+               >
+                 شاگردان
+               </button>
+               <button 
+                 onClick={() => setMode('teacher')}
+                 className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all ${isTeacherMode ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+               >
+                 معلمین
+               </button>
+            </div>
             {activeSection !== 'scanner' && (
               <>
                 <button className="p-2.5 bg-slate-50 hover:bg-slate-100 rounded-xl relative transition-colors">

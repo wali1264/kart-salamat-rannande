@@ -147,7 +147,7 @@ export const FinancialManagement: React.FC = () => {
     setSelectedMonth(p.for_month);
     setPaymentAmount(p.amount_paid.toString());
     setSelectedStudent(historyStudent);
-    // Modal will close automatically because setSelectedStudent is called
+    setHistoryStudent(null); // Close history modal to show the edit form
   };
 
   const exportToExcel = () => {
@@ -204,7 +204,13 @@ export const FinancialManagement: React.FC = () => {
   };
 
   const printHistory = () => {
+    const element = document.getElementById('printable-invoice');
+    if (!element) return;
+    
+    // Temporarily show it for printing
+    element.classList.remove('hidden');
     window.print();
+    element.classList.add('hidden');
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -691,75 +697,75 @@ export const FinancialManagement: React.FC = () => {
       </AnimatePresence>
 
       {/* Hidden Printable Invoice Section */}
-      <div id="printable-invoice" className="hidden print-only fixed inset-0 bg-white z-[9999] p-12 font-sans text-right" dir="rtl">
-        <div className="flex justify-between items-center mb-10 border-b-4 border-slate-900 pb-8">
+      <div id="printable-invoice" className="hidden print-only fixed inset-0 bg-white z-[9999] p-12 font-sans text-right" dir="rtl" style={{ backgroundColor: '#ffffff' }}>
+        <div className="flex justify-between items-center mb-10 pb-8" style={{ borderBottom: '4px solid #0f172a' }}>
           <div className="flex items-center gap-6">
             {systemSettings?.card_logo_main && (
               <img src={systemSettings.card_logo_main} alt="Logo" className="w-24 h-24 object-contain" />
             )}
             <div className="text-right">
-              <div className="text-3xl font-black text-slate-900 mb-1">{systemSettings?.card_front_text_dari || 'د افغانستان اسلامی امارت'}</div>
-              <div className="text-lg font-bold text-slate-600">{systemSettings?.card_front_text_pashto || 'امارت اسلامی افعانستان'}</div>
-              <div className="text-sm font-bold text-slate-500">{systemSettings?.card_back_text_dari || 'وزارت معارف / ریاست معارف'}</div>
+              <div className="text-3xl font-black mb-1" style={{ color: '#0f172a' }}>{systemSettings?.card_front_text_dari || 'د افغانستان اسلامی امارت'}</div>
+              <div className="text-lg font-bold" style={{ color: '#475569' }}>{systemSettings?.card_front_text_pashto || 'امارت اسلامی افعانستان'}</div>
+              <div className="text-sm font-bold" style={{ color: '#64748b' }}>{systemSettings?.card_back_text_dari || 'وزارت معارف / ریاست معارف'}</div>
             </div>
           </div>
           <div className="text-left">
-            <h1 className="text-3xl font-black text-rose-600 border-b-2 border-rose-600 inline-block mb-4 pb-1">فاکتور تصفیه فیس شاگرد</h1>
-            <p className="text-sm font-bold text-slate-500">تاریخ گزارش: {new Date().toLocaleDateString('fa-AF')}</p>
-            <p className="text-xs text-slate-400 mt-1" dir="ltr">Ref: {historyStudent?.id?.slice(0,8).toUpperCase()}</p>
+            <h1 className="text-3xl font-black inline-block mb-4 pb-1" style={{ color: '#e11d48', borderBottom: '2px solid #e11d48' }}>فاکتور تصفیه فیس شاگرد</h1>
+            <p className="text-sm font-bold" style={{ color: '#64748b' }}>تاریخ گزارش: {new Date().toLocaleDateString('fa-AF')}</p>
+            <p className="text-xs mt-1" dir="ltr" style={{ color: '#94a3b8' }}>Ref: {historyStudent?.id?.slice(0,8).toUpperCase()}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-12 mb-12 bg-slate-50 p-8 rounded-3xl border border-slate-200">
+        <div className="grid grid-cols-2 gap-12 mb-12 p-8 rounded-3xl border" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="space-y-3">
              <div className="flex gap-2">
-                <span className="font-bold text-slate-400">نام شاگرد:</span>
-                <span className="text-xl font-black text-slate-800">{historyStudent?.name}</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>نام شاگرد:</span>
+                <span className="text-xl font-black" style={{ color: '#1e293b' }}>{historyStudent?.name}</span>
              </div>
              <div className="flex gap-2 text-lg">
-                <span className="font-bold text-slate-400">نام پدر:</span>
-                <span className="font-bold text-slate-700">{historyStudent?.father_name}</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>نام پدر:</span>
+                <span className="font-bold" style={{ color: '#334155' }}>{historyStudent?.father_name}</span>
              </div>
           </div>
           <div className="space-y-3">
              <div className="flex gap-2 text-lg">
-                <span className="font-bold text-slate-400">صنف:</span>
-                <span className="font-bold text-slate-700">{historyStudent?.class_name}</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>صنف:</span>
+                <span className="font-bold" style={{ color: '#334155' }}>{historyStudent?.class_name}</span>
              </div>
              <div className="flex gap-2 text-lg">
-                <span className="font-bold text-slate-400">بخش / نمبر اساس:</span>
-                <span className="font-bold text-slate-700">{historyStudent?.license_plate} - {historyStudent?.license_number}</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>بخش / نمبر اساس:</span>
+                <span className="font-bold" style={{ color: '#334155' }}>{historyStudent?.license_plate} - {historyStudent?.license_number}</span>
              </div>
           </div>
         </div>
 
         <table className="w-full border-collapse mb-12">
           <thead>
-            <tr className="bg-slate-900 text-white text-lg">
-              <th className="border-2 border-slate-900 p-4">ماه</th>
-              <th className="border-2 border-slate-900 p-4">مبلغ پرداختی (AFN)</th>
-              <th className="border-2 border-slate-900 p-4">تاریخ پرداخت</th>
-              <th className="border-2 border-slate-900 p-4">باقی‌مانده فیس</th>
+            <tr className="text-white text-lg" style={{ backgroundColor: '#0f172a' }}>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>ماه</th>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>مبلغ پرداختی (AFN)</th>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>تاریخ پرداخت</th>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>باقی‌مانده فیس</th>
             </tr>
           </thead>
           <tbody className="text-center text-lg">
             {(historyStudent?.fee_payments || [])
               .filter((p: any) => historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter)
               .map((p: any) => (
-              <tr key={p.id} className="border-2 border-slate-900">
+              <tr key={p.id} className="border-2" style={{ borderColor: '#0f172a' }}>
                 <td className="p-4 font-black">{p.for_month}</td>
                 <td className="p-4 font-black">{p.amount_paid.toLocaleString()}</td>
                 <td className="p-4">{new Date(p.payment_date).toLocaleDateString('fa-AF')}</td>
-                <td className={`p-4 font-black ${p.balance_remaining > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                <td className="p-4 font-black" style={{ color: p.balance_remaining > 0 ? '#e11d48' : '#10b981' }}>
                   {p.balance_remaining <= 0 ? 'تسویه ' : p.balance_remaining.toLocaleString()}
                 </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-100 font-black text-2xl">
-              <td className="border-2 border-slate-900 p-5 text-right">مجموع پرداختی:</td>
-              <td colSpan={3} className="border-2 border-slate-900 p-5 text-right text-indigo-700">
+            <tr className="font-black text-2xl" style={{ backgroundColor: '#f1f5f9' }}>
+              <td className="border-2 p-5 text-right" style={{ borderColor: '#0f172a' }}>مجموع پرداختی:</td>
+              <td colSpan={3} className="border-2 p-5 text-right" style={{ borderColor: '#0f172a', color: '#4338ca' }}>
                 {historyStudent?.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} افغانی
               </td>
             </tr>
@@ -769,18 +775,18 @@ export const FinancialManagement: React.FC = () => {
         <div className="grid grid-cols-2 gap-20 mt-32 px-10">
           <div className="text-center">
             <p className="font-black text-xl mb-20">مضاء و مهر مدیریت مکتب</p>
-            <div className="w-64 h-0.5 bg-slate-900 mx-auto"></div>
+            <div className="w-64 h-0.5 mx-auto" style={{ backgroundColor: '#0f172a' }}></div>
           </div>
           <div className="text-center">
             <p className="font-black text-xl mb-20">امضاء و اثر انگشت ولی شاگرد</p>
-            <div className="w-64 h-0.5 bg-slate-900 mx-auto"></div>
+            <div className="w-64 h-0.5 mx-auto" style={{ backgroundColor: '#0f172a' }}></div>
           </div>
         </div>
 
         <div className="absolute bottom-12 left-12 right-12 text-center">
-           <div className="border-t border-slate-200 pt-6 flex justify-between items-center text-[10px] text-slate-400">
+           <div className="pt-6 flex justify-between items-center text-[10px]" style={{ borderTop: '1px solid #e2e8f0', color: '#94a3b8' }}>
              <span>زمان صدور گزارش: {new Date().toLocaleTimeString('fa-AF')}</span>
-             <span className="font-bold text-slate-500 uppercase tracking-widest">{systemSettings?.card_back_text_english || 'Islamic Emirate of Afghanistan'}</span>
+             <span className="font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>{systemSettings?.card_back_text_english || 'Islamic Emirate of Afghanistan'}</span>
              <span>صفحه ۱ از ۱</span>
            </div>
         </div>

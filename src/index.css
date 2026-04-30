@@ -14,6 +14,13 @@
     
     body {
       background: white !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    /* Target the root and its children specifically */
+    #root > *:not(.print-only) {
+      display: none !important;
     }
 
     .print-only {
@@ -23,11 +30,8 @@
       left: 0 !important;
       top: 0 !important;
       width: 100% !important;
-    }
-
-    /* Hide everything else when printing if a print-only section is active */
-    body > *:not(.print-only) {
-      display: none !important;
+      height: auto !important;
+      z-index: 99999 !important;
     }
   }
 }

@@ -150,14 +150,17 @@ export const FinancialManagement: React.FC = () => {
     setSelectedMonth(p.for_month);
     setPaymentAmount(p.amount_paid.toString());
     
-    // Critical: Close history modal first to ensure it doesn't block the view
+    // Critical: Close history modal first
     setHistoryStudent(null);
     
-    // Then select the student to trigger form visibility
-    const student = records.find(s => s.id === p.student_id);
-    if (student) {
-      setSelectedStudent(student);
-    }
+    // Use a small timeout to ensure the modal state is fully cleared before triggering the edit form
+    // This solves the issue where the edit form wouldn't open after the modal closed
+    setTimeout(() => {
+      const student = records.find(s => s.id === p.student_id);
+      if (student) {
+        setSelectedStudent(student);
+      }
+    }, 100);
   };
 
   const exportToExcel = () => {
@@ -236,9 +239,17 @@ export const FinancialManagement: React.FC = () => {
       
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       
-      // Explicitly trigger download
+      // Use Blob and URL.createObjectURL to force a real file download in most browsers
       const fileName = `Invoice_${historyStudent.name.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('fa-AF').replace(/\//g, '-')}.pdf`;
-      pdf.save(fileName);
+      const pdfBlob = pdf.output('blob');
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
 
     } catch (err) {
       console.error('PDF generation failed:', err);
@@ -255,14 +266,21 @@ export const FinancialManagement: React.FC = () => {
     const element = document.getElementById('printable-invoice');
     if (!element) return;
     
-    // We don't use classList.remove because the CSS @media print handles it,
-    // but some browsers need it to be "visible" in DOM tree to compute styles correctly
+    // Remove all hidden classes and force visibility
     element.style.display = 'block';
+    element.style.visibility = 'visible';
+    element.style.position = 'fixed';
+    element.style.top = '0';
+    element.style.left = '0';
     
-    window.print();
-    
-    // Restore state
-    element.style.display = 'none';
+    // Small delay to allow the browser to process the visual change before the print dialog opens
+    setTimeout(() => {
+      window.print();
+      // Restore state after print dialog is closed (note: print is blocking in many browsers)
+      element.style.display = 'none';
+      element.style.visibility = 'hidden';
+      element.style.position = 'fixed';
+    }, 100);
   };
 
   const deletePayment = async (paymentId: string) => {

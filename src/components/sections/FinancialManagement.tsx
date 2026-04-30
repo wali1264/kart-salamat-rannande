@@ -45,9 +45,16 @@ export const FinancialManagement: React.FC = () => {
   const [historyYearFilter, setHistoryYearFilter] = useState<string>(YEARS[0]);
 
   useEffect(() => {
-    fetchFees();
+    fetchFees(searchQuery);
     fetchSystemSettings();
-  }, [mode]);
+  }, [mode, displayLimit]);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchFees(searchQuery);
+    }, 500);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
 
   const fetchSystemSettings = async () => {
     const { data } = await supabase.from('system_settings').select('*').eq('id', '00000000-0000-0000-0000-000000000000').single();
@@ -68,11 +75,11 @@ export const FinancialManagement: React.FC = () => {
     }
   };
 
-  const fetchFees = async () => {
+  const fetchFees = async (query: string = '') => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
+      let supabaseQuery = supabase
         .from('students')
         .select(`
           *,
@@ -88,6 +95,14 @@ export const FinancialManagement: React.FC = () => {
           )
         `)
         .eq('type', mode);
+
+      if (query) {
+        supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%`);
+      }
+
+      const { data, error } = await supabaseQuery
+        .order('created_at', { ascending: false })
+        .range(0, displayLimit + 10);
       
       if (error) throw error;
       setRecords(data || []);
@@ -283,13 +298,8 @@ export const FinancialManagement: React.FC = () => {
     }
   };
 
-  const filteredStudents = records.filter(s => 
-    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.father_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.student_id_no && s.student_id_no.includes(searchQuery))
-  );
-
-  const displayedStudents = filteredStudents.slice(0, displayLimit);
+  const filteredStudents = records;
+  const displayedStudents = records;
 
   const getTotalStats = () => {
     let totalRevenue = 0;
@@ -356,10 +366,10 @@ export const FinancialManagement: React.FC = () => {
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input 
                   type="text"
-                  placeholder={isTeacherMode ? "جستجوی معلم..." : "جستجوی شاگرد..."}
+                  placeholder={isTeacherMode ? "جستجوی استاد با نام یا کد..." : "جستجوی شاگرد با نام یا نمبر اساس..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-white border border-slate-200 rounded-xl py-2 pr-10 pl-4 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all w-full md:w-64"
+                  className="bg-white border border-slate-200 rounded-xl py-2 pr-10 pl-4 text-xs outline-none focus:ring-2 focus:ring-blue-500/20 transition-all w-full md:w-64 text-right"
                 />
               </div>
             </div>

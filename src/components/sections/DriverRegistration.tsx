@@ -160,19 +160,19 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
             )}
           </label>
 
-          <div className="col-span-12 lg:col-span-8 bento-card space-y-6">
+          <div className="col-span-12 lg:col-span-8 bento-card space-y-6 text-right">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</label>
                   <div className="relative">
-                    <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 opacity-50" />
                     <input 
                       type="text" 
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
                       placeholder={isTeacherMode ? "استاد محمد علی" : "احمد ولی"}
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                     />
                   </div>
                </div>
@@ -186,12 +186,14 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.father_name}
                       onChange={(e) => setFormData({...formData, father_name: e.target.value})}
-                      placeholder="محمد علی"
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      placeholder={isTeacherMode ? "محمد علی (پدر استاد)" : "محمد علی"}
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                     />
                   </div>
                </div>
+            </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر تذکره</label>
                   <div className="relative">
@@ -202,7 +204,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       value={formData.id_number}
                       onChange={(e) => setFormData({...formData, id_number: e.target.value})}
                       placeholder="۱۰۰-XXXXXX"
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                     />
                   </div>
                </div>

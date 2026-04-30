@@ -121,9 +121,7 @@ export const SettingsSection: React.FC = () => {
       if (targetSetting === 'all' || targetSetting === 'tax') {
         updates.fee_tax_threshold = taxSettings.threshold;
         updates.fee_tax_rate = taxSettings.rate;
-        // Optionally omit these if they cause 400 errors during migration
-        updates.teacher_tax_threshold = taxSettings.teacherThreshold;
-        updates.teacher_tax_rate = taxSettings.teacherRate;
+        // Removed teacher_tax_threshold and teacher_tax_rate as they don't exist in DB schema yet
       }
 
       if (targetSetting === 'all' || targetSetting === 'cats') {

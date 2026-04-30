@@ -47,18 +47,29 @@ export const DriverList: React.FC = () => {
     fetchDrivers();
   }, [mode]);
 
-  const fetchDrivers = async () => {
+  const fetchDrivers = async (query: string = '') => {
     setLoading(true);
-    const { data, error } = await supabase
+    let supabaseQuery = supabase
       .from('students')
       .select('*, health_cards(*)')
-      .eq('type', mode)
-      .order('created_at', { ascending: false });
+      .eq('type', mode);
+
+    if (query) {
+      supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%`);
+    }
+
+    const { data, error } = await supabaseQuery
+      .order('created_at', { ascending: false })
+      .range(0, displayLimit + 20); // Fetch a bit more than limit to show "Load More"
 
     if (error) console.error(error);
     else setDrivers(data || []);
     setLoading(false);
   };
+
+  useEffect(() => {
+    fetchDrivers(search);
+  }, [mode, displayLimit]);
 
   const handleDelete = async (id: string) => {
     const driverToDelete = drivers.find(d => d.id === id);
@@ -76,7 +87,7 @@ export const DriverList: React.FC = () => {
         await logActivity(user.email, 'delete_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`);
       }
 
-      fetchDrivers();
+      fetchDrivers(search);
     } catch (err: any) {
       alert('خطا در حذف شاگرد: ' + err.message);
     }
@@ -84,13 +95,20 @@ export const DriverList: React.FC = () => {
 
   const handleSearch = (val: string) => {
     setSearch(val);
+    // Debounce or immediate search for small sets, here we can do it on change 
+    // but with server-side logic it's better to fetch on enter or after typing stop
   };
 
-  const filteredDrivers = drivers.filter(d => 
-    d.name.includes(search) || 
-    d.license_number.includes(search) || 
-    d.id_number.includes(search)
-  );
+  // We can trigger search effectively
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchDrivers(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
+
+  const filteredDrivers = drivers; // Now filtering is done server-side
 
   const displayedDrivers = filteredDrivers.slice(0, displayLimit);
 

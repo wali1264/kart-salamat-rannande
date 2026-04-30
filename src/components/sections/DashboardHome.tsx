@@ -71,7 +71,7 @@ export const DashboardHome: React.FC = () => {
     try {
       let query = supabase
         .from('activity_logs')
-        .select('*, profiles(name, email)')
+        .select('*')
         .order('created_at', { ascending: false });
 
       const today = new Date();
@@ -249,13 +249,12 @@ export const DashboardHome: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span className="font-black text-slate-800 text-sm">{getActionLabel(log.action)}</span>
                         <span className="text-[10px] text-slate-400">•</span>
-                        <span className="text-[10px] text-slate-500 font-bold">بوسیله: {log.profiles?.name || 'کاربر سیستم'}</span>
+                        <span className="text-[10px] text-slate-500 font-bold">بوسیله: {log.user_email}</span>
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium ltr">{new Date(log.created_at).toLocaleTimeString('fa-AF')}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                       <p className="text-xs text-slate-500 line-clamp-1">{log.details?.description || 'توضیحات بیشتری برای این فعالیت ثبت نشده است.'}</p>
-                       <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded-lg text-[8px] font-black">{log.profiles?.email}</span>
+                       <p className="text-xs text-slate-500 line-clamp-1">{log.details || 'توضیحات بیشتری ثبت نشده است.'}</p>
                     </div>
                   </div>
                 </div>

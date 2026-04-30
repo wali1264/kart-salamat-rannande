@@ -51,9 +51,9 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
 
       if (error) throw error;
       
-      if (profile) {
+      if (profile?.email) {
         await logActivity(
-          profile.id, 
+          profile.email, 
           isRenewal ? 'renew_card' : 'issue_card', 
           `کارت هویت برای شاگرد ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
           { driver_id: driver.id }

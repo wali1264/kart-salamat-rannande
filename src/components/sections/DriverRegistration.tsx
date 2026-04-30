@@ -91,8 +91,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
       if (insertError) throw insertError;
 
       // Log activity
-      if (user) {
-        await logActivity(user.id, 'create_student', `شاگرد جدید به نام ${formData.name} ثبت گردید.`, { student_id_no: formData.license_number });
+      if (user?.email) {
+        await logActivity(user.email, 'create_student', `شاگرد جدید به نام ${formData.name} ثبت گردید.`, { student_id_no: formData.license_number });
       }
 
       setSuccess(true);

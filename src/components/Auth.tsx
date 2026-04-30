@@ -24,8 +24,8 @@ export const Auth: React.FC = () => {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
-        if (data.user) {
-          await logActivity(data.user.id, 'login', 'کاربر وارد سیستم شد.');
+        if (data.user?.email) {
+          await logActivity(data.user.email, 'login', 'کاربر وارد سیستم شد.');
         }
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({ 

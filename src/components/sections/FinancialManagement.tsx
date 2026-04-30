@@ -121,9 +121,9 @@ export const FinancialManagement: React.FC = () => {
 
         if (error) throw error;
 
-        if (user) {
+        if (user?.email) {
           await logActivity(
-            user.id, 
+            user.email, 
             'payment', 
             `پرداخت فیس شاگرد ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
             { payment_id: editingPayment.id, student_id: selectedStudent.id }
@@ -148,9 +148,9 @@ export const FinancialManagement: React.FC = () => {
 
         if (error) throw error;
 
-        if (user) {
+        if (user?.email) {
           await logActivity(
-            user.id, 
+            user.email, 
             'payment', 
             `پرداخت فیس شاگرد ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
             { payment_id: insertData?.id, student_id: selectedStudent.id }

@@ -69,8 +69,8 @@ export const DriverList: React.FC = () => {
       
       if (error) throw error;
 
-      if (user && driverToDelete) {
-        await logActivity(user.id, 'delete_student', `شاگرد به نام ${driverToDelete.name} از سیستم حذف گردید.`);
+      if (user?.email && driverToDelete) {
+        await logActivity(user.email, 'delete_student', `شاگرد به نام ${driverToDelete.name} از سیستم حذف گردید.`);
       }
 
       fetchDrivers();

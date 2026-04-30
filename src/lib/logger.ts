@@ -12,7 +12,7 @@ export type LogAction =
   | 'system_update';
 
 export const logActivity = async (
-  userId: string, 
+  userEmail: string, 
   action: LogAction, 
   description: string, 
   details: any = {}
@@ -20,12 +20,9 @@ export const logActivity = async (
   try {
     const { error } = await supabase.from('activity_logs').insert([
       {
-        user_id: userId,
+        user_email: userEmail,
         action,
-        details: {
-          description,
-          ...details
-        }
+        details: description // Storing the main description in the details column as seen in screenshot
       }
     ]);
 

@@ -88,8 +88,8 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
 
       if (updateError) throw updateError;
 
-      if (user) {
-        await logActivity(user.id, 'update_student', `مشخصات شاگرد به نام ${formData.name} بروزرسانی گردید.`);
+      if (user?.email) {
+        await logActivity(user.email, 'update_student', `مشخصات شاگرد به نام ${formData.name} بروزرسانی گردید.`);
       }
 
       setSuccess(true);

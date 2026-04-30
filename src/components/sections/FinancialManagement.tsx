@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer } from 'lucide-react';
+import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const AFGHAN_MONTHS = [
   'حمل (Hamal)', 'ثور (Sawr)', 'جوزا (Jawza)', 
@@ -18,6 +21,7 @@ export const FinancialManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [historyStudent, setHistoryStudent] = useState<any | null>(null);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(AFGHAN_MONTHS[0]);
   const [processing, setProcessing] = useState(false);
@@ -85,29 +89,103 @@ export const FinancialManagement: React.FC = () => {
     const netAmount = amount - tax;
 
     try {
-      const { error } = await supabase
-        .from('fee_payments')
-        .insert([{
-          student_id: selectedStudent.id,
-          amount_paid: amount,
-          tax_amount: tax,
-          net_amount: netAmount,
-          for_month: selectedMonth,
-          payment_date: new Date().toISOString(),
-          payment_method: 'نقدی',
-          balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
-        }]);
+      if (editingPayment) {
+        // Update existing record
+        const { error } = await supabase
+          .from('fee_payments')
+          .update({
+            amount_paid: amount,
+            tax_amount: tax,
+            net_amount: netAmount,
+            for_month: selectedMonth,
+            balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
+          })
+          .eq('id', editingPayment.id);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from('fee_payments')
+          .insert([{
+            student_id: selectedStudent.id,
+            amount_paid: amount,
+            tax_amount: tax,
+            net_amount: netAmount,
+            for_month: selectedMonth,
+            payment_date: new Date().toISOString(),
+            payment_method: 'نقدی',
+            balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
+          }]);
+
+        if (error) throw error;
+      }
       
       setPaymentAmount('');
       setSelectedStudent(null);
+      setEditingPayment(null);
       fetchFees();
     } catch (err) {
-      console.error('Error recording payment:', err);
+      console.error('Error processing payment:', err);
+      alert('خطا در ثبت اطلاعات. لطفا دوباره تلاش کنید.');
     } finally {
       setProcessing(false);
     }
+  };
+
+  const startEditing = (p: any) => {
+    setEditingPayment(p);
+    setSelectedMonth(p.for_month);
+    setPaymentAmount(p.amount_paid.toString());
+    setSelectedStudent(historyStudent);
+    // Modal will close automatically because setSelectedStudent is called
+  };
+
+  const exportToExcel = () => {
+    if (!historyStudent || !historyStudent.fee_payments) return;
+    const data = historyStudent.fee_payments.map((p: any) => ({
+      'نام شاگرد': historyStudent.name,
+      'ماه': p.for_month,
+      'مبلغ پرداختی': p.amount_paid,
+      'مالیات': p.tax_amount,
+      'مبلغ خالص': p.net_amount,
+      'تاریخ پرداخت': new Date(p.payment_date).toLocaleDateString('fa-AF'),
+      'باقی‌مانده': p.balance_remaining
+    }));
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'تاریخچه فیس');
+    XLSX.writeFile(workbook, `${historyStudent.name}_History.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    if (!historyStudent || !historyStudent.fee_payments) return;
+    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    
+    doc.addFont('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf', 'Roboto', 'normal');
+    doc.setFont('Roboto');
+    
+    doc.text(`Financial Report: ${historyStudent.name}`, 14, 20);
+    doc.text(`Class: ${historyStudent.class_name}`, 14, 30);
+    
+    const tableData = historyStudent.fee_payments.map((p: any) => [
+      p.for_month,
+      p.amount_paid.toLocaleString(),
+      new Date(p.payment_date).toLocaleDateString('fa-AF'),
+      p.balance_remaining.toLocaleString()
+    ]);
+
+    (doc as any).autoTable({
+      startY: 40,
+      head: [['Month', 'Paid (AFN)', 'Date', 'Balance']],
+      body: tableData,
+    });
+
+    doc.save(`${historyStudent.name}_Report.pdf`);
+  };
+
+  const printHistory = () => {
+    window.print();
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -321,9 +399,9 @@ export const FinancialManagement: React.FC = () => {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-slate-800 flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-blue-600" />
-                    ثبت فیس جدید
+                    {editingPayment ? 'ویرایش فیس قبلی' : 'ثبت فیس جدید'}
                   </h3>
-                  <button onClick={() => setSelectedStudent(null)} className="bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 p-2 rounded-xl transition-colors">
+                  <button onClick={() => { setSelectedStudent(null); setEditingPayment(null); setPaymentAmount(''); }} className="bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 p-2 rounded-xl transition-colors">
                      <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -403,7 +481,7 @@ export const FinancialManagement: React.FC = () => {
                     ) : (
                       <>
                         <CheckCircle2 className="w-6 h-6" />
-                        تایید و ثبت نهایی پرداخت
+                        {editingPayment ? 'بروزرسانی تغییرات' : 'تایید و ثبت نهایی پرداخت'}
                       </>
                     )}
                   </button>
@@ -444,75 +522,81 @@ export const FinancialManagement: React.FC = () => {
               initial={{ opacity: 0, y: 100, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 100, scale: 0.95 }}
-              className="relative w-full max-w-5xl bg-white rounded-[3.5rem] shadow-3xl overflow-hidden flex flex-col max-h-[92vh] border border-white"
+              className="relative w-full max-w-5xl bg-white rounded-[2rem] md:rounded-[3.5rem] shadow-3xl overflow-hidden flex flex-col max-h-[92vh] border border-white"
             >
               {/* Modal Header */}
-              <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
-                 <div className="flex items-center gap-6">
-                    <div className="relative">
-                      <div className="w-20 h-20 rounded-[1.8rem] bg-indigo-600 text-white flex items-center justify-center text-3xl font-black shadow-2xl shadow-indigo-100 overflow-hidden ring-4 ring-white">
+              <div className="p-6 md:p-10 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8">
+                 <div className="flex items-center gap-4 md:gap-6">
+                    <div className="relative shrink-0">
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-[1.4rem] md:rounded-[1.8rem] bg-indigo-600 text-white flex items-center justify-center text-3xl font-black shadow-2xl shadow-indigo-100 overflow-hidden ring-4 ring-white">
                         {historyStudent.photo_url ? <img src={historyStudent.photo_url} className="w-full h-full object-cover" /> : historyStudent.name.charAt(0)}
                       </div>
-                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                         <ShieldCheck className="w-4 h-4" />
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 md:w-8 md:h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                         <ShieldCheck className="w-3 md:w-4 h-3 md:h-4" />
                       </div>
                     </div>
                     <div className="text-right">
-                       <h3 className="text-3xl font-black text-slate-800 leading-tight">تاریخچه تخصصی مالی</h3>
-                       <p className="text-slate-500 font-bold text-sm mt-1">شاگرد: {historyStudent.name} / صنف {historyStudent.class_name}</p>
+                       <h3 className="text-xl md:text-3xl font-black text-slate-800 leading-tight">تاریخچه تخصصی مالی</h3>
+                       <p className="text-slate-500 font-bold text-[10px] md:text-sm mt-1">شاگرد: {historyStudent.name} / صنف {historyStudent.class_name}</p>
                     </div>
                  </div>
-                 <div className="flex items-center gap-3">
-                    <button className="p-4 bg-white text-slate-400 hover:text-blue-600 border border-slate-100 rounded-[1.2rem] shadow-sm transition-all hover:shadow-md active:scale-90">
-                       <Printer className="w-6 h-6" />
-                    </button>
+                 <div className="flex items-center gap-2">
+                    <div className="flex bg-white rounded-2xl border border-slate-100 p-1 shadow-sm">
+                      <button onClick={exportToPDF} className="p-2.5 md:p-3 text-slate-400 hover:text-rose-500 transition-colors" title="Download PDF">
+                         <FileText className="w-5 h-5" />
+                      </button>
+                      <button onClick={exportToExcel} className="p-2.5 md:p-3 text-slate-400 hover:text-emerald-500 transition-colors" title="Download Excel">
+                         <Table className="w-5 h-5" />
+                      </button>
+                      <button onClick={printHistory} className="p-2.5 md:p-3 text-slate-400 hover:text-blue-600 transition-colors" title="Print History">
+                         <Printer className="w-5 h-5" />
+                      </button>
+                    </div>
                     <button 
                       onClick={() => setHistoryStudent(null)}
-                      className="p-4 bg-white text-slate-400 hover:text-rose-600 border border-slate-100 rounded-[1.2rem] shadow-sm transition-all hover:shadow-md active:scale-95 ml-2"
+                      className="p-3 md:p-4 bg-white text-slate-400 hover:text-rose-600 border border-slate-100 rounded-[1.2rem] shadow-sm transition-all hover:shadow-md active:scale-95"
                     >
-                       <X className="w-6 h-6" />
+                       <X className="w-5 md:w-6 h-5 md:h-6" />
                     </button>
                  </div>
               </div>
 
               {/* Filter Bar */}
-              <div className="px-10 py-6 bg-slate-50/30 border-b border-slate-100 flex flex-wrap items-center gap-6">
-                 <div className="flex items-center gap-4 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm ring-1 ring-slate-50">
-                    <Filter className="w-4 h-4 text-slate-400" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">فیلتر ماه:</span>
+              <div className="px-6 md:px-10 py-4 md:py-6 bg-slate-50/30 border-b border-slate-100 flex flex-wrap items-center gap-4 md:gap-6">
+                 <div className="flex items-center gap-4 bg-white px-5 py-2.5 rounded-2xl border border-slate-100 shadow-sm ring-1 ring-slate-50">
+                    <Filter className="w-3.5 h-3.5 text-slate-400" />
                     <select 
                       value={historyMonthFilter}
                       onChange={(e) => setHistoryMonthFilter(e.target.value)}
-                      className="bg-transparent text-xs font-black text-slate-800 outline-none cursor-pointer rtl"
+                      className="bg-transparent text-[11px] font-black text-slate-800 outline-none cursor-pointer rtl"
                     >
                       <option value="همه ماه ها">همه ماه ها</option>
                       {AFGHAN_MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                  </div>
 
-                 <div className="flex items-center gap-4 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm ring-1 ring-slate-50">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">انتخاب سال:</span>
+                 <div className="flex items-center gap-4 bg-white px-5 py-2.5 rounded-2xl border border-slate-100 shadow-sm ring-1 ring-slate-50">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
                     <select 
                       value={historyYearFilter}
                       onChange={(e) => setHistoryYearFilter(e.target.value)}
-                      className="bg-transparent text-xs font-black text-slate-800 outline-none cursor-pointer rtl"
+                      className="bg-transparent text-[11px] font-black text-slate-800 outline-none cursor-pointer rtl"
                     >
                       {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                  </div>
 
-                 <div className="mr-auto grid grid-cols-2 gap-3 text-right">
-                    <div className="px-5 py-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 flex flex-col items-center min-w-[120px]">
-                       <span className="text-[8px] font-black uppercase opacity-60">کل پرداختی</span>
-                       <span className="text-sm font-black">{historyStudent.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} <span className="text-[9px] font-normal opacity-50">AFN</span></span>
+                 <div className="mr-auto hidden sm:flex items-center gap-3">
+                    <div className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 flex flex-col items-center">
+                       <span className="text-[7px] font-black uppercase opacity-60">کل پرداختی</span>
+                       <span className="text-xs font-black">{historyStudent.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} <span className="text-[9px] font-normal opacity-50">AFN</span></span>
                     </div>
                  </div>
               </div>
 
               {/* Transactions List */}
-              <div className="flex-1 overflow-y-auto p-10 bg-white">
-                 <div className="space-y-6">
+              <div className="flex-1 overflow-y-auto p-6 md:p-10 bg-white">
+                 <div className="space-y-4 md:space-y-6">
                     {historyStudent.fee_payments && historyStudent.fee_payments
                       .filter((p: any) => historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter)
                       .sort((a: any, b: any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
@@ -520,63 +604,51 @@ export const FinancialManagement: React.FC = () => {
                         <motion.div 
                           layout
                           key={p.id}
-                          className="group bg-slate-50/50 hover:bg-white rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden"
+                          className="group bg-slate-50/50 hover:bg-white rounded-[1.8rem] md:rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all p-5 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8 relative overflow-hidden"
                         >
-                           <div className="absolute left-0 top-0 bottom-0 w-2 bg-slate-200 group-hover:bg-blue-600 transition-colors" />
-                           <div className="flex items-center gap-6">
-                              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
-                                 <DollarSign className="w-7 h-7" />
+                           <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-slate-200 group-hover:bg-blue-600 transition-colors" />
+                           <div className="flex items-center gap-4 md:gap-6">
+                              <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100 group-hover:scale-110 transition-transform shrink-0">
+                                 <DollarSign className="w-6 h-6 md:w-7 md:h-7" />
                               </div>
                               <div className="text-right">
-                                 <div className="flex items-center gap-3 mb-1">
-                                    <h4 className="text-2xl font-black text-slate-800">{p.amount_paid.toLocaleString()} AFN</h4>
-                                    <span className="px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[10px] font-black">بابت ماه {p.for_month}</span>
+                                 <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1">
+                                    <h4 className="text-xl md:text-2xl font-black text-slate-800">{p.amount_paid.toLocaleString()} AFN</h4>
+                                    <span className="px-2.5 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] md:text-[10px] font-black">ماه {p.for_month.split(' ')[0]}</span>
                                  </div>
-                                 <div className="flex items-center gap-4 text-slate-400 text-[11px] font-bold">
-                                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(p.payment_date).toLocaleDateString('fa-AF')}</span>
+                                 <div className="flex items-center gap-4 text-slate-400 text-[10px] md:text-[11px] font-bold">
+                                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3 md:w-3.5 md:h-3.5" /> {new Date(p.payment_date).toLocaleDateString('fa-AF')}</span>
                                  </div>
                               </div>
                            </div>
 
-                           <div className="flex items-center gap-10">
-                              <div className="text-right min-w-[100px]">
-                                 <p className="text-[10px] font-black text-slate-400 uppercase mb-1">باقی‌مانده فیس</p>
-                                 <p className={`text-lg font-black ${p.balance_remaining <= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>
-                                    {p.balance_remaining <= 0 ? 'تسویه کامل' : `${p.balance_remaining.toLocaleString()} AFN`}
+                           <div className="flex items-center justify-between md:justify-end gap-6 md:gap-10 border-t md:border-t-0 md:border-r border-slate-100 pt-4 md:pt-0 md:pr-6">
+                              <div className="text-right">
+                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5 md:mb-1">باقی‌مانده فیس</p>
+                                 <p className={`text-md md:text-lg font-black ${p.balance_remaining <= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>
+                                    {p.balance_remaining <= 0 ? 'تسویه ' : `${p.balance_remaining.toLocaleString()} AFN`}
                                  </p>
                               </div>
-                              <div className="flex items-center gap-2 pr-6 border-r border-slate-100">
+                              <div className="flex items-center gap-2">
+                                 <button 
+                                  onClick={() => startEditing(p)}
+                                  className="p-2.5 md:p-3 bg-blue-50 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl md:rounded-2xl transition-all border border-blue-100 shadow-sm active:scale-90"
+                                  title="ویرایش تراکنش"
+                                 >
+                                    <Edit3 className="w-4 md:w-5 h-4 md:h-5" />
+                                 </button>
                                  <button 
                                   onClick={() => deletePayment(p.id)}
-                                  className="p-3 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white rounded-2xl transition-all border border-rose-100 shadow-sm active:scale-90"
+                                  className="p-2.5 md:p-3 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white rounded-xl md:rounded-2xl transition-all border border-rose-100 shadow-sm active:scale-90"
                                   title="حذف دائمی تراکنش"
                                  >
-                                    <Trash2 className="w-5 h-5" />
+                                    <Trash2 className="w-4 md:w-5 h-4 md:h-5" />
                                  </button>
                               </div>
                            </div>
                         </motion.div>
                       ))}
                  </div>
-              </div>
-
-              {/* Footer Modal Action */}
-              <div className="p-8 bg-slate-900 flex items-center justify-between rounded-t-[3rem]">
-                 <div className="flex items-center gap-4 text-right">
-                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white">
-                       <Info className="w-6 h-6" />
-                    </div>
-                    <div>
-                       <p className="text-white font-black">سیستم مدیریت مالی</p>
-                       <p className="text-slate-400 text-[10px] font-bold">تمامی تراکنش‌ها با رعایت استندردهای مالی امارت ثبت می‌شوند.</p>
-                    </div>
-                 </div>
-                 <button 
-                  onClick={() => setHistoryStudent(null)}
-                  className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-500/20 active:scale-95"
-                 >
-                    بستن تاریخچه
-                 </button>
               </div>
             </motion.div>
           </div>

@@ -222,6 +222,7 @@ export const QrScanner: React.FC = () => {
       const { data, error } = await supabase
         .from('students')
         .select('*')
+        .eq('type', mode)
         .contains('fingerprints', [fingerprintId])
         .limit(1)
         .single();

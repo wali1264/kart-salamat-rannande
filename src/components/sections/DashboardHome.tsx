@@ -154,15 +154,15 @@ export const DashboardHome: React.FC = () => {
             </div>
           </div>
           <div className="text-5xl font-black text-slate-800 tracking-tighter mb-2">{stats.totalStudents.toLocaleString('fa-AF')}</div>
-          <div className="text-emerald-600 text-[10px] font-bold flex items-center gap-1">
-            <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید در سیستم
+          <div className={`${isTeacherMode ? 'text-emerald-600' : 'text-blue-600'} text-[10px] font-bold flex items-center gap-1`}>
+            <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید {isTeacherMode ? 'اساتید' : 'شاگردان'}
           </div>
         </div>
 
         <div className="bento-card !p-8 bg-white border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
-            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{isTeacherMode ? 'کارهای صادر شده معلمین' : 'کارت‌های صادر شده'}</span>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{isTeacherMode ? 'کارت‌های صادر شده معلمین' : 'کارت‌های صادر شده'}</span>
+            <div className={`w-10 h-10 rounded-xl ${isTeacherMode ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center`}>
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>

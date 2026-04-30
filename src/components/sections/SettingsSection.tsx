@@ -34,7 +34,9 @@ export const SettingsSection: React.FC = () => {
   const [taxSettings, setTaxSettings] = useState({
     threshold: 500,
     rate: 5,
-    enabled: true
+    enabled: true,
+    teacherThreshold: 5000,
+    teacherRate: 10
   });
 
   const [categories, setCategories] = useState(['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم']);
@@ -75,7 +77,9 @@ export const SettingsSection: React.FC = () => {
         setTaxSettings({
           threshold: data.fee_tax_threshold || 500,
           rate: data.fee_tax_rate || 5,
-          enabled: true
+          enabled: true,
+          teacherThreshold: data.teacher_tax_threshold || 5000,
+          teacherRate: data.teacher_tax_rate || 10
         });
 
         if (data.student_categories) {
@@ -102,6 +106,8 @@ export const SettingsSection: React.FC = () => {
         school_name_dept: newCustom.title_secondary_en || '',
         fee_tax_threshold: newTax?.threshold ?? taxSettings.threshold,
         fee_tax_rate: newTax?.rate ?? taxSettings.rate,
+        teacher_tax_threshold: newTax?.teacherThreshold ?? taxSettings.teacherThreshold,
+        teacher_tax_rate: newTax?.teacherRate ?? taxSettings.teacherRate,
         student_categories: newCats ?? categories,
         updated_at: new Date().toISOString()
       };
@@ -466,7 +472,7 @@ export const SettingsSection: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">سقف معافیت مالیاتی (افغانی)</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">سقف معافیت مالیاتی شاگردان (افغانی)</label>
                       <div className="relative">
                         <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input 
@@ -476,11 +482,10 @@ export const SettingsSection: React.FC = () => {
                           className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pr-12 pl-6 text-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
                         />
                       </div>
-                      <p className="text-[10px] text-slate-400 italic">مبالغ فیس تا {taxSettings.threshold} افغانی شامل مالیات نمی‌شوند.</p>
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">درصد مالیات (Percentage)</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">درصد مالیات شاگردان</label>
                       <div className="relative">
                         <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-slate-400">%</span>
                         <input 
@@ -490,7 +495,32 @@ export const SettingsSection: React.FC = () => {
                           className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pr-12 pl-6 text-xl font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
                         />
                       </div>
-                      <p className="text-[10px] text-slate-400 italic">درصد مالیات برای مبالغ مازاد بر سقف تعیین شده.</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">سقف معافیت مالیاتی اساتید (افغانی)</label>
+                      <div className="relative">
+                        <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
+                        <input 
+                          type="number" 
+                          value={taxSettings.teacherThreshold}
+                          onChange={(e) => updateTaxSettings({ teacherThreshold: parseFloat(e.target.value) })}
+                          className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pr-12 pl-6 text-xl font-bold text-slate-800 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">درصد مالیات اساتید</label>
+                      <div className="relative">
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold text-emerald-400">%</span>
+                        <input 
+                          type="number" 
+                          value={taxSettings.teacherRate}
+                          onChange={(e) => updateTaxSettings({ teacherRate: parseFloat(e.target.value) })}
+                          className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 pr-12 pl-6 text-xl font-bold text-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none transition-all"
+                        />
+                      </div>
                     </div>
                   </div>
 

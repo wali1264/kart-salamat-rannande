@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table } from 'lucide-react';
+import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 const AFGHAN_MONTHS = [
@@ -19,6 +19,7 @@ export const FinancialManagement: React.FC = () => {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [displayLimit, setDisplayLimit] = useState(5);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [historyStudent, setHistoryStudent] = useState<any | null>(null);
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
@@ -160,28 +161,30 @@ export const FinancialManagement: React.FC = () => {
 
   const exportToPDF = () => {
     if (!historyStudent || !historyStudent.fee_payments) return;
-    const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const doc = new jsPDF();
     
-    doc.addFont('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf', 'Roboto', 'normal');
-    doc.setFont('Roboto');
+    doc.text(`School Management System - Financial Report`, 14, 15);
+    doc.text(`Student: ${historyStudent.name} / Class: ${historyStudent.class_name}`, 14, 25);
     
-    doc.text(`Financial Report: ${historyStudent.name}`, 14, 20);
-    doc.text(`Class: ${historyStudent.class_name}`, 14, 30);
-    
-    const tableData = historyStudent.fee_payments.map((p: any) => [
+    const filteredPayments = historyStudent.fee_payments
+      .filter((p: any) => (historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter));
+
+    const tableData = filteredPayments.map((p: any) => [
       p.for_month,
       p.amount_paid.toLocaleString(),
       new Date(p.payment_date).toLocaleDateString('fa-AF'),
       p.balance_remaining.toLocaleString()
     ]);
 
-    (doc as any).autoTable({
-      startY: 40,
-      head: [['Month', 'Paid (AFN)', 'Date', 'Balance']],
+    autoTable(doc, {
+      startY: 35,
+      head: [['Month', 'Amount (AFN)', 'Date', 'Remaining']],
       body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [79, 70, 229] },
     });
 
-    doc.save(`${historyStudent.name}_Report.pdf`);
+    doc.save(`Invoice_${historyStudent.name}.pdf`);
   };
 
   const printHistory = () => {
@@ -204,6 +207,8 @@ export const FinancialManagement: React.FC = () => {
     s.father_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.student_id_no && s.student_id_no.includes(searchQuery))
   );
+
+  const displayedStudents = filteredStudents.slice(0, displayLimit);
 
   const getTotalStats = () => {
     let totalRevenue = 0;
@@ -290,7 +295,7 @@ export const FinancialManagement: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {filteredStudents.map(student => {
+                  {displayedStudents.map(student => {
                     const payments = student.fee_payments || [];
                     const lastPayment = payments.length > 0 
                       ? [...payments].sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0]
@@ -348,6 +353,7 @@ export const FinancialManagement: React.FC = () => {
                       </tr>
                     );
                   })}
+                  
                   {error && (
                     <tr>
                       <td colSpan={5} className="py-20 text-center">
@@ -383,6 +389,19 @@ export const FinancialManagement: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination / Load More */}
+            {displayLimit < filteredStudents.length && (
+              <div className="p-6 border-t border-slate-50 text-center print:hidden">
+                <button 
+                  onClick={() => setDisplayLimit(prev => prev + 5)}
+                  className="px-8 py-3 bg-slate-50 hover:bg-white text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 hover:shadow-md active:scale-95 flex items-center gap-2 mx-auto"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  نمایش موارد بیشتر ({filteredStudents.length - displayLimit})
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -654,6 +673,74 @@ export const FinancialManagement: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Hidden Printable Invoice Section */}
+      <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-10 font-sans text-right" dir="rtl">
+        <div className="flex justify-between items-start mb-10 border-b-2 border-slate-900 pb-6">
+          <div className="text-3xl font-black text-slate-900">سامانه مدیریت مالی مکتب</div>
+          <div className="text-left">
+            <p className="font-bold underline">فاکتور تصفیه فیس شاگرد</p>
+            <p className="text-sm mt-1">تاریخ گزارش: {new Date().toLocaleDateString('fa-AF')}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-10 mb-10 text-lg">
+          <div className="space-y-2">
+            <p><span className="font-bold">نام شاگرد:</span> {historyStudent?.name}</p>
+            <p><span className="font-bold">نام پدر:</span> {historyStudent?.father_name}</p>
+          </div>
+          <div className="space-y-2">
+            <p><span className="font-bold">صنف:</span> {historyStudent?.class_name}</p>
+            <p><span className="font-bold">بخش:</span> {historyStudent?.license_plate}</p>
+          </div>
+        </div>
+
+        <table className="w-full border-collapse border border-slate-900 mb-10">
+          <thead>
+            <tr className="bg-slate-100 font-bold border-b border-slate-900">
+              <th className="border border-slate-900 p-3">ماه</th>
+              <th className="border border-slate-900 p-3">مبلغ پرداختی (AFN)</th>
+              <th className="border border-slate-900 p-3">تاریخ پرداخت</th>
+              <th className="border border-slate-900 p-3">باقی‌مانده</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(historyStudent?.fee_payments || [])
+              .filter((p: any) => historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter)
+              .map((p: any) => (
+              <tr key={p.id} className="border-b border-slate-900">
+                <td className="border border-slate-900 p-3 text-center">{p.for_month}</td>
+                <td className="border border-slate-900 p-3 text-center">{p.amount_paid.toLocaleString()}</td>
+                <td className="border border-slate-900 p-3 text-center">{new Date(p.payment_date).toLocaleDateString('fa-AF')}</td>
+                <td className="border border-slate-900 p-3 text-center">{p.balance_remaining.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-slate-50 font-black">
+              <td className="border border-slate-900 p-3 text-right">مجموع پرداختی:</td>
+              <td colSpan={3} className="border border-slate-900 p-3 text-right">
+                {historyStudent?.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} افغانی
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div className="mt-20 flex justify-between px-10">
+          <div className="text-center">
+            <p className="font-bold underline pb-10">امضاء و مهر مدیریت</p>
+            <div className="w-40 h-1 bg-slate-900 mx-auto"></div>
+          </div>
+          <div className="text-center">
+            <p className="font-bold underline pb-10">امضاء ولی شاگرد</p>
+            <div className="w-40 h-1 bg-slate-900 mx-auto"></div>
+          </div>
+        </div>
+
+        <div className="mt-20 text-[10px] text-slate-500 text-center border-t pt-4">
+          این گزارش توسط سیستم مدیریت هوشمند مکتب تولید شده است و به عنوان رسید رسمی معتبر می‌باشد.
+        </div>
+      </div>
     </div>
   );
 };

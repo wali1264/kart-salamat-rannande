@@ -16,7 +16,8 @@ import {
   QrCode,
   Trash2,
   Edit,
-  Printer
+  Printer,
+  ChevronDown
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { Driver, HealthCard } from '../../types';
@@ -28,6 +29,7 @@ export const DriverList: React.FC = () => {
   const [drivers, setDrivers] = useState<(Driver & { health_cards: HealthCard[] })[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [displayLimit, setDisplayLimit] = useState(5);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [selectedCard, setSelectedCard] = useState<HealthCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -77,6 +79,8 @@ export const DriverList: React.FC = () => {
     d.license_number.includes(search) || 
     d.id_number.includes(search)
   );
+
+  const displayedDrivers = filteredDrivers.slice(0, displayLimit);
 
   return (
     <div className="space-y-6">
@@ -128,7 +132,7 @@ export const DriverList: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredDrivers.map((driver) => {
+                {displayedDrivers.map((driver) => {
                   const activeCard = driver.health_cards?.find(c => c.status === 'active');
                   const isExpired = activeCard && new Date(activeCard.expiry_date) < new Date();
                   
@@ -213,6 +217,19 @@ export const DriverList: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Pagination / Load More */}
+      {!loading && displayLimit < filteredDrivers.length && (
+        <div className="flex justify-center pt-4">
+          <button 
+            onClick={() => setDisplayLimit(prev => prev + 5)}
+            className="px-8 py-3 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 shadow-sm flex items-center gap-3 active:scale-95"
+          >
+            <ChevronDown className="w-4 h-4" />
+            مشاهده شاگردان بیشتر ({filteredDrivers.length - displayLimit} مورد باقی‌مانده)
+          </button>
+        </div>
+      )}
 
       <HealthCardModal 
         isOpen={isModalOpen} 

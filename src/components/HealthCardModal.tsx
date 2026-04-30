@@ -4,6 +4,7 @@ import { X, ShieldCheck, CheckCircle, AlertTriangle, Calculator, Eye, Activity }
 import { supabase } from '../lib/supabase';
 import { Driver } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { logActivity } from '../lib/logger';
 
 interface Props {
   isOpen: boolean;
@@ -50,6 +51,15 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
 
       if (error) throw error;
       
+      if (profile) {
+        await logActivity(
+          profile.id, 
+          isRenewal ? 'renew_card' : 'issue_card', 
+          `کارت هویت برای شاگرد ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
+          { driver_id: driver.id }
+        );
+      }
+
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);

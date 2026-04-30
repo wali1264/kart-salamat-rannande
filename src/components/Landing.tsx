@@ -60,7 +60,7 @@ export const Landing: React.FC = () => {
   };
 
   const navItems = [
-    { id: 'home', label: 'داشبورد', icon: LayoutDashboard, protected: true },
+    { id: 'home', label: 'نیوزمن', icon: LayoutDashboard, protected: true },
     { id: 'drivers', label: 'لیست شاگردان', icon: Users, protected: true },
     { id: 'registration', label: 'ثبت شاگرد جدید', icon: PlusCircle, protected: true },
     { id: 'finance', label: 'مدیریت مالی', icon: FinanceIcon, protected: true },

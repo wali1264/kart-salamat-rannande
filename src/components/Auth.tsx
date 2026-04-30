@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { LogIn, UserPlus, Shield, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { logActivity } from '../lib/logger';
 
 export const Auth: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -20,8 +21,12 @@ export const Auth: React.FC = () => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        
+        if (data.user) {
+          await logActivity(data.user.id, 'login', 'کاربر وارد سیستم شد.');
+        }
       } else {
         const { data, error: signUpError } = await supabase.auth.signUp({ 
           email, 

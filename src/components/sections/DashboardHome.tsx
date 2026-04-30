@@ -40,152 +40,243 @@ export const DashboardHome: React.FC = () => {
     activeCards: 0,
     expiringSoon: [] as any[]
   });
+  const [activities, setActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [filter, setFilter] = useState<'today' | 'yesterday' | 'date'>('today');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const fetchStats = async () => {
+    const { count: studentsCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
+    const { count: cardsCount } = await supabase.from('health_cards').select('*', { count: 'exact', head: true }).eq('status', 'active');
+    
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+    
+    const { data: expiring } = await supabase
+      .from('health_cards')
+      .select('*, students(*)')
+      .eq('status', 'active')
+      .lt('expiry_date', oneMonthFromNow.toISOString())
+      .limit(3);
+
+    setStats({
+      totalStudents: studentsCount || 0,
+      activeCards: cardsCount || 0,
+      expiringSoon: expiring || []
+    });
+  };
+
+  const fetchActivities = async () => {
+    setLoadingActivities(true);
+    try {
+      let query = supabase
+        .from('activity_logs')
+        .select('*, profiles(name, email)')
+        .order('created_at', { ascending: false });
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+
+      if (filter === 'today') {
+        query = query.gte('created_at', today.toISOString());
+      } else if (filter === 'yesterday') {
+        query = query
+          .gte('created_at', yesterday.toISOString())
+          .lt('created_at', today.toISOString());
+      } else if (filter === 'date' && selectedDate) {
+        const d = new Date(selectedDate);
+        d.setHours(0, 0, 0, 0);
+        const nextDay = new Date(d);
+        nextDay.setDate(nextDay.getDate() + 1);
+        query = query.gte('created_at', d.toISOString()).lt('created_at', nextDay.toISOString());
+      }
+
+      const { data, error } = await query.limit(20);
+      if (error) throw error;
+      setActivities(data || []);
+    } catch (err) {
+      console.error('Error fetching activities:', err);
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchStats = async () => {
-      const { count: studentsCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
-      const { count: cardsCount } = await supabase.from('health_cards').select('*', { count: 'exact', head: true }).eq('status', 'active');
-      
-      const oneMonthFromNow = new Date();
-      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-      
-      const { data: expiring } = await supabase
-        .from('health_cards')
-        .select('*, students(*)')
-        .eq('status', 'active')
-        .lt('expiry_date', oneMonthFromNow.toISOString())
-        .limit(3);
-
-      setStats({
-        totalStudents: studentsCount || 0,
-        activeCards: cardsCount || 0,
-        expiringSoon: expiring || []
-      });
-    };
     fetchStats();
-  }, []);
+    fetchActivities();
+  }, [filter, selectedDate]);
+
+  const getActionLabel = (action: string) => {
+    switch (action) {
+      case 'login': return 'ورود به سیستم';
+      case 'logout': return 'خروج از سیستم';
+      case 'create_student': return 'ثبت شاگرد جدید';
+      case 'update_student': return 'ویرایش اطلاعات شاگرد';
+      case 'delete_student': return 'حذف شاگرد';
+      case 'issue_card': return 'صدور کارت هویت';
+      case 'renew_card': return 'تمدید کارت هویت';
+      case 'payment': return 'ثبت پرداخت مالی';
+      default: return action;
+    }
+  };
+
+  const getActionColor = (action: string) => {
+    if (action.includes('create') || action.includes('issue') || action === 'login') return 'text-emerald-600 bg-emerald-50';
+    if (action.includes('update') || action.includes('renew')) return 'text-amber-600 bg-amber-50';
+    if (action.includes('delete')) return 'text-rose-600 bg-rose-50';
+    return 'text-blue-600 bg-blue-50';
+  };
 
   return (
-    <div className="grid grid-cols-12 auto-rows-fr gap-4 lg:gap-6 min-h-[600px]">
-      {/* Top Banner - Span 12 in mobile, Span 8 in desktop */}
-      <div className="col-span-12 lg:col-span-8 lg:row-span-2 bento-card navy-gradient text-white flex flex-col justify-center relative overflow-hidden group">
-        <div className="relative z-10">
-          <h2 className="text-3xl font-bold mb-3">خوش آمدید به سامانه مدیریت هوشمند مکاتب</h2>
-          <p className="text-blue-100 text-sm max-w-lg mb-6 leading-relaxed">
-            مدیریت شاگردان، صدور کارتهای هویت و کنترل سیستم مالی مکتب بصورت یکپارچه.
-          </p>
-          <div className="flex gap-2">
-             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse mt-1"></span>
-             <span className="text-xs font-medium text-blue-100/80 uppercase tracking-widest">School Management Online</span>
+    <div className="flex flex-col gap-6 lg:gap-8">
+      {/* 3 Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+        <div className="bento-card !p-8 bg-white border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">مجموع شاگردان</span>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-5xl font-black text-slate-800 tracking-tighter mb-2">{stats.totalStudents.toLocaleString('fa-AF')}</div>
+          <div className="text-emerald-600 text-[10px] font-bold flex items-center gap-1">
+            <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید در سیستم
           </div>
         </div>
-        <div className="absolute left-0 bottom-0 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-          <ShieldCheck className="w-64 h-64 -mb-16 -ml-16" />
-        </div>
-      </div>
 
-      {/* Profile/Status Card - Span 12/4 */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-4 lg:row-span-2 bento-card flex flex-col">
-        <h3 className="font-bold mb-4 text-xs flex items-center gap-2 text-slate-400 uppercase tracking-widest">
-          <UserIcon className="w-4 h-4" /> وضعیت دسترسی
-        </h3>
-        <div className="flex items-center gap-4 border-b border-slate-100 pb-5 mb-5 mt-auto">
-          <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-blue-600 font-bold text-xl border border-slate-200">
-            {profile?.name?.charAt(0)}
+        <div className="bento-card !p-8 bg-white border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">کارت‌های صادر شده</span>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
           </div>
-          <div>
-            <div className="font-bold text-slate-800">{profile?.name}</div>
-            <div className="text-[10px] text-slate-500 font-medium">{profile?.role === 'officer' ? 'ادمین مکتب' : 'کاربر سیستم'}</div>
+          <div className="text-5xl font-black text-slate-800 tracking-tighter mb-2">{stats.activeCards.toLocaleString('fa-AF')}</div>
+          <div className="text-blue-600 text-[10px] font-bold">کارت‌های هویت دارای اعتبار</div>
+        </div>
+
+        <div className="bento-card !p-8 bg-amber-50/30 border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow border-amber-100">
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-amber-700 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
+              <Clock className="w-3 h-3" /> نیاز به تمدید
+            </span>
+            <div className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold tracking-tighter">
+              {stats.expiringSoon.length.toLocaleString('fa-AF')} مورد
+            </div>
           </div>
-        </div>
-        <div className="space-y-4">
-           <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-400">حالت حساب:</span>
-              <span className="status-chip status-approved">تایید شده</span>
-           </div>
-           <div className="flex justify-between items-center text-xs">
-              <span className="text-slate-400">آخرین ورود:</span>
-              <span className="font-medium text-slate-700">۱۰ دقیقه پیش</span>
-           </div>
-        </div>
-      </div>
-
-      {/* Stat 1 */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card">
-        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">مجموع شاگردان</span>
-        <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.totalStudents.toLocaleString('fa-AF')}</div>
-        <div className="mt-auto text-emerald-600 text-[10px] font-bold flex items-center gap-1">
-          <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید
-        </div>
-      </div>
-
-      {/* Stat 2 */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card border-l-4 border-l-blue-500">
-        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">کارت‌های صادر شده</span>
-        <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.activeCards.toLocaleString('fa-AF')}</div>
-        <div className="mt-auto text-blue-600 text-[10px] font-bold">کارت هویت معتبر</div>
-      </div>
-
-      {/* Expiring Soon Section */}
-      <div className="col-span-12 sm:col-span-6 lg:col-span-6 bento-card bg-amber-50/50 border-amber-100 h-full">
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-amber-700 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-            <Clock className="w-3 h-3" /> نیاز به تمدید (کمتر از ۱ ماه)
-          </span>
-          <span className="bg-amber-100 px-2 py-0.5 rounded-full text-amber-700 text-[9px] font-bold">{stats.expiringSoon.length} مورد</span>
-        </div>
-        <div className="space-y-3">
-           {stats.expiringSoon.length > 0 ? stats.expiringSoon.map((item: any) => (
-             <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-amber-100/50 shadow-sm">
-                <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs">
+          <div className="space-y-2 mt-4">
+            {stats.expiringSoon.length > 0 ? stats.expiringSoon.slice(0, 2).map((item: any) => (
+              <div key={item.id} className="flex items-center justify-between p-2 bg-white/60 rounded-xl border border-amber-100/50">
+                <div className="flex items-center gap-2">
+                   <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-[8px]">
                      {item.students?.name?.charAt(0)}
                    </div>
-                   <div className="text-xs font-bold text-slate-800">{item.students?.name}</div>
+                   <div className="text-[10px] font-bold text-slate-800">{item.students?.name}</div>
                 </div>
-                <div className="text-[10px] text-amber-600 font-bold">
-                   تنها {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} روز
+                <div className="text-[9px] text-amber-600 font-bold">
+                   {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} روز
                 </div>
-             </div>
-           )) : (
-             <div className="text-center py-6 text-slate-400 text-xs italic">موردی برای تمدید یافت نشد</div>
-           )}
+              </div>
+            )) : (
+              <div className="text-center py-4 text-slate-400 text-[10px] italic">موردی برای تمدید یافت نشد</div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Large Chart Container */}
-      <div className="col-span-12 lg:col-span-12 lg:row-span-3 bento-card mt-2">
-         <div className="flex items-center justify-between mb-8">
-            <div>
-              <h3 className="font-bold text-slate-800">گزارش فعالیتهای اخیر سیستم</h3>
-              <p className="text-xs text-slate-500">مشاهده روند صدور و استعلامات در بازه‌های زمانی مختلف</p>
-            </div>
-            <div className="flex gap-2">
-               <button className="px-3 py-1.5 bg-slate-50 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors">هفتگی</button>
-               <button className="px-3 py-1.5 bg-blue-600 rounded-lg text-xs font-bold text-white shadow-lg shadow-blue-100">ماهانه</button>
-            </div>
+      {/* Activity Log Section */}
+      <div className="bento-card bg-white border border-slate-100 shadow-sm flex flex-col min-h-[500px]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
+              <Clock className="w-6 h-6 text-blue-600" /> گزارش فعالیتهای سیستم
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">شفافیت کامل در عملکرد ادمین‌ها و اپراتورهای سیستم</p>
           </div>
-          <div className="h-64 sm:h-80 min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height="100%" minHeight={250}>
-              <AreaChart data={data}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} dx={-10} />
-                <Tooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', direction: 'rtl' }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#1e40af" strokeWidth={3} fillOpacity={1} fill="url(#colorValue)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+              <button 
+                onClick={() => setFilter('today')}
+                className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${filter === 'today' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                امروز
+              </button>
+              <button 
+                onClick={() => setFilter('yesterday')}
+                className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${filter === 'yesterday' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                دیروز
+              </button>
+              <button 
+                onClick={() => setFilter('date')}
+                className={`px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${filter === 'date' ? 'bg-white text-blue-600 shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                تاریخ خاص
+              </button>
+            </div>
+            
+            {filter === 'date' && (
+              <input 
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 outline-none focus:ring-2 focus:ring-blue-500/10"
+              />
+            )}
           </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto pr-1">
+          {loadingActivities ? (
+            <div className="h-64 flex flex-col items-center justify-center gap-3">
+              <div className="w-8 h-8 border-3 border-blue-500/20 border-t-blue-600 rounded-full animate-spin" />
+              <p className="text-[10px] text-slate-400 font-bold">در حال بارگزاری فعالیت‌ها...</p>
+            </div>
+          ) : activities.length > 0 ? (
+            <div className="space-y-4">
+              {activities.map((log) => (
+                <div key={log.id} className="group flex items-start gap-4 p-4 rounded-3xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${getActionColor(log.action)}`}>
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-slate-800 text-sm">{getActionLabel(log.action)}</span>
+                        <span className="text-[10px] text-slate-400">•</span>
+                        <span className="text-[10px] text-slate-500 font-bold">بوسیله: {log.profiles?.name || 'کاربر سیستم'}</span>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium ltr">{new Date(log.created_at).toLocaleTimeString('fa-AF')}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                       <p className="text-xs text-slate-500 line-clamp-1">{log.details?.description || 'توضیحات بیشتری برای این فعالیت ثبت نشده است.'}</p>
+                       <span className="px-2 py-0.5 bg-slate-100 text-slate-400 rounded-lg text-[8px] font-black">{log.profiles?.email}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-64 flex flex-col items-center justify-center text-slate-300 gap-4 opacity-40">
+              <TrendingUp className="w-16 h-16" />
+              <p className="text-sm font-bold italic">هیچ فعالیتی در این بازه زمانی یافت نشد</p>
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-8 pt-6 border-t border-dashed border-slate-100 flex justify-center">
+           <button className="text-[10px] font-bold text-blue-600 hover:bg-blue-50 px-6 py-2.5 rounded-2xl transition-all border border-blue-100">
+             مشاهده تمام گزارشات
+           </button>
+        </div>
       </div>
     </div>
   );
 };
+
 

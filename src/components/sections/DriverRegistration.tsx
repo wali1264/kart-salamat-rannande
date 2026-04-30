@@ -3,12 +3,15 @@ import { motion } from 'framer-motion';
 import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/utils';
+import { logActivity } from '../../lib/logger';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Props {
   onComplete: () => void;
 }
 
 export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +89,11 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         .insert([studentData]);
 
       if (insertError) throw insertError;
+
+      // Log activity
+      if (user) {
+        await logActivity(user.id, 'create_student', `شاگرد جدید به نام ${formData.name} ثبت گردید.`, { student_id_no: formData.license_number });
+      }
 
       setSuccess(true);
       setTimeout(() => {

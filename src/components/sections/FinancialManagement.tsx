@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
+import { useAuth } from '../../contexts/AuthContext';
+import { logActivity } from '../../lib/logger';
 
 const AFGHAN_MONTHS = [
   'حمل (Hamal)', 'ثور (Sawr)', 'جوزا (Jawza)', 
@@ -16,6 +18,7 @@ const AFGHAN_MONTHS = [
 const YEARS = Array.from({ length: 11 }, (_, i) => (1402 + i).toString());
 
 export const FinancialManagement: React.FC = () => {
+  const { user } = useAuth();
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,9 +120,18 @@ export const FinancialManagement: React.FC = () => {
           .eq('id', editingPayment.id);
 
         if (error) throw error;
+
+        if (user) {
+          await logActivity(
+            user.id, 
+            'payment', 
+            `پرداخت فیس شاگرد ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
+            { payment_id: editingPayment.id, student_id: selectedStudent.id }
+          );
+        }
       } else {
         // Insert new record
-        const { error } = await supabase
+        const { data: insertData, error } = await supabase
           .from('fee_payments')
           .insert([{
             student_id: selectedStudent.id,
@@ -130,9 +142,20 @@ export const FinancialManagement: React.FC = () => {
             payment_date: new Date().toISOString(),
             payment_method: 'نقدی',
             balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
-          }]);
+          }])
+          .select()
+          .single();
 
         if (error) throw error;
+
+        if (user) {
+          await logActivity(
+            user.id, 
+            'payment', 
+            `پرداخت فیس شاگرد ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
+            { payment_id: insertData?.id, student_id: selectedStudent.id }
+          );
+        }
       }
       
       setPaymentAmount('');

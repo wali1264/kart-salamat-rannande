@@ -4,6 +4,8 @@ import { X, User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, Sav
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/utils';
 import { Driver } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { logActivity } from '../lib/logger';
 
 interface Props {
   isOpen: boolean;
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUpdate }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +87,10 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         .eq('id', driver.id);
 
       if (updateError) throw updateError;
+
+      if (user) {
+        await logActivity(user.id, 'update_student', `مشخصات شاگرد به نام ${formData.name} بروزرسانی گردید.`);
+      }
 
       setSuccess(true);
       setTimeout(() => {

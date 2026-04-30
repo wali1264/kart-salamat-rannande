@@ -24,8 +24,11 @@ import { Driver, HealthCard } from '../../types';
 import { HealthCardModal } from '../HealthCardModal';
 import { ViewHealthCard } from '../ViewHealthCard';
 import { EditDriverModal } from '../EditDriverModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { logActivity } from '../../lib/logger';
 
 export const DriverList: React.FC = () => {
+  const { user } = useAuth();
   const [drivers, setDrivers] = useState<(Driver & { health_cards: HealthCard[] })[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -55,6 +58,7 @@ export const DriverList: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    const driverToDelete = drivers.find(d => d.id === id);
     if (!window.confirm('آیا از حذف این شاگرد اطمینان دارید؟')) return;
     
     try {
@@ -64,6 +68,11 @@ export const DriverList: React.FC = () => {
         .eq('id', id);
       
       if (error) throw error;
+
+      if (user && driverToDelete) {
+        await logActivity(user.id, 'delete_student', `شاگرد به نام ${driverToDelete.name} از سیستم حذف گردید.`);
+      }
+
       fetchDrivers();
     } catch (err: any) {
       alert('خطا در حذف شاگرد: ' + err.message);

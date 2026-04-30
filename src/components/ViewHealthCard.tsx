@@ -377,7 +377,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <div class="info-section">
               <div class="info-block">
                 <div class="info-label">
-                  <span>${isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</span>
+                  <span>${isTeacherMode ? 'د ښوونکي نوم / نام معلم' : 'د زده کوونکي نوم / نام شاگرد'}</span>
                   <span>${isTeacherMode ? 'Teacher Name' : 'Student Name'}</span>
                 </div>
                 <div class="info-value">${driver.name}</div>
@@ -385,7 +385,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
               
               <div class="info-block">
                 <div class="info-label">
-                  <span>نام پدر</span>
+                  <span>د پلار نوم / نام پدر</span>
                   <span>Father Name</span>
                 </div>
                 <div class="info-value" style="font-size: 8.5pt;">${driver.father_name || '---'}</div>

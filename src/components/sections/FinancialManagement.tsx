@@ -273,7 +273,7 @@ export const FinancialManagement: React.FC = () => {
   };
 
   const deletePayment = async (paymentId: string) => {
-    if (!window.confirm('آیا از حذف این تراکنش مطمئن هستید؟ این عمل وضعیت دریافتی شاگرد را تغییر می‌دهد.')) return;
+    if (!window.confirm(`آیا از حذف این تراکنش مطمئن هستید؟ این عمل وضعیت ${isTeacherMode ? 'معاش استاد' : 'فیس شاگرد'} را تغییر می‌دهد.`)) return;
     try {
       const { error } = await supabase.from('fee_payments').delete().eq('id', paymentId);
       if (error) throw error;
@@ -463,7 +463,7 @@ export const FinancialManagement: React.FC = () => {
                   {!error && !loading && filteredStudents.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-20 text-center">
-                        <p className="text-slate-400 text-sm italic">شاگردی با این مشخصات یافت نشد.</p>
+                        <p className="text-slate-400 text-sm italic">{isTeacherMode ? 'استادی با این مشخصات یافت نشد.' : 'شاگردی با این مشخصات یافت نشد.'}</p>
                       </td>
                     </tr>
                   )}
@@ -805,7 +805,7 @@ export const FinancialManagement: React.FC = () => {
             </div>
           </div>
           <div className="text-left">
-            <h1 className="text-3xl font-black inline-block mb-4 pb-1" style={{ color: '#e11d48', borderBottom: '2px solid #e11d48' }}>فاکتور تصفیه فیس شاگرد</h1>
+            <h1 className="text-3xl font-black inline-block mb-4 pb-1" style={{ color: '#e11d48', borderBottom: '2px solid #e11d48' }}>{isTeacherMode ? 'صورت حساب معاش استاد' : 'فاکتور تصفیه فیس شاگرد'}</h1>
             <p className="text-sm font-bold" style={{ color: '#64748b' }}>تاریخ گزارش: {new Date().toLocaleDateString('fa-AF')}</p>
             <p className="text-xs mt-1" dir="ltr" style={{ color: '#94a3b8' }}>Ref: {historyStudent?.id?.slice(0,8).toUpperCase()}</p>
           </div>
@@ -814,7 +814,7 @@ export const FinancialManagement: React.FC = () => {
         <div className="grid grid-cols-2 gap-12 mb-12 p-8 rounded-3xl border" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="space-y-3">
              <div className="flex gap-2">
-                <span className="font-bold" style={{ color: '#94a3b8' }}>نام شاگرد:</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>{isTeacherMode ? 'نام استاد:' : 'نام شاگرد:'}</span>
                 <span className="text-xl font-black" style={{ color: '#1e293b' }}>{historyStudent?.name}</span>
              </div>
              <div className="flex gap-2 text-lg">
@@ -824,11 +824,11 @@ export const FinancialManagement: React.FC = () => {
           </div>
           <div className="space-y-3">
              <div className="flex gap-2 text-lg">
-                <span className="font-bold" style={{ color: '#94a3b8' }}>صنف:</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>{isTeacherMode ? 'رتبه/بست:' : 'صنف:'}</span>
                 <span className="font-bold" style={{ color: '#334155' }}>{historyStudent?.class_name}</span>
              </div>
              <div className="flex gap-2 text-lg">
-                <span className="font-bold" style={{ color: '#94a3b8' }}>بخش / نمبر اساس:</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>{isTeacherMode ? 'دیپارتمنت / کد:' : 'بخش / نمبر اساس:'}</span>
                 <span className="font-bold" style={{ color: '#334155' }}>{historyStudent?.license_plate} - {historyStudent?.license_number}</span>
              </div>
           </div>
@@ -838,9 +838,9 @@ export const FinancialManagement: React.FC = () => {
           <thead>
             <tr className="text-white text-lg" style={{ backgroundColor: '#0f172a' }}>
               <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>ماه</th>
-              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>مبلغ پرداختی (AFN)</th>
-              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>تاریخ پرداخت</th>
-              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>باقی‌مانده فیس</th>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>{isTeacherMode ? 'مبلغ دریافتی (AFN)' : 'مبلغ پرداختی (AFN)'}</th>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>{isTeacherMode ? 'تاریخ دریافت' : 'تاریخ پرداخت'}</th>
+              <th className="border-2 p-4" style={{ borderColor: '#0f172a' }}>{isTeacherMode ? 'باقی‌مانده معاش' : 'باقی‌مانده فیس'}</th>
             </tr>
           </thead>
           <tbody className="text-center text-lg">
@@ -859,7 +859,7 @@ export const FinancialManagement: React.FC = () => {
           </tbody>
           <tfoot>
             <tr className="font-black text-2xl" style={{ backgroundColor: '#f1f5f9' }}>
-              <td className="border-2 p-5 text-right" style={{ borderColor: '#0f172a' }}>مجموع پرداختی:</td>
+              <td className="border-2 p-5 text-right" style={{ borderColor: '#0f172a' }}>{isTeacherMode ? 'مجموع معاشات:' : 'مجموع پرداختی:'}</td>
               <td colSpan={3} className="border-2 p-5 text-right" style={{ borderColor: '#0f172a', color: '#4338ca' }}>
                 {historyStudent?.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} افغانی
               </td>
@@ -869,11 +869,11 @@ export const FinancialManagement: React.FC = () => {
 
         <div className="grid grid-cols-2 gap-20 mt-32 px-10">
           <div className="text-center">
-            <p className="font-black text-xl mb-20">مضاء و مهر مدیریت مکتب</p>
+            <p className="font-black text-xl mb-20">{isTeacherMode ? 'مضاء و مهر بخش منابع بشری' : 'مضاء و مهر مدیریت مکتب'}</p>
             <div className="w-64 h-0.5 mx-auto" style={{ backgroundColor: '#0f172a' }}></div>
           </div>
           <div className="text-center">
-            <p className="font-black text-xl mb-20">امضاء و اثر انگشت ولی شاگرد</p>
+            <p className="font-black text-xl mb-20">{isTeacherMode ? 'امضاء و اثر انگشت استاد' : 'امضاء و اثر انگشت ولی شاگرد'}</p>
             <div className="w-64 h-0.5 mx-auto" style={{ backgroundColor: '#0f172a' }}></div>
           </div>
         </div>

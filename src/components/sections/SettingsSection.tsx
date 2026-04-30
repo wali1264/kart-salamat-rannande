@@ -91,26 +91,44 @@ export const SettingsSection: React.FC = () => {
     }
   };
 
-  const saveSettings = async (newLogos: { main: string; mini: string }, newCustom: any, newTax?: any, newCats?: string[]) => {
-    setLogoLoading(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const saveSettings = async (targetSetting: 'all' | 'logos' | 'custom' | 'tax' | 'cats' = 'all') => {
+    setIsSaving(true);
+    setSaveStatus(null);
     try {
-      const updates = {
+      // Create a base update object with common fields
+      const updates: any = {
         id: '00000000-0000-0000-0000-000000000000',
-        card_logo_main: newLogos.main,
-        card_logo_mini: newLogos.mini,
-        card_front_text_dari: newCustom.title_primary_dr,
-        card_front_text_pashto: newCustom.title_primary_ps,
-        card_front_text_english: newCustom.title_primary_en,
-        card_back_text_dari: newCustom.title_secondary_dr,
-        card_back_text_pashto: newCustom.title_secondary_ps || '',
-        school_name_dept: newCustom.title_secondary_en || '',
-        fee_tax_threshold: newTax?.threshold ?? taxSettings.threshold,
-        fee_tax_rate: newTax?.rate ?? taxSettings.rate,
-        teacher_tax_threshold: newTax?.teacherThreshold ?? taxSettings.teacherThreshold,
-        teacher_tax_rate: newTax?.teacherRate ?? taxSettings.teacherRate,
-        student_categories: newCats ?? categories,
         updated_at: new Date().toISOString()
       };
+
+      // Add specific fields based on what's being saved
+      if (targetSetting === 'all' || targetSetting === 'logos') {
+        updates.card_logo_main = logos.main;
+        updates.card_logo_mini = logos.mini;
+      }
+      
+      if (targetSetting === 'all' || targetSetting === 'custom') {
+        updates.card_front_text_dari = customization.title_primary_dr;
+        updates.card_front_text_pashto = customization.title_primary_ps;
+        updates.card_front_text_english = customization.title_primary_en;
+        updates.card_back_text_dari = customization.title_secondary_dr;
+        updates.card_back_text_pashto = customization.title_secondary_ps || '';
+        updates.school_name_dept = customization.title_secondary_en || '';
+      }
+
+      if (targetSetting === 'all' || targetSetting === 'tax') {
+        updates.fee_tax_threshold = taxSettings.threshold;
+        updates.fee_tax_rate = taxSettings.rate;
+        // Optionally omit these if they cause 400 errors during migration
+        updates.teacher_tax_threshold = taxSettings.teacherThreshold;
+        updates.teacher_tax_rate = taxSettings.teacherRate;
+      }
+
+      if (targetSetting === 'all' || targetSetting === 'cats') {
+        updates.student_categories = categories;
+      }
 
       const { error } = await supabase
         .from('system_settings')
@@ -119,12 +137,12 @@ export const SettingsSection: React.FC = () => {
       if (error) throw error;
       
       setSaveStatus('success');
-      setTimeout(() => setSaveStatus(null), 3000);
+      setTimeout(() => setSaveStatus(null), 4000);
     } catch (err) {
       console.error('Error saving settings to Supabase:', err);
       setSaveStatus('error');
     } finally {
-      setLogoLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -132,27 +150,20 @@ export const SettingsSection: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       const compressed = await compressImage(file, type === 'main' ? 400 : 200);
-      const updatedLogos = { ...logos, [type]: compressed };
-      setLogos(updatedLogos);
-      saveSettings(updatedLogos, customization, taxSettings, categories);
+      setLogos(prev => ({ ...prev, [type]: compressed }));
     }
   };
 
   const updateCustomization = (key: string, value: any) => {
-    const updated = { ...customization, [key]: value };
-    setCustomization(updated);
-    saveSettings(logos, updated, taxSettings, categories);
+    setCustomization(prev => ({ ...prev, [key]: value }));
   };
 
   const updateTaxSettings = (updates: Partial<typeof taxSettings>) => {
-    const updated = { ...taxSettings, ...updates };
-    setTaxSettings(updated);
-    saveSettings(logos, customization, updated, categories);
+    setTaxSettings(prev => ({ ...prev, ...updates }));
   };
 
   const updateCategories = (newCats: string[]) => {
     setCategories(newCats);
-    saveSettings(logos, customization, taxSettings, newCats);
   };
 
   const tabs = [
@@ -175,9 +186,24 @@ export const SettingsSection: React.FC = () => {
           <motion.div 
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-2xl flex items-center gap-2 font-bold text-xs border border-emerald-100"
+            className="bg-emerald-50 text-emerald-600 px-6 py-3 rounded-2xl flex items-center gap-3 font-black text-xs border-2 border-emerald-100 shadow-sm"
           >
-            <Check className="w-4 h-4" /> تمام تغییرات ذخیره شد
+            <div className="w-6 h-6 bg-emerald-500 text-white rounded-full flex items-center justify-center">
+              <Check className="w-4 h-4" />
+            </div>
+            تغییرات با موفقیت در دیتابیس ثبت گردید
+          </motion.div>
+        )}
+        {saveStatus === 'error' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-rose-50 text-rose-600 px-6 py-3 rounded-2xl flex items-center gap-3 font-black text-xs border-2 border-rose-100 shadow-sm"
+          >
+            <div className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center">
+              <X className="w-4 h-4" />
+            </div>
+            خطا در ذخیره‌سازی! لطفاً اتصال انترنت را بررسی کنید
           </motion.div>
         )}
       </div>
@@ -310,6 +336,17 @@ export const SettingsSection: React.FC = () => {
                       className="flex items-center gap-2 bg-amber-600 text-white px-6 py-3 rounded-2xl text-xs font-bold hover:bg-amber-700 shadow-lg shadow-amber-100 transition-all active:scale-95"
                     >
                       <PlusCircle className="w-4 h-4" /> افزودن صنف جدید
+                    </button>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 flex justify-end">
+                    <button 
+                      onClick={() => saveSettings('cats')}
+                      disabled={isSaving}
+                      className="bg-slate-900 text-white px-10 py-4 rounded-2xl text-sm font-black transition-all hover:bg-slate-800 shadow-xl disabled:opacity-50 flex items-center gap-3"
+                    >
+                      {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5 text-emerald-400" />}
+                      تایید و ذخیره نهایی صنف‌ها
                     </button>
                   </div>
                 </div>
@@ -450,6 +487,25 @@ export const SettingsSection: React.FC = () => {
                       </div>
                   </div>
                 </div>
+
+                <div className="bg-white p-8 rounded-[2rem] border-2 border-indigo-100 shadow-xl shadow-indigo-50/50 flex flex-col md:flex-row items-center justify-between gap-6">
+                  <div className="text-right">
+                    <h4 className="font-black text-slate-800 text-lg">تایید نهایی تغییرات هویت بصری</h4>
+                    <p className="text-slate-500 text-xs mt-1">با کلیک بر روی دکمه روبرو، تمام لوگوها و متون جدید روی کارت‌های هویت اعمال خواهند شد.</p>
+                  </div>
+                  <button 
+                    onClick={() => saveSettings('all')}
+                    disabled={isSaving}
+                    className="w-full md:w-auto bg-indigo-600 text-white px-12 py-5 rounded-2xl text-sm font-black transition-all hover:bg-indigo-700 shadow-xl shadow-indigo-100 disabled:opacity-50 flex items-center justify-center gap-3 active:scale-95"
+                  >
+                    {isSaving ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Check className="w-5 h-5 text-emerald-300" />
+                    )}
+                    ذخیره و بروزرسانی طرح کارت
+                  </button>
+                </div>
               </motion.div>
             )}
 
@@ -522,6 +578,17 @@ export const SettingsSection: React.FC = () => {
                         />
                       </div>
                     </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                    <button 
+                      onClick={() => saveSettings('tax')}
+                      disabled={isSaving}
+                      className="bg-emerald-600 text-white px-10 py-4 rounded-2xl text-sm font-black transition-all hover:bg-emerald-700 shadow-xl shadow-emerald-100 disabled:opacity-50 flex items-center gap-3 active:scale-95"
+                    >
+                      {isSaving ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Check className="w-5 h-5 text-emerald-200" />}
+                      بروزرسانی پارامترهای مالیاتی
+                    </button>
                   </div>
 
                   <div className="p-6 bg-slate-900 rounded-3xl text-white">

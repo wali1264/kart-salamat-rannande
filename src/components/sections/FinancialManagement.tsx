@@ -143,11 +143,21 @@ export const FinancialManagement: React.FC = () => {
   };
 
   const startEditing = (p: any) => {
+    // Scroll to top to see the edit form clearly
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     setEditingPayment(p);
     setSelectedMonth(p.for_month);
     setPaymentAmount(p.amount_paid.toString());
-    setSelectedStudent(historyStudent);
-    setHistoryStudent(null); // Close history modal to show the edit form
+    
+    // Critical: Close history modal first to ensure it doesn't block the view
+    setHistoryStudent(null);
+    
+    // Then select the student to trigger form visibility
+    const student = records.find(s => s.id === p.student_id);
+    if (student) {
+      setSelectedStudent(student);
+    }
   };
 
   const exportToExcel = () => {
@@ -170,47 +180,89 @@ export const FinancialManagement: React.FC = () => {
   const exportToPDF = async () => {
     if (!historyStudent) return;
     
-    // Use html2canvas to render the print section
     const element = document.getElementById('printable-invoice');
     if (!element) return;
     
-    // Temporarily show it for capturing
-    element.classList.remove('hidden');
-    element.classList.add('block');
+    // Create a toast/loading indicator if needed, but here we just process
+    const originalStyle = element.style.display;
+    element.style.display = 'block';
+    element.style.position = 'fixed';
+    element.style.left = '-9999px'; // Move out of view but keep rendered
     
     try {
+      // Small delay to ensure rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // IMPORTANT: html2canvas doesn't support oklch colors (standard in Tailwind v4)
+          // We find all elements in the clone and force hex/rgb colors if needed
+          const clonedElement = clonedDoc.getElementById('printable-invoice');
+          if (clonedElement) {
+            clonedElement.style.display = 'block';
+            clonedElement.style.position = 'static';
+            clonedElement.style.left = 'auto';
+            
+            // Force replace any oklch or problematic colors if they still exist
+            const allElements = clonedElement.getElementsByTagName('*');
+            for (let i = 0; i < allElements.length; i++) {
+              const el = allElements[i] as HTMLElement;
+              const style = window.getComputedStyle(el);
+              // Force safe colors for common border/text issues
+              if (style.color.includes('oklch')) el.style.color = '#1e293b';
+              if (style.backgroundColor.includes('oklch')) {
+                 if (el.tagName === 'TH') el.style.backgroundColor = '#0f172a';
+                 else el.style.backgroundColor = 'transparent';
+              }
+            }
+          }
+        }
       });
       
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
       
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Invoice_${historyStudent.name}_${new Date().toISOString().split('T')[0]}.pdf`);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      
+      // Explicitly trigger download
+      const fileName = `Invoice_${historyStudent.name.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('fa-AF').replace(/\//g, '-')}.pdf`;
+      pdf.save(fileName);
+
     } catch (err) {
       console.error('PDF generation failed:', err);
-      alert('خطا در ایجاد فایل PDF');
+      alert('خطا در ایجاد فایل PDF. لطفا دوباره تلاش کنید.');
     } finally {
-      element.classList.add('hidden');
-      element.classList.remove('block');
+      element.style.display = originalStyle;
+      element.style.position = 'fixed';
+      element.style.left = '0';
     }
   };
 
   const printHistory = () => {
+    // Before printing, ensure the hidden element is visible for the media query
     const element = document.getElementById('printable-invoice');
     if (!element) return;
     
-    // Temporarily show it for printing
-    element.classList.remove('hidden');
+    // We don't use classList.remove because the CSS @media print handles it,
+    // but some browsers need it to be "visible" in DOM tree to compute styles correctly
+    element.style.display = 'block';
+    
     window.print();
-    element.classList.add('hidden');
+    
+    // Restore state
+    element.style.display = 'none';
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -786,7 +838,7 @@ export const FinancialManagement: React.FC = () => {
         <div className="absolute bottom-12 left-12 right-12 text-center">
            <div className="pt-6 flex justify-between items-center text-[10px]" style={{ borderTop: '1px solid #e2e8f0', color: '#94a3b8' }}>
              <span>زمان صدور گزارش: {new Date().toLocaleTimeString('fa-AF')}</span>
-             <span className="font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>{systemSettings?.card_back_text_english || 'Islamic Emirate of Afghanistan'}</span>
+             <span className="font-bold uppercase tracking-widest" style={{ color: '#64748b' }}>{systemSettings?.school_name_dept || 'Islamic Emirate of Afghanistan'}</span>
              <span>صفحه ۱ از ۱</span>
            </div>
         </div>

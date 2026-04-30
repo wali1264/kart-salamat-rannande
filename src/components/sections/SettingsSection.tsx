@@ -67,7 +67,7 @@ export const SettingsSection: React.FC = () => {
           title_primary_en: data.card_front_text_english || 'Islamic Emirate of Afghanistan',
           title_secondary_dr: data.card_back_text_dari || 'وزارت معارف / ریاست معارف ولایت مربوطه',
           title_secondary_ps: data.card_back_text_pashto || '',
-          title_secondary_en: data.card_back_text_english || '',
+          title_secondary_en: data.school_name_dept || '',
           regulations_ps: customization.regulations_ps,
           regulations_dr: customization.regulations_dr
         });
@@ -99,7 +99,7 @@ export const SettingsSection: React.FC = () => {
         card_front_text_english: newCustom.title_primary_en,
         card_back_text_dari: newCustom.title_secondary_dr,
         card_back_text_pashto: newCustom.title_secondary_ps || '',
-        card_back_text_english: newCustom.title_secondary_en || '',
+        school_name_dept: newCustom.title_secondary_en || '',
         fee_tax_threshold: newTax?.threshold ?? taxSettings.threshold,
         fee_tax_rate: newTax?.rate ?? taxSettings.rate,
         student_categories: newCats ?? categories,

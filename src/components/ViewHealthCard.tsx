@@ -41,7 +41,7 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
         title_card_ps: 'د زده کوونکي د هویت کارت',
         title_card_dr: 'کارت هویت شاگرد',
         title_card_en: 'Student Identity Card',
-        footer_en: data?.card_back_text_english || 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
+        footer_en: data?.school_name_dept || 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
         regulations_ps: [
           'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
           'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',

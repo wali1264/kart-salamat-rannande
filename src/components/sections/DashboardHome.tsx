@@ -128,9 +128,9 @@ export const DashboardHome: React.FC = () => {
       case 'create_student': return isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید';
       case 'update_student': return isTeacherMode ? 'ویرایش اطلاعات معلم' : 'ویرایش اطلاعات شاگرد';
       case 'delete_student': return isTeacherMode ? 'حذف معلم' : 'حذف شاگرد';
-      case 'issue_card': return 'صدور کارت هویت';
-      case 'renew_card': return 'تمدید کارت هویت';
-      case 'payment': return 'ثبت پرداخت مالی';
+      case 'issue_card': return isTeacherMode ? 'صدور کارت هویت معلم' : 'صدور کارت هویت';
+      case 'renew_card': return isTeacherMode ? 'تمدید کارت هویت معلم' : 'تمدید کارت هویت';
+      case 'payment': return isTeacherMode ? 'ثبت پرداخت معاش' : 'ثبت پرداخت فیس';
       default: return action;
     }
   };

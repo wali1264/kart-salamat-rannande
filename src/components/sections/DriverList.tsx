@@ -138,7 +138,7 @@ export const DriverList: React.FC = () => {
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest text-center">وضعیت کارت</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نام پدر</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'نمبر موبایل' : 'نمبر اساس'}</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'رتبه/بست' : 'صنف'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">عملیات</th>
                 </tr>
@@ -238,7 +238,7 @@ export const DriverList: React.FC = () => {
             className="px-8 py-3 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 shadow-sm flex items-center gap-3 active:scale-95"
           >
             <ChevronDown className="w-4 h-4" />
-            مشاهده شاگردان بیشتر ({filteredDrivers.length - displayLimit} مورد باقی‌مانده)
+            مشاهده {isTeacherMode ? 'اساتید' : 'شاگردان'} بیشتر ({filteredDrivers.length - displayLimit} مورد باقی‌مانده)
           </button>
         </div>
       )}

@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/utils';
 import { Driver } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useSystem } from '../contexts/SystemContext';
 import { logActivity } from '../lib/logger';
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 
 export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUpdate }) => {
   const { user } = useAuth();
+  const { isTeacherMode } = useSystem();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
       if (updateError) throw updateError;
 
       if (user?.email) {
-        await logActivity(user.email, 'update_student', `مشخصات شاگرد به نام ${formData.name} بروزرسانی گردید.`);
+        await logActivity(user.email, 'update_student', `مشخصات ${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${formData.name} بروزرسانی گردید.`);
       }
 
       setSuccess(true);
@@ -127,9 +129,9 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         >
           <div className="flex flex-col h-full max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-slate-800">ویرایش مشخصات شاگرد</h3>
-                <p className="text-xs text-slate-500 mt-1">تغییر اطلاعات در سیستم مدیریت مکتب</p>
+              <div className="text-right">
+                <h3 className="text-xl font-bold text-slate-800">{isTeacherMode ? 'ویرایش مشخصات معلم' : 'ویرایش مشخصات شاگرد'}</h3>
+                <p className="text-xs text-slate-500 mt-1">{isTeacherMode ? 'تغییر اطلاعات در سیستم مدیریت اساتید' : 'تغییر اطلاعات در سیستم مدیریت مکتب'}</p>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                 <X className="w-6 h-6 text-slate-400" />
@@ -167,11 +169,11 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500" />
                       )}
                     </label>
-                    <span className="text-[10px] text-slate-400 font-bold mt-2 uppercase">تصویر شاگرد</span>
+                    <span className="text-[10px] text-slate-400 font-bold mt-2 uppercase">{isTeacherMode ? 'تصویر معلم' : 'تصویر شاگرد'}</span>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام شاگرد</label>
+                  <div className="space-y-2 text-right">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</label>
                     <div className="relative">
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -179,12 +181,12 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({...formData, name: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-right">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام پدر</label>
                     <div className="relative">
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 opacity-50" />
@@ -193,12 +195,12 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.father_name}
                         onChange={(e) => setFormData({...formData, father_name: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-right">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر تذکره</label>
                     <div className="relative">
                       <Hash className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -207,13 +209,13 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.id_number}
                         onChange={(e) => setFormData({...formData, id_number: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">شماره تماس والدین</label>
+                  <div className="space-y-2 text-right">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'شماره تماس' : 'شماره تماس والدین'}</label>
                     <div className="relative">
                       <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -221,13 +223,13 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.phone}
                         onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر اساس (Roll Number)</label>
+                  <div className="space-y-2 text-right">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'کد شناسایی (Employee ID)' : 'نمبر اساس (Roll Number)'}</label>
                     <div className="relative">
                       <CreditCard className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -235,17 +237,18 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.license_number}
                         onChange={(e) => setFormData({...formData, license_number: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">صنف / صنف تحصیلی</label>
+                  <div className="space-y-2 text-right">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'رتبه / بست' : 'صنف / صنف تحصیلی'}</label>
                     <select 
                       value={formData.vehicle_type}
                       onChange={(e) => setFormData({...formData, vehicle_type: e.target.value})}
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
+                      dir="rtl"
                     >
                       {[
                         'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
@@ -257,12 +260,13 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                     </select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-2 text-right">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">گروه خون</label>
                     <select 
                       value={formData.blood_type}
                       onChange={(e) => setFormData({...formData, blood_type: e.target.value})}
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
+                      dir="rtl"
                     >
                       {['نامعلوم', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
                         <option key={type} value={type}>{type}</option>
@@ -270,8 +274,8 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">بخش / شعبه (Section)</label>
+                  <div className="space-y-2 text-right">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'دیپارتمنت / بخش (Department)' : 'بخش / شعبه (Section)'}</label>
                     <div className="relative">
                       <Hash className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -279,13 +283,13 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.license_plate}
                         onChange={(e) => setFormData({...formData, license_plate: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">فیس ماهانه (افغانی)</label>
+                  <div className="space-y-2 text-right">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'حقوق ماهانه (افغانی)' : 'فیس ماهانه (افغانی)'}</label>
                     <div className="relative">
                       <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -293,7 +297,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         required
                         value={formData.total_monthly_fee}
                         onChange={(e) => setFormData({...formData, total_monthly_fee: e.target.value})}
-                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all font-bold text-blue-600"
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all font-bold text-blue-600 text-right"
                       />
                     </div>
                   </div>

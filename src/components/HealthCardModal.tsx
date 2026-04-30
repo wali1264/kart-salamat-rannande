@@ -4,6 +4,7 @@ import { X, ShieldCheck, CheckCircle, AlertTriangle, Calculator, Eye, Activity }
 import { supabase } from '../lib/supabase';
 import { Driver } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { useSystem } from '../contexts/SystemContext';
 import { logActivity } from '../lib/logger';
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 
 export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRenewal = false }) => {
   const { profile } = useAuth();
+  const { isTeacherMode } = useSystem();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
@@ -55,7 +57,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
         await logActivity(
           profile.email, 
           isRenewal ? 'renew_card' : 'issue_card', 
-          `کارت هویت برای شاگرد ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
+          `کارت هویت برای ${isTeacherMode ? 'معلم' : 'شاگرد'} ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
           { driver_id: driver.id }
         );
       }
@@ -100,7 +102,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
                 {isRenewal ? 'کارت با موفقیت تمدید شد' : 'کارت با موفقیت صادر شد'}
               </h3>
               <p className="text-slate-500">
-                کارت شاگرد {driver.name} {isRenewal ? 'تمدید' : 'فعال'} و آماده چاپ است.
+                کارت {isTeacherMode ? 'معلم' : 'شاگرد'} {driver.name} {isRenewal ? 'تمدید' : 'فعال'} و آماده چاپ است.
               </p>
             </div>
           ) : (
@@ -108,9 +110,9 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
               <div className="p-8 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold text-slate-800">
-                    {isRenewal ? 'تمدید اعتبار کارت هویت' : 'صدور کارت هویت شاگرد'}
+                    {isRenewal ? 'تمدید اعتبار کارت هویت' : (isTeacherMode ? 'صدور کارت هویت معلم' : 'صدور کارت هویت شاگرد')}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">شاگرد: {driver.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">{isTeacherMode ? 'استاد' : 'شاگرد'}: {driver.name}</p>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                   <X className="w-6 h-6 text-slate-400" />
@@ -150,8 +152,8 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="w-6 h-6 text-blue-600" />
                     <div>
-                      <h4 className="text-sm font-bold text-blue-900">وضعیت انضباطی شاگرد</h4>
-                      <p className="text-[10px] text-blue-700">تایید رعایت قوانین و مقررات مکتب</p>
+                      <h4 className="text-sm font-bold text-blue-900">{isTeacherMode ? 'وضعیت انضباطی استاد' : 'وضعیت انضباطی شاگرد'}</h4>
+                      <p className="text-[10px] text-blue-700">{isTeacherMode ? 'تایید رعایت قوانین و مقررات اداری' : 'تایید رعایت قوانین و مقررات مکتب'}</p>
                     </div>
                   </div>
                   <button 
@@ -193,8 +195,8 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
 
                 <div className="p-4 bg-slate-50 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-slate-500 leading-relaxed">
-                    با کلیک بر روی دکمه تایید، صحت اطلاعات و وضعیت شاگرد مذکور را تایید می‌نماید. این کارت به مدت {data.validity_period === '12' ? 'یک سال' : 'شش ماه'} معتبر خواهد بود.
+                  <p className="text-[10px] text-slate-500 leading-relaxed text-right">
+                    با کلیک بر روی دکمه تایید، صحت اطلاعات و وضعیت {isTeacherMode ? 'استاد' : 'شاگرد'} مذکور را تایید می‌نماید. این کارت به مدت {data.validity_period === '12' ? 'یک سال' : 'شش ماه'} معتبر خواهد بود.
                   </p>
                 </div>
               </div>

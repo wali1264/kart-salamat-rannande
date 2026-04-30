@@ -4,6 +4,7 @@ import { ShieldCheck, User } from 'lucide-react';
 import { Driver, HealthCard, AppSettings } from '../types';
 import { renderToString } from 'react-dom/server';
 import { supabase } from '../lib/supabase';
+import { useSystem } from '../contexts/SystemContext';
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card, autoPrint = false }) => {
+  const { isTeacherMode } = useSystem();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -35,19 +37,27 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
 
       const customization = {
         title_primary_dr: data?.card_front_text_dari || 'د افغانستان اسلامی امارت',
-        title_primary_ps: data?.card_front_text_pashto || 'امارت اسلامی افغانستان',
+        title_primary_ps: data?.card_front_text_pashto || 'امارت اسلامی افعانستان',
         title_primary_en: data?.card_front_text_english || 'Islamic Emirate of Afghanistan',
-        title_secondary_dr: data?.card_back_text_dari || 'مکتب هوشمند افغان-افغان',
-        title_card_ps: 'د زده کوونکي د هویت کارت',
-        title_card_dr: 'کارت هویت شاگرد',
-        title_card_en: 'Student Identity Card',
+        title_secondary_dr: data?.card_back_text_dari || (isTeacherMode ? 'مدیریت منابع بشری' : 'مکتب هوشمند افغان-افغان'),
+        title_card_ps: isTeacherMode ? 'د ښوونکي د هویت کارت' : 'د زده کوونکي د هویت کارت',
+        title_card_dr: isTeacherMode ? 'کارت هویت معلم' : 'کارت هویت شاگرد',
+        title_card_en: isTeacherMode ? 'Teacher Identity Card' : 'Student Identity Card',
         footer_en: data?.school_name_dept || 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
-        regulations_ps: [
+        regulations_ps: isTeacherMode ? [
+          'دا کارت د ښوونکي د رسمي هویت او مراجعې یوازینۍ معتبره نښه ده.',
+          'ښوونکی مکلف دی چې د ښوونځي ټول اکاډمیک او اداري اصول مراعات کړي.',
+          'هر ډول غیر قانوني ګټه اخیستنه له دې کارټ څخه د مسؤلیت سبب ګرځي.'
+        ] : [
           'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
           'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
           'دغه کارت یوازې د ټاکل شوې ښوونیزې دورې پورې اعتبار لري.'
         ],
-        regulations_dr: [
+        regulations_dr: isTeacherMode ? [
+          'این کارت تنها مدرک معتبر جهت شناسایی رسمی استاد در محیط آموزشی می‌باشد.',
+          'استاد موظف است تمامی شئون اخلاقی و اداری مکتب را رعایت نماید.',
+          'در صورت مفقود شدن کارت، مراتب را فوراً به بخش اداری اطلاع دهید.'
+        ] : [
           'این کارت تاییدیه رسمی هویت شاگرد جهت فعالیت در محیط مکتب است.',
           'شاگرد متعهد می‌گردد تمامی مقررات انضباطی و آموزشی مکتب را به طور کامل رعایت نماید.',
           'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
@@ -367,8 +377,8 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <div class="info-section">
               <div class="info-block">
                 <div class="info-label">
-                  <span>نام شاگرد</span>
-                  <span>Student Name</span>
+                  <span>${isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</span>
+                  <span>${isTeacherMode ? 'Teacher Name' : 'Student Name'}</span>
                 </div>
                 <div class="info-value">${driver.name}</div>
               </div>
@@ -385,17 +395,18 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <!-- Side technical panel under the photo -->
             <div class="technical-panel">
                <div class="tech-item">
-                  <div class="tech-label"><span>بخش / شعبه</span><span>Section</span></div>
+                  <div class="tech-label"><span>${isTeacherMode ? 'دیپارتمنت / بخش' : 'بخش / شعبه'}</span><span>${isTeacherMode ? 'Department' : 'Section'}</span></div>
                   <div class="tech-value">${driver.license_plate}</div>
                </div>
                <div class="tech-item">
-                  <div class="tech-label"><span>نمبر اساس</span><span>Roll No</span></div>
+                  <div class="tech-label"><span>${isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}</span><span>${isTeacherMode ? 'ID No' : 'Roll No'}</span></div>
                   <div class="tech-value" style="font-size: 6.5pt; font-family: monospace;">${driver.license_number}</div>
                </div>
+               ${!isTeacherMode ? `
                <div class="tech-item">
                   <div class="tech-label"><span>صنف</span><span>Grade</span></div>
                   <div class="tech-value" style="font-size: 7pt; font-weight: bold;">${driver.vehicle_type}</div>
-               </div>
+               </div>` : ''}
                ${driver.blood_type && driver.blood_type !== 'نامعلوم' ? `
                <div class="tech-item">
                   <div class="tech-label"><span>د وینې نوعه</span><span>BT</span></div>

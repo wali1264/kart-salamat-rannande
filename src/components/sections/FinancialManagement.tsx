@@ -320,17 +320,17 @@ export const FinancialManagement: React.FC = () => {
     <div className="max-w-6xl mx-auto space-y-8 pb-10 flex flex-col h-full">
       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800">مدیریت مالی و فیس شاگردان</h2>
-          <p className="text-slate-500 text-sm">ثبت پرداخت‌ها، محاسبه مالیات و گزارش عواید سالانه</p>
+          <h2 className="text-2xl font-bold text-slate-800">{isTeacherMode ? 'مدیریت مالی و معاشات اساتید' : 'مدیریت مالی و فیس شاگردان'}</h2>
+          <p className="text-slate-500 text-sm">{isTeacherMode ? 'ثبت معاشات، محاسبه مالیات و گزارش عواید سالانه' : 'ثبت پرداخت‌ها، محاسبه مالیات و گزارش عواید سالانه'}</p>
         </div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto">
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
-            <p className="text-[9px] font-bold text-slate-400 uppercase">مجموع عواید (کل)</p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase">{isTeacherMode ? 'مجموع معاشات (کل)' : 'مجموع عواید (کل)'}</p>
             <p className="text-lg font-black text-slate-800">{stats.totalRevenue.toLocaleString()}</p>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
-            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">عواید سال جاری</p>
+            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">{isTeacherMode ? 'معاشات سال جاری' : 'عواید سال جاری'}</p>
             <p className="text-lg font-black text-emerald-600">{stats.thisYearRevenue.toLocaleString()}</p>
           </div>
           <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
@@ -499,7 +499,7 @@ export const FinancialManagement: React.FC = () => {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-bold text-slate-800 flex items-center gap-2">
                     <CreditCard className="w-5 h-5 text-blue-600" />
-                    {editingPayment ? 'ویرایش فیس قبلی' : 'ثبت فیس جدید'}
+                    {editingPayment ? (isTeacherMode ? 'ویرایش معاش قبلی' : 'ویرایش فیس قبلی') : (isTeacherMode ? 'ثبت معاش جدید' : 'ثبت فیس جدید')}
                   </h3>
                   <button onClick={() => { setSelectedStudent(null); setEditingPayment(null); setPaymentAmount(''); }} className="bg-slate-100 hover:bg-rose-50 text-slate-400 hover:text-rose-600 p-2 rounded-xl transition-colors">
                      <X className="w-4 h-4" />
@@ -507,21 +507,21 @@ export const FinancialManagement: React.FC = () => {
                 </div>
 
                 <div className="bg-blue-50/50 p-6 rounded-3xl border border-blue-100/50">
-                  <p className="text-[10px] font-bold text-blue-400 uppercase mb-3">شاگرد انتخاب شده:</p>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase mb-3 text-right">{isTeacherMode ? 'استاد انتخاب شده:' : 'شاگرد انتخاب شده:'}</p>
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 font-bold border border-blue-100 shadow-sm overflow-hidden">
                       {selectedStudent.photo_url ? <img src={selectedStudent.photo_url} className="w-full h-full object-cover" /> : selectedStudent.name.charAt(0)}
                     </div>
-                    <div>
+                    <div className="text-right">
                       <h4 className="font-bold text-slate-800 text-lg leading-none mb-1">{selectedStudent.name}</h4>
-                      <p className="text-xs text-slate-500">صنف {selectedStudent.class_name} ({selectedStudent.license_plate})</p>
+                      <p className="text-xs text-slate-500">{isTeacherMode ? 'بست' : 'صنف'} {selectedStudent.class_name} ({isTeacherMode ? 'دیپارتمنت' : 'بخش'} {selectedStudent.license_plate})</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 mr-2 uppercase tracking-widest block text-right">انتخاب ماه پرداخت (Afghan Months)</label>
+                    <label className="text-[10px] font-bold text-slate-400 mr-2 uppercase tracking-widest block text-right">{isTeacherMode ? 'انتخاب ماه معاش (Afghan Months)' : 'انتخاب ماه پرداخت (Afghan Months)'}</label>
                     <select 
                       value={selectedMonth}
                       onChange={(e) => setSelectedMonth(e.target.value)}
@@ -535,7 +535,7 @@ export const FinancialManagement: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 mr-2 uppercase tracking-widest block text-right">مبلغ پرداختی (افغانی)</label>
+                    <label className="text-[10px] font-bold text-slate-400 mr-2 uppercase tracking-widest block text-right">{isTeacherMode ? 'مبلغ معاش (افغانی)' : 'مبلغ پرداختی (افغانی)'}</label>
                     <div className="relative">
                       <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -560,13 +560,13 @@ export const FinancialManagement: React.FC = () => {
                         <span className="font-bold">{calculateTax(parseFloat(paymentAmount)).toLocaleString()} AFN</span>
                       </div>
                       <div className="flex items-center justify-between text-xl font-black border-t border-white/10 pt-4">
-                        <span className="text-sm opacity-70">خالص عواید:</span>
+                        <span className="text-sm opacity-70">{isTeacherMode ? 'خالص معاش:' : 'خالص عواید:'}</span>
                         <span>{(parseFloat(paymentAmount) - calculateTax(parseFloat(paymentAmount))).toLocaleString()} <span className="text-[10px] font-normal opacity-50">افغانی</span></span>
                       </div>
                       <p className="text-[10px] text-blue-400 leading-relaxed italic border-t border-white/5 pt-3">
                         {parseFloat(paymentAmount) >= (selectedStudent.total_monthly_fee || 0)
-                          ? '✔️ تبریک! این مبلغ تمام فیس این ماه شاگرد را تسویه می‌کند.' 
-                          : `⚠️ هشدار: مبلغ ${( (selectedStudent.total_monthly_fee || 0) - parseFloat(paymentAmount)).toLocaleString()} افغانی از فیس این ماه باقی می‌ماند.`}
+                          ? (isTeacherMode ? '✔️ تبریک! این مبلغ تمام معاش این ماه استاد را تسویه می‌کند.' : '✔️ تبریک! این مبلغ تمام فیس این ماه شاگرد را تسویه می‌کند.') 
+                          : `⚠️ هشدار: مبلغ ${( (selectedStudent.total_monthly_fee || 0) - parseFloat(paymentAmount)).toLocaleString()} افغانی از ${isTeacherMode ? 'معاش' : 'فیس'} این ماه باقی می‌ماند.`}
                       </p>
                     </motion.div>
                   )}
@@ -581,7 +581,7 @@ export const FinancialManagement: React.FC = () => {
                     ) : (
                       <>
                         <CheckCircle2 className="w-6 h-6" />
-                        {editingPayment ? 'بروزرسانی تغییرات' : 'تایید و ثبت نهایی پرداخت'}
+                        {editingPayment ? 'بروزرسانی تغییرات' : (isTeacherMode ? 'تایید و ثبت نهایی معاش' : 'تایید و ثبت نهایی پرداخت')}
                       </>
                     )}
                   </button>
@@ -598,8 +598,12 @@ export const FinancialManagement: React.FC = () => {
                   <Calculator className="w-20 h-20" />
                 </div>
                 <div>
-                  <p className="font-bold text-slate-800 text-xl mb-2">پرداخت فیس جدید</p>
-                  <p className="text-slate-400 text-xs px-6 leading-relaxed">جهت ثبت فیس ماهواره شاگردان، ابتدا نام یا کد شاگرد را از لیست سمت راست پیدا کرده و روی آیکون پلس کلیک نمایید.</p>
+                  <p className="font-bold text-slate-800 text-xl mb-2">{isTeacherMode ? 'ثبت معاش جدید' : 'پرداخت فیس جدید'}</p>
+                  <p className="text-slate-400 text-xs px-6 leading-relaxed">
+                    {isTeacherMode 
+                      ? 'جهت ثبت معاش ماهوار اساتید، ابتدا نام یا کد استاد را از لیست سمت راست پیدا کرده و روی آیکون پلس کلیک نمایید.'
+                      : 'جهت ثبت فیس ماهواره شاگردان، ابتدا نام یا کد شاگرد را از لیست سمت راست پیدا کرده و روی آیکون پلس کلیک نمایید.'}
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -636,8 +640,8 @@ export const FinancialManagement: React.FC = () => {
                       </div>
                     </div>
                     <div className="text-right">
-                       <h3 className="text-xl md:text-3xl font-black text-slate-800 leading-tight">تاریخچه تخصصی مالی</h3>
-                       <p className="text-slate-500 font-bold text-[10px] md:text-sm mt-1">شاگرد: {historyStudent.name} / صنف {historyStudent.class_name}</p>
+                       <h3 className="text-xl md:text-3xl font-black text-slate-800 leading-tight">{isTeacherMode ? 'تاریخچه تخصصی معاشات' : 'تاریخچه تخصصی مالی'}</h3>
+                       <p className="text-slate-500 font-bold text-[10px] md:text-sm mt-1">{isTeacherMode ? 'استاد' : 'شاگرد'}: {historyStudent.name} / {isTeacherMode ? 'بست' : 'صنف'} {historyStudent.class_name}</p>
                     </div>
                  </div>
                  <div className="flex items-center gap-2">
@@ -685,7 +689,7 @@ export const FinancialManagement: React.FC = () => {
 
                  <div className="mr-auto hidden sm:flex items-center gap-3">
                     <div className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 flex flex-col items-center">
-                       <span className="text-[7px] font-black uppercase opacity-60">کل پرداختی</span>
+                       <span className="text-[7px] font-black uppercase opacity-60">{isTeacherMode ? 'کل معاشات دریافتی' : 'کل پرداختی'}</span>
                        <span className="text-xs font-black">{historyStudent.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} <span className="text-[9px] font-normal opacity-50">AFN</span></span>
                     </div>
                  </div>
@@ -752,9 +756,9 @@ export const FinancialManagement: React.FC = () => {
 
                            <div className="flex items-center justify-between md:justify-end gap-6 md:gap-10 border-t md:border-t-0 md:border-r border-slate-100 pt-4 md:pt-0 md:pr-6">
                               <div className="text-right">
-                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5 md:mb-1">باقی‌مانده فیس</p>
+                                 <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5 md:mb-1">{isTeacherMode ? 'باقی‌مانده معاش' : 'باقی‌مانده فیس'}</p>
                                  <p className={`text-md md:text-lg font-black ${p.balance_remaining <= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>
-                                    {p.balance_remaining <= 0 ? 'تسویه ' : `${p.balance_remaining.toLocaleString()} AFN`}
+                                    {p.balance_remaining <= 0 ? (isTeacherMode ? 'تسویه کامل' : 'تسویه ') : `${p.balance_remaining.toLocaleString()} AFN`}
                                  </p>
                               </div>
                               <div className="flex items-center gap-2">

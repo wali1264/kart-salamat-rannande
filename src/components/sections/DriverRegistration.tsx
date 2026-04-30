@@ -217,8 +217,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   <Fingerprint className="w-6 h-6" />
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-800 text-sm">ثبت اثر انگشت (اختیاری)</h4>
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">ثبت اطلاعات بیومتریک برای سیستم شناسایی هوشمند (روزنامچه)</p>
+                  <h4 className="font-black text-slate-800 text-sm">{isTeacherMode ? 'ثبت اثر انگشت استاد' : 'ثبت اثر انگشت شاگرد'} (اختیاری)</h4>
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{isTeacherMode ? 'ثبت اطلاعات بیومتریک برای سیستم حضور و غیاب اساتید' : 'ثبت اطلاعات بیومتریک برای سیستم شناسایی هوشمند (روزنامچه)'}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -280,8 +280,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
 
           <div className="col-span-12 lg:col-span-12 bento-card">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-               <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">شماره تماس والدین</label>
+               <div className="space-y-2 text-right">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'شماره تماس' : 'شماره تماس والدین'}</label>
                   <div className="relative">
                     <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -290,13 +290,13 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       value={formData.phone}
                       onChange={(e) => setFormData({...formData, phone: e.target.value})}
                       placeholder="۰۷XXXXXXXX"
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                     />
                   </div>
                </div>
 
-               <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر اساس (Roll Number)</label>
+               <div className="space-y-2 text-right">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'کد شناسایی (Employee ID)' : 'نمبر اساس (Roll Number)'}</label>
                   <div className="relative">
                     <CreditCard className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -304,18 +304,19 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.license_number}
                       onChange={(e) => setFormData({...formData, license_number: e.target.value})}
-                      placeholder="SN-XXXX"
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      placeholder={isTeacherMode ? "T-XXXX" : "SN-XXXX"}
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                     />
                   </div>
                </div>
 
-               <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">صنف / صنف تحصیلی</label>
+               <div className="space-y-2 text-right">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'رتبه / بست' : 'صنف / صنف تحصیلی'}</label>
                   <select 
                     value={formData.vehicle_type}
                     onChange={(e) => setFormData({...formData, vehicle_type: e.target.value})}
-                    className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                    className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
+                    dir="rtl"
                   >
                     {categories.map(grade => (
                       <option key={grade} value={grade}>{grade}</option>
@@ -323,12 +324,13 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   </select>
                </div>
 
-               <div className="space-y-2">
+               <div className="space-y-2 text-right">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">گروه خون</label>
                   <select 
                     value={formData.blood_type}
                     onChange={(e) => setFormData({...formData, blood_type: e.target.value})}
-                    className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                    className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
+                    dir="rtl"
                   >
                     {['نامعلوم', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
                       <option key={type} value={type}>{type}</option>
@@ -336,8 +338,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   </select>
                </div>
 
-               <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">بخش / شعبه (Section)</label>
+               <div className="space-y-2 text-right">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'دیپارتمنت / بخش (Department)' : 'بخش / شعبه (Section)'}</label>
                   <div className="relative">
                     <Hash className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -345,8 +347,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.license_plate}
                       onChange={(e) => setFormData({...formData, license_plate: e.target.value})}
-                      placeholder="بخش الف / ب"
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      placeholder={isTeacherMode ? "مثلا ساینس / ادبیات" : "بخش الف / ب"}
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
                     />
                   </div>
                </div>

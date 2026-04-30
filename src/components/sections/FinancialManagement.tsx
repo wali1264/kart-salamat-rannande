@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator } from 'lucide-react';
+import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const AFGHAN_MONTHS = [
@@ -21,6 +21,8 @@ export const FinancialManagement: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [taxSettings, setTaxSettings] = useState({ threshold: 500, rate: 5 });
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchFees();
     const storedTax = localStorage.getItem('andhp_tax_settings');
@@ -29,6 +31,7 @@ export const FinancialManagement: React.FC = () => {
 
   const fetchFees = async () => {
     setLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('students')
@@ -45,10 +48,16 @@ export const FinancialManagement: React.FC = () => {
           )
         `);
       
-      if (error) throw error;
+      if (error) {
+        if (error.code === '42703') {
+          throw new Error('ساختار دیتابیس قدیمی است. لطفا کوئری SQL جدید را در پنل سوپابیس اجرا کنید.');
+        }
+        throw error;
+      }
       setRecords(data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching fees:', err);
+      setError(err.message || 'خطا در بارگذاری اطلاعات مالی');
     } finally {
       setLoading(false);
     }
@@ -103,13 +112,24 @@ export const FinancialManagement: React.FC = () => {
   const getTotalStats = () => {
     let totalRevenue = 0;
     let totalTax = 0;
+    let thisYearRevenue = 0;
+    let thisYearTax = 0;
+    
+    const currentYear = new Date().getFullYear();
+
     records.forEach(s => {
       s.fee_payments?.forEach((p: any) => {
+        const paymentDate = new Date(p.payment_date);
         totalRevenue += p.amount_paid;
         totalTax += (p.tax_amount || 0);
+        
+        if (paymentDate.getFullYear() === currentYear) {
+          thisYearRevenue += p.amount_paid;
+          thisYearTax += (p.tax_amount || 0);
+        }
       });
     });
-    return { totalRevenue, totalTax };
+    return { totalRevenue, totalTax, thisYearRevenue, thisYearTax };
   };
 
   const stats = getTotalStats();
@@ -119,27 +139,25 @@ export const FinancialManagement: React.FC = () => {
       <div className="flex flex-col md:flex-row items-center justify-between gap-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">مدیریت مالی و فیس شاگردان</h2>
-          <p className="text-slate-500 text-sm">ثبت پرداخت‌ها، محاسبه مالیات و گزارش عواید ماهانه</p>
+          <p className="text-slate-500 text-sm">ثبت پرداخت‌ها، محاسبه مالیات و گزارش عواید سالانه</p>
         </div>
         
-        <div className="flex gap-4">
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">مجموع عواید</p>
-              <p className="text-xl font-black text-slate-800">{stats.totalRevenue.toLocaleString()} <span className="text-[10px] font-normal">افغانی</span></p>
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto">
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
+            <p className="text-[9px] font-bold text-slate-400 uppercase">مجموع عواید (کل)</p>
+            <p className="text-lg font-black text-slate-800">{stats.totalRevenue.toLocaleString()}</p>
           </div>
-          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase">مجموع مالیات (امارت)</p>
-              <p className="text-xl font-black text-emerald-600">{stats.totalTax.toLocaleString()} <span className="text-[10px] font-normal">افغانی</span></p>
-            </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
+            <p className="text-[9px] font-bold text-emerald-500 uppercase tracking-tighter">عواید سال جاری</p>
+            <p className="text-lg font-black text-emerald-600">{stats.thisYearRevenue.toLocaleString()}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-1">
+            <p className="text-[9px] font-bold text-slate-400 uppercase">مجموع مالیات (کل)</p>
+            <p className="text-lg font-black text-slate-800">{stats.totalTax.toLocaleString()}</p>
+          </div>
+          <div className="bg-white p-4 rounded-2xl border border-blue-100 shadow-sm flex flex-col gap-1 bg-blue-50/30">
+            <p className="text-[9px] font-bold text-blue-600 uppercase tracking-tighter">مالیات سال جاری (امارت)</p>
+            <p className="text-lg font-black text-blue-700">{stats.thisYearTax.toLocaleString()}</p>
           </div>
         </div>
       </div>
@@ -225,7 +243,24 @@ export const FinancialManagement: React.FC = () => {
                       </tr>
                     );
                   })}
-                  {loading && (
+                  {error && (
+                    <tr>
+                      <td colSpan={5} className="py-20 text-center">
+                        <div className="bg-rose-50 text-rose-600 p-6 rounded-3xl border border-rose-100 max-w-md mx-auto">
+                          <AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                          <p className="font-bold mb-2">خطا در ارتباط با سرور</p>
+                          <p className="text-xs leading-relaxed opacity-80">{error}</p>
+                          <button 
+                            onClick={() => fetchFees()}
+                            className="mt-4 px-6 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold hover:bg-rose-700 transition-all"
+                          >
+                            تلاش مجدد
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  {!error && loading && (
                     <tr>
                       <td colSpan={5} className="py-20 text-center">
                         <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -233,7 +268,7 @@ export const FinancialManagement: React.FC = () => {
                       </td>
                     </tr>
                   )}
-                  {!loading && filteredStudents.length === 0 && (
+                  {!error && !loading && filteredStudents.length === 0 && (
                     <tr>
                       <td colSpan={5} className="py-20 text-center">
                         <p className="text-slate-400 text-sm italic">شاگردی با این مشخصات یافت نشد.</p>

@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check } from 'lucide-react';
+import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
-  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup' | 'support' | 'items'>('general');
   const [logoLoading, setLogoLoading] = useState(false);
   const [logos, setLogos] = useState({ main: '', mini: '' });
   const [customization, setCustomization] = useState<any>({
@@ -35,6 +36,8 @@ export const SettingsSection: React.FC = () => {
     rate: 5,
     enabled: true
   });
+
+  const [categories, setCategories] = useState(['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم']);
 
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
@@ -65,18 +68,24 @@ export const SettingsSection: React.FC = () => {
       if (storedTax) {
         setTaxSettings(JSON.parse(storedTax));
       }
+
+      const storedCats = localStorage.getItem('andhp_student_categories');
+      if (storedCats) {
+        setCategories(JSON.parse(storedCats));
+      }
     } catch (err) {
       console.error('Error fetching settings from localStorage:', err);
     }
   };
 
-  const saveSettings = (newLogos: { main: string; mini: string }, newCustom: any, newTax?: any) => {
+  const saveSettings = (newLogos: { main: string; mini: string }, newCustom: any, newTax?: any, newCats?: string[]) => {
     setLogoLoading(true);
     try {
       localStorage.setItem('andhp_main_logo', newLogos.main);
       localStorage.setItem('andhp_mini_logo', newLogos.mini);
       localStorage.setItem('andhp_card_customization', JSON.stringify(newCustom));
       if (newTax) localStorage.setItem('andhp_tax_settings', JSON.stringify(newTax));
+      if (newCats) localStorage.setItem('andhp_student_categories', JSON.stringify(newCats));
       
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 3000);
@@ -94,27 +103,34 @@ export const SettingsSection: React.FC = () => {
       const compressed = await compressImage(file, type === 'main' ? 400 : 200);
       const updatedLogos = { ...logos, [type]: compressed };
       setLogos(updatedLogos);
-      saveSettings(updatedLogos, customization, taxSettings);
+      saveSettings(updatedLogos, customization, taxSettings, categories);
     }
   };
 
   const updateCustomization = (key: string, value: any) => {
     const updated = { ...customization, [key]: value };
     setCustomization(updated);
-    saveSettings(logos, updated, taxSettings);
+    saveSettings(logos, updated, taxSettings, categories);
   };
 
   const updateTaxSettings = (updates: Partial<typeof taxSettings>) => {
     const updated = { ...taxSettings, ...updates };
     setTaxSettings(updated);
-    saveSettings(logos, customization, updated);
+    saveSettings(logos, customization, updated, categories);
+  };
+
+  const updateCategories = (newCats: string[]) => {
+    setCategories(newCats);
+    saveSettings(logos, customization, taxSettings, newCats);
   };
 
   const tabs = [
     { id: 'general', label: 'حساب و ظاهر', icon: User },
+    { id: 'items', label: 'دسته‌بندی‌ها', icon: Layers },
     { id: 'card', label: 'شخصی‌سازی کارت', icon: CreditCard },
     { id: 'tax', label: 'تنظیمات مالیات', icon: DollarSign },
     { id: 'backup', label: 'پشتیبان‌گیری', icon: Shield },
+    { id: 'support', label: 'پشتیبانی', icon: LifeBuoy },
   ];
 
   return (
@@ -165,13 +181,13 @@ export const SettingsSection: React.FC = () => {
                 className="space-y-6"
               >
                 {/* Profile Card */}
-                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden">
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden text-right">
                   <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
                     <div className="w-28 h-28 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center text-white text-4xl font-bold shadow-xl shadow-blue-100">
-                      {profile?.name.charAt(0)}
+                      {profile?.name?.charAt(0) || 'U'}
                     </div>
                     <div className="text-center md:text-right flex-1">
-                      <h3 className="text-2xl font-bold text-slate-800 mb-1">{profile?.name}</h3>
+                      <h3 className="text-2xl font-bold text-slate-800 mb-1">{profile?.name || 'مدیر سامانه'}</h3>
                       <p className="text-slate-500 text-sm mb-4">{profile?.email}</p>
                       <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 text-blue-600 rounded-full text-xs font-bold border border-blue-100">
                         <Shield className="w-3.5 h-3.5" />
@@ -188,7 +204,7 @@ export const SettingsSection: React.FC = () => {
                 </div>
 
                 {/* UI Preferences */}
-                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6 text-right">
                   <h4 className="font-bold text-slate-800 flex items-center gap-3 text-lg">
                     <Monitor className="w-6 h-6 text-blue-500" />
                     تنظیمات ظاهری برنامه
@@ -223,6 +239,49 @@ export const SettingsSection: React.FC = () => {
                   <LogOut className="w-6 h-6" />
                   خروج کامل از حساب کاربری
                 </button>
+              </motion.div>
+            )}
+
+            {activeTab === 'items' && (
+              <motion.div 
+                key="items"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6 text-right">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-3 text-lg text-amber-600">
+                    <Layers className="w-6 h-6" />
+                    مدیریت صنف‌ها و دسته‌بندی‌ها
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-relaxed bg-amber-50/50 p-5 rounded-2xl border border-amber-100/50">
+                    در این بخش می‌توانید لیست صنف‌های موجود در مکتب را مدیریت کنید. این لیست در هنگام ثبت‌نام شاگرد جدید برای انتخاب صنف استفاده می‌شود.
+                  </p>
+                  
+                  <div className="flex flex-wrap gap-3">
+                    {categories.map((cat, idx) => (
+                      <div key={idx} className="group relative flex items-center gap-3 bg-white border border-slate-200 px-5 py-3 rounded-2xl font-bold text-slate-700 shadow-sm hover:border-amber-300 transition-all">
+                        {cat}
+                        <button 
+                          onClick={() => updateCategories(categories.filter((_, i) => i !== idx))}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-rose-500 hover:text-rose-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <button 
+                      onClick={() => {
+                        const name = prompt('نام صنف جدید را وارد کنید:');
+                        if (name) updateCategories([...categories, name]);
+                      }}
+                      className="flex items-center gap-2 bg-amber-600 text-white px-6 py-3 rounded-2xl text-xs font-bold hover:bg-amber-700 shadow-lg shadow-amber-100 transition-all active:scale-95"
+                    >
+                      <PlusCircle className="w-4 h-4" /> افزودن صنف جدید
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -450,6 +509,58 @@ export const SettingsSection: React.FC = () => {
                       </label>
                     </div>
                   </div>
+              </motion.div>
+            )}
+            {activeTab === 'support' && (
+              <motion.div 
+                key="support"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/20 text-center space-y-8">
+                  <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center mx-auto shadow-inner">
+                    <LifeBuoy className="w-12 h-12" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-800 mb-2">مرکز پشتیبانی و خدمات مشتریان</h3>
+                    <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">
+                      در صورت بروز هرگونه مشکل فنی در سامانه، سوال در مورد تنظیمات مالی یا نیاز به آموزش، همکاران ما آماده پاسخگویی هستند.
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
+                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex items-center gap-5">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-emerald-500 shadow-sm">
+                        <Phone className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">شماره تماس مستقیم</p>
+                        <p className="text-lg font-black text-slate-800" dir="ltr">+93 700 000 000</p>
+                      </div>
+                    </div>
+                    <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex items-center gap-5">
+                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-500 shadow-sm">
+                        <Mail className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">ایمیل پشتیبانی</p>
+                        <p className="text-sm font-black text-slate-800">support@school.gov.af</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-50 flex flex-col items-center gap-4">
+                    <p className="text-xs text-slate-400 flex items-center gap-2">
+                       <AlertCircle className="w-4 h-4" />
+                       ساعت کاری: شنبه تا پنجشنبه - ۸ صبح الی ۴ بعد از ظهر
+                    </p>
+                    <button className="flex items-center gap-2 text-blue-600 font-bold text-xs hover:underline">
+                      <ExternalLink className="w-4 h-4" /> مشاهده مستندات راهنمای سامانه
+                    </button>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

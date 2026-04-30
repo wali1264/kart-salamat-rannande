@@ -20,11 +20,27 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     license_number: '', // Repurposed for Roll Number
     phone: '',
     id_number: '',
-    vehicle_type: 'صنف اول', // Repurposed for Grade/Level
+    vehicle_type: '', // Repurposed for Grade/Level
     blood_type: 'نامعلوم',
     total_monthly_fee: '1500', // Default fee
   });
   const [photo, setPhoto] = useState<string | null>(null);
+
+  // Fetch dynamic categories from localStorage
+  const [categories, setCategories] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    const storedCats = localStorage.getItem('andhp_student_categories');
+    const cats = storedCats ? JSON.parse(storedCats) : [
+      'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
+      'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
+      'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
+    ];
+    setCategories(cats);
+    if (cats.length > 0) {
+      setFormData(prev => ({ ...prev, vehicle_type: cats[0] }));
+    }
+  }, []);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -210,11 +226,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                     onChange={(e) => setFormData({...formData, vehicle_type: e.target.value})}
                     className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                   >
-                    {[
-                      'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
-                      'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
-                      'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
-                    ].map(grade => (
+                    {categories.map(grade => (
                       <option key={grade} value={grade}>{grade}</option>
                     ))}
                   </select>

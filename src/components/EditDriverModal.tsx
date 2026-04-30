@@ -173,7 +173,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                   </div>
 
                   <div className="space-y-2 text-right">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نوم / نام</label>
                     <div className="relative">
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -187,7 +187,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                   </div>
 
                   <div className="space-y-2 text-right">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام پدر</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">د پلار نوم / نام پدر</label>
                     <div className="relative">
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 opacity-50" />
                       <input 

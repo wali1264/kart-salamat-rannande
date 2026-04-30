@@ -441,7 +441,7 @@ export const QrScanner: React.FC = () => {
                 {!cardData.student.photo_url && <UserIcon className="w-16 h-16 text-slate-300 mt-12 mx-auto" />}
               </div>
               <div>
-                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">نام شاگرد</p>
+                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">نوم / نام</p>
                 <h3 className="text-2xl font-black text-slate-800 leading-tight">{cardData.student.name}</h3>
                 <span className="inline-block mt-2 px-3 py-1 bg-slate-900 text-white rounded-lg text-[9px] font-bold">S/N: {cardData.card.id.slice(0, 8)}</span>
               </div>
@@ -449,7 +449,7 @@ export const QrScanner: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3 mb-6 text-right">
               {[
-                { label: 'نام پدر', value: cardData.student.father_name },
+                { label: 'د پلار نوم / نام پدر', value: cardData.student.father_name },
                 { label: 'نمبر اساس', value: cardData.student.student_id_no, mono: true },
                 { label: 'بخش/شعبه', value: cardData.student.license_plate },
                 { label: 'صنف', value: cardData.student.class_name },

@@ -154,8 +154,8 @@ export const DriverList: React.FC = () => {
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr className="text-slate-400 font-normal">
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest text-center">وضعیت کارت</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'نام معلم' : 'نام شاگرد'}</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نام پدر</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نوم / نام</th>
+                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">د پلار نوم / نام پدر</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'رتبه/بست' : 'صنف'}</th>
                   <th className="p-5 font-bold uppercase text-[10px] tracking-widest">عملیات</th>

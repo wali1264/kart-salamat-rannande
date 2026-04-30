@@ -90,11 +90,11 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
                 <div className="flex-1 space-y-4 w-full">
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                         <p className="text-[10px] text-slate-400 font-bold uppercase">نام شاگرد</p>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase">نوم / نام</p>
                          <p className="font-bold text-slate-800">{driver.name}</p>
                       </div>
                       <div className="space-y-1 text-left md:text-right">
-                         <p className="text-[10px] text-slate-400 font-bold uppercase">نام پدر</p>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase">د پلار نوم / نام پدر</p>
                          <p className="font-bold text-slate-800">{driver.father_name || '---'}</p>
                       </div>
                       <div className="space-y-1">

@@ -244,7 +244,7 @@ export const FinancialManagement: React.FC = () => {
   const exportToExcel = () => {
     if (!historyStudent || !historyStudent.fee_payments) return;
     const data = historyStudent.fee_payments.map((p: any) => ({
-      [isTeacherMode ? 'نام معلم' : 'نام شاگرد']: historyStudent.name,
+      'نوم / نام': historyStudent.name,
       'ماه': p.for_month,
       [isTeacherMode ? 'حقوق پرداختی' : 'مبلغ پرداختی']: p.amount_paid,
       'مالیات': p.tax_amount,
@@ -824,11 +824,11 @@ export const FinancialManagement: React.FC = () => {
         <div className="grid grid-cols-2 gap-12 mb-12 p-8 rounded-3xl border" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
           <div className="space-y-3">
              <div className="flex gap-2">
-                <span className="font-bold" style={{ color: '#94a3b8' }}>{isTeacherMode ? 'نام استاد:' : 'نام شاگرد:'}</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>نوم / نام:</span>
                 <span className="text-xl font-black" style={{ color: '#1e293b' }}>{historyStudent?.name}</span>
              </div>
              <div className="flex gap-2 text-lg">
-                <span className="font-bold" style={{ color: '#94a3b8' }}>نام پدر:</span>
+                <span className="font-bold" style={{ color: '#94a3b8' }}>د پلار نوم / نام پدر:</span>
                 <span className="font-bold" style={{ color: '#334155' }}>{historyStudent?.father_name}</span>
              </div>
           </div>

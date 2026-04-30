@@ -425,6 +425,8 @@ export const FinancialManagement: React.FC = () => {
                 </div>
               </motion.div>
             )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* Advanced History Modal */}

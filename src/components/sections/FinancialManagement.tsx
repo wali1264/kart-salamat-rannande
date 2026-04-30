@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle } from 'lucide-react';
+import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const AFGHAN_MONTHS = [
@@ -10,18 +10,23 @@ const AFGHAN_MONTHS = [
   'جدی (Jadi)', 'دلو (Dalw)', 'حوت (Hut)'
 ];
 
+const YEARS = Array.from({ length: 11 }, (_, i) => (1402 + i).toString());
+
 export const FinancialManagement: React.FC = () => {
-  const [students, setStudents] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [historyStudent, setHistoryStudent] = useState<any | null>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(AFGHAN_MONTHS[0]);
   const [processing, setProcessing] = useState(false);
   const [taxSettings, setTaxSettings] = useState({ threshold: 500, rate: 5 });
-
   const [error, setError] = useState<string | null>(null);
+
+  // Filters for History Modal
+  const [historyMonthFilter, setHistoryMonthFilter] = useState<string>('همه ماه ها');
+  const [historyYearFilter, setHistoryYearFilter] = useState<string>(YEARS[0]);
 
   useEffect(() => {
     fetchFees();
@@ -44,17 +49,19 @@ export const FinancialManagement: React.FC = () => {
             payment_date,
             tax_amount,
             net_amount,
-            balance_remaining
+            balance_remaining,
+            notes
           )
         `);
       
-      if (error) {
-        if (error.code === '42703') {
-          throw new Error('ساختار دیتابیس قدیمی است. لطفا کوئری SQL جدید را در پنل سوپابیس اجرا کنید.');
-        }
-        throw error;
-      }
+      if (error) throw error;
       setRecords(data || []);
+      
+      // Update history student if modal is open
+      if (historyStudent) {
+        const updated = (data || []).find(s => s.id === historyStudent.id);
+        if (updated) setHistoryStudent(updated);
+      }
     } catch (err: any) {
       console.error('Error fetching fees:', err);
       setError(err.message || 'خطا در بارگذاری اطلاعات مالی');
@@ -100,6 +107,17 @@ export const FinancialManagement: React.FC = () => {
       console.error('Error recording payment:', err);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const deletePayment = async (paymentId: string) => {
+    if (!window.confirm('آیا از حذف این تراکنش مطمئن هستید؟ این عمل وضعیت دریافتی شاگرد را تغییر می‌دهد.')) return;
+    try {
+      const { error } = await supabase.from('fee_payments').delete().eq('id', paymentId);
+      if (error) throw error;
+      fetchFees();
+    } catch (err) {
+      alert('خطا در حذف تراکنش');
     }
   };
 
@@ -232,13 +250,22 @@ export const FinancialManagement: React.FC = () => {
                           )}
                         </td>
                         <td className="px-6 py-4">
-                          <button 
-                            onClick={() => setSelectedStudent(student)}
-                            className="p-2 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white rounded-xl transition-all group shadow-sm border border-blue-100"
-                            title="ثبت پرداخت جدید"
-                          >
-                            <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => setHistoryStudent(student)}
+                              className="p-2.5 bg-slate-50 hover:bg-white text-slate-400 hover:text-indigo-600 rounded-xl transition-all border border-slate-100 hover:border-indigo-200 hover:shadow-md active:scale-95"
+                              title="مشاهده تاریخچه و فیلترها"
+                            >
+                              <History className="w-5 h-5" />
+                            </button>
+                            <button 
+                              onClick={() => setSelectedStudent(student)}
+                              className="p-2.5 bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white rounded-xl transition-all group shadow-sm border border-blue-100 active:scale-95"
+                              title="ثبت پرداخت جدید"
+                            >
+                              <PlusCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -398,39 +425,161 @@ export const FinancialManagement: React.FC = () => {
                 </div>
               </motion.div>
             )}
-          </AnimatePresence>
+      </div>
 
-          {/* History Section for Selected Student */}
-          {selectedStudent && selectedStudent.fee_payments && selectedStudent.fee_payments.length > 0 && (
+      {/* Advanced History Modal */}
+      <AnimatePresence>
+        {historyStudent && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-[2rem] border border-slate-100 p-8 space-y-6 shadow-sm mb-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setHistoryStudent(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 100, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 100, scale: 0.95 }}
+              className="relative w-full max-w-5xl bg-white rounded-[3.5rem] shadow-3xl overflow-hidden flex flex-col max-h-[92vh] border border-white"
             >
-              <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                <History className="w-4 h-4 text-blue-500" />
-                تاریخچه پرداخت‌های اخیر
-              </h4>
-              <div className="space-y-3">
-                {[...selectedStudent.fee_payments].sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()).slice(0, 5).map((p: any) => (
-                  <div key={p.id} className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50 hover:bg-slate-50 transition-colors">
+              {/* Modal Header */}
+              <div className="p-10 border-b border-slate-50 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                 <div className="flex items-center gap-6">
+                    <div className="relative">
+                      <div className="w-20 h-20 rounded-[1.8rem] bg-indigo-600 text-white flex items-center justify-center text-3xl font-black shadow-2xl shadow-indigo-100 overflow-hidden ring-4 ring-white">
+                        {historyStudent.photo_url ? <img src={historyStudent.photo_url} className="w-full h-full object-cover" /> : historyStudent.name.charAt(0)}
+                      </div>
+                      <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-emerald-500 text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
+                         <ShieldCheck className="w-4 h-4" />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                       <h3 className="text-3xl font-black text-slate-800 leading-tight">تاریخچه تخصصی مالی</h3>
+                       <p className="text-slate-500 font-bold text-sm mt-1">شاگرد: {historyStudent.name} / صنف {historyStudent.class_name}</p>
+                    </div>
+                 </div>
+                 <div className="flex items-center gap-3">
+                    <button className="p-4 bg-white text-slate-400 hover:text-blue-600 border border-slate-100 rounded-[1.2rem] shadow-sm transition-all hover:shadow-md active:scale-90">
+                       <Printer className="w-6 h-6" />
+                    </button>
+                    <button 
+                      onClick={() => setHistoryStudent(null)}
+                      className="p-4 bg-white text-slate-400 hover:text-rose-600 border border-slate-100 rounded-[1.2rem] shadow-sm transition-all hover:shadow-md active:scale-95 ml-2"
+                    >
+                       <X className="w-6 h-6" />
+                    </button>
+                 </div>
+              </div>
+
+              {/* Filter Bar */}
+              <div className="px-10 py-6 bg-slate-50/30 border-b border-slate-100 flex flex-wrap items-center gap-6">
+                 <div className="flex items-center gap-4 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm ring-1 ring-slate-50">
+                    <Filter className="w-4 h-4 text-slate-400" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">فیلتر ماه:</span>
+                    <select 
+                      value={historyMonthFilter}
+                      onChange={(e) => setHistoryMonthFilter(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-800 outline-none cursor-pointer rtl"
+                    >
+                      <option value="همه ماه ها">همه ماه ها</option>
+                      {AFGHAN_MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                 </div>
+
+                 <div className="flex items-center gap-4 bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm ring-1 ring-slate-50">
+                    <Calendar className="w-4 h-4 text-slate-400" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">انتخاب سال:</span>
+                    <select 
+                      value={historyYearFilter}
+                      onChange={(e) => setHistoryYearFilter(e.target.value)}
+                      className="bg-transparent text-xs font-black text-slate-800 outline-none cursor-pointer rtl"
+                    >
+                      {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                 </div>
+
+                 <div className="mr-auto grid grid-cols-2 gap-3 text-right">
+                    <div className="px-5 py-3 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 flex flex-col items-center min-w-[120px]">
+                       <span className="text-[8px] font-black uppercase opacity-60">کل پرداختی</span>
+                       <span className="text-sm font-black">{historyStudent.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} <span className="text-[9px] font-normal opacity-50">AFN</span></span>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Transactions List */}
+              <div className="flex-1 overflow-y-auto p-10 bg-white">
+                 <div className="space-y-6">
+                    {historyStudent.fee_payments && historyStudent.fee_payments
+                      .filter((p: any) => historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter)
+                      .sort((a: any, b: any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
+                      .map((p: any) => (
+                        <motion.div 
+                          layout
+                          key={p.id}
+                          className="group bg-slate-50/50 hover:bg-white rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden"
+                        >
+                           <div className="absolute left-0 top-0 bottom-0 w-2 bg-slate-200 group-hover:bg-blue-600 transition-colors" />
+                           <div className="flex items-center gap-6">
+                              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100 group-hover:scale-110 transition-transform">
+                                 <DollarSign className="w-7 h-7" />
+                              </div>
+                              <div className="text-right">
+                                 <div className="flex items-center gap-3 mb-1">
+                                    <h4 className="text-2xl font-black text-slate-800">{p.amount_paid.toLocaleString()} AFN</h4>
+                                    <span className="px-3 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[10px] font-black">بابت ماه {p.for_month}</span>
+                                 </div>
+                                 <div className="flex items-center gap-4 text-slate-400 text-[11px] font-bold">
+                                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> {new Date(p.payment_date).toLocaleDateString('fa-AF')}</span>
+                                 </div>
+                              </div>
+                           </div>
+
+                           <div className="flex items-center gap-10">
+                              <div className="text-right min-w-[100px]">
+                                 <p className="text-[10px] font-black text-slate-400 uppercase mb-1">باقی‌مانده فیس</p>
+                                 <p className={`text-lg font-black ${p.balance_remaining <= 0 ? 'text-emerald-500' : 'text-orange-500'}`}>
+                                    {p.balance_remaining <= 0 ? 'تسویه کامل' : `${p.balance_remaining.toLocaleString()} AFN`}
+                                 </p>
+                              </div>
+                              <div className="flex items-center gap-2 pr-6 border-r border-slate-100">
+                                 <button 
+                                  onClick={() => deletePayment(p.id)}
+                                  className="p-3 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white rounded-2xl transition-all border border-rose-100 shadow-sm active:scale-90"
+                                  title="حذف دائمی تراکنش"
+                                 >
+                                    <Trash2 className="w-5 h-5" />
+                                 </button>
+                              </div>
+                           </div>
+                        </motion.div>
+                      ))}
+                 </div>
+              </div>
+
+              {/* Footer Modal Action */}
+              <div className="p-8 bg-slate-900 flex items-center justify-between rounded-t-[3rem]">
+                 <div className="flex items-center gap-4 text-right">
+                    <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white">
+                       <Info className="w-6 h-6" />
+                    </div>
                     <div>
-                      <p className="text-xs font-bold text-slate-800">بابت ماه {p.for_month}</p>
-                      <p className="text-[10px] text-slate-400 mt-1">{new Date(p.payment_date).toLocaleDateString('fa-AF')}</p>
+                       <p className="text-white font-black">سیستم مدیریت مالی</p>
+                       <p className="text-slate-400 text-[10px] font-bold">تمامی تراکنش‌ها با رعایت استندردهای مالی امارت ثبت می‌شوند.</p>
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black text-blue-600">{p.amount_paid.toLocaleString()} AFN</p>
-                      <p className={`text-[9px] font-bold mt-0.5 ${p.balance_remaining <= 0 ? 'text-emerald-500' : 'text-rose-400'}`}>
-                        {p.balance_remaining <= 0 ? '✔️ تسویه کامل' : `باقی‌مانده: ${p.balance_remaining.toLocaleString()}`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                 </div>
+                 <button 
+                  onClick={() => setHistoryStudent(null)}
+                  className="px-10 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-2xl shadow-blue-500/20 active:scale-95"
+                 >
+                    بستن تاریخچه
+                 </button>
               </div>
             </motion.div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -12,20 +12,20 @@ export const SettingsSection: React.FC = () => {
     title_primary_dr: 'د افغانستان اسلامی امارت',
     title_primary_ps: 'امارت اسلامی افغانستان',
     title_primary_en: 'Islamic Emirate of Afghanistan',
-    title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
-    title_card_ps: 'د چلوونکي د روغتیا کارت',
-    title_card_dr: 'کارت صحت راننده',
-    title_card_en: 'Driver\'s Health Card',
-    footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
+    title_secondary_dr: 'وزارت معارف / ریاست معارف ولایت مربوطه',
+    title_card_ps: 'د زده کوونکي د هویت کارت',
+    title_card_dr: 'کارت هویت شاگرد',
+    title_card_en: 'Student Identity Card',
+    footer_en: 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
     regulations_ps: [
-      'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
-      'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
-      'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+      'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
+      'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
+      'دغه کارت یوازې د ټاکل شوې ښوونیزې دورې پورې اعتبار لري.'
     ],
     regulations_dr: [
-      'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
-      'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
-      'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+      'این کارت تاییدیه رسمی هویت شاگرد جهت فعالیت در محیط مکتب است.',
+      'شاگرد متعهد می‌گردد تمامی مقررات انضباطی و آموزشی مکتب را به طور کامل رعایت نماید.',
+      'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
     ]
   });
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -46,10 +46,10 @@ export const SettingsSection: React.FC = () => {
         // Ensure all fields exist
         if (!parsed.regulations_ps) parsed.regulations_ps = customization.regulations_ps;
         if (!parsed.regulations_dr) parsed.regulations_dr = customization.regulations_dr;
-        if (!parsed.title_card_dr || parsed.title_card_dr.includes('وزارت')) {
-          parsed.title_card_ps = 'د چلوونکي د روغتیا کارت';
-          parsed.title_card_dr = 'کارت صحت راننده';
-          parsed.title_card_en = 'Driver\'s Health Card';
+        if (!parsed.title_card_dr || parsed.title_card_dr.includes('صحت')) {
+          parsed.title_card_ps = 'د زده کوونکي د هویت کارت';
+          parsed.title_card_dr = 'کارت هویت شاگرد';
+          parsed.title_card_en = 'Student Identity Card';
         }
         setCustomization(parsed);
       }
@@ -104,7 +104,7 @@ export const SettingsSection: React.FC = () => {
             <div className="flex items-center justify-between">
               <h4 className="font-bold text-slate-800 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-blue-600" />
-                مدیریت لوگوهای کارت سلامت
+                مدیریت لوگوهای کارت هویت شاگرد
               </h4>
               {saveStatus === 'success' && (
                 <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full flex items-center gap-1 font-bold animate-pulse">
@@ -114,7 +114,7 @@ export const SettingsSection: React.FC = () => {
             </div>
             
             <p className="text-[11px] text-slate-500 leading-relaxed bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
-              در این بخش می‌توانید لوگوهای رسمی وزارت صحت عامه و امارت اسلامی را برای نمایش روی کارت‌های سلامت آپلود نمایید. در صورت عدم آپلود، فضای مربوطه در کارت خالی می‌ماند.
+              در این بخش می‌توانید لوگوهای رسمی مکتب و امارت اسلامی را برای نمایش روی کارت‌های هویت آپلود نمایید. در صورت عدم آپلود، فضای مربوطه در کارت خالی می‌ماند.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -220,12 +220,13 @@ export const SettingsSection: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400">نام دیپارتمنت/وزارت (دری/پشتو)</label>
+                  <label className="text-[10px] font-bold text-slate-400">نام مکتب یا دیپارتمنت (دری/پشتو)</label>
                   <input 
                     type="text" 
                     value={customization.title_secondary_dr}
                     onChange={(e) => updateCustomization('title_secondary_dr', e.target.value)}
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs outline-none focus:border-indigo-300 transition-all font-bold"
+                    placeholder="نام مکتب را اینجا بنویسید..."
                   />
                 </div>
               </div>
@@ -326,20 +327,20 @@ export const SettingsSection: React.FC = () => {
                     title_primary_dr: 'د افغانستان اسلامی امارت',
                     title_primary_ps: 'امارت اسلامی افغانستان',
                     title_primary_en: 'Islamic Emirate of Afghanistan',
-                    title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
-                    title_card_ps: 'د چلوونکي د روغتیا کارت',
-                    title_card_dr: 'کارت صحت راننده',
-                    title_card_en: 'Driver\'s Health Card',
-                    footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
+                    title_secondary_dr: 'نام مکتب تان را اینجا بنویسید (وزارت معارف)',
+                    title_card_ps: 'د زده کوونکي د هویت کارت',
+                    title_card_dr: 'کارت هویت شاگرد',
+                    title_card_en: 'Student Identity Card',
+                    footer_en: 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
                     regulations_ps: [
-                      'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
-                      'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
-                      'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+                      'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
+                      'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
+                      'دغه کارت یوازې د ټاکل شوې ښوونیزې دورې پورې اعتبار لري.'
                     ],
                     regulations_dr: [
-                      'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
-                      'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
-                      'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+                      'این کارت تاییدیه رسمی هویت شاگرد جهت فعالیت در محیط مکتب است.',
+                      'شاگرد متعهد می‌گردد تمامی مقررات انضباطی و آموزشی مکتب را به طور کامل رعایت نماید.',
+                      'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
                     ]
                   };
                   setCustomization(defaultCustom);
@@ -409,19 +410,19 @@ export const SettingsSection: React.FC = () => {
               پشتیبان‌گیری و بازیابی
             </h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              شما می‌توانید از تمام اطلاعات ثبت شده (رانندگان، کارت‌ها و تصاویر) یک خروجی JSON تهیه کرده و در مواقع لزوم آن را بازیابی کنید.
+              شما می‌توانید از تمام اطلاعات ثبت شده (شاگردان، کارت‌ها و تصاویر) یک خروجی JSON تهیه کرده و در مواقع لزوم آن را بازیابی کنید.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                <button 
                   onClick={async () => {
-                    const { data: drivers } = await supabase.from('drivers').select('*');
+                    const { data: students } = await supabase.from('students').select('*');
                     const { data: cards } = await supabase.from('health_cards').select('*');
-                    const backup = { drivers, cards, timestamp: new Date().toISOString() };
+                    const backup = { students, cards, timestamp: new Date().toISOString() };
                     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `andhp_backup_${new Date().toISOString().split('T')[0]}.json`;
+                    a.download = `school_mgt_backup_${new Date().toISOString().split('T')[0]}.json`;
                     a.click();
                   }}
                   className="flex items-center justify-center gap-2 py-4 bg-slate-900 text-white rounded-2xl text-xs font-bold hover:bg-slate-800 transition-all"
@@ -441,8 +442,8 @@ export const SettingsSection: React.FC = () => {
                         reader.onload = async (event) => {
                           try {
                             const backup = JSON.parse(event.target?.result as string);
-                            if (backup.drivers) {
-                              await supabase.from('drivers').insert(backup.drivers);
+                            if (backup.students) {
+                              await supabase.from('students').insert(backup.students);
                               if (backup.cards) await supabase.from('health_cards').insert(backup.cards);
                               alert('اطلاعات با موفقیت بازیابی شد. صفحه را رفرش کنید.');
                             }
@@ -465,7 +466,7 @@ export const SettingsSection: React.FC = () => {
             <Info className="w-8 h-8 mb-4 opacity-50" />
             <h4 className="font-bold mb-2">اطلاعات نسخه</h4>
             <p className="text-xs text-blue-100 leading-relaxed mb-6">
-               شما در حال استفاده از نسخه ۱.۰.۲ سامانه ملی سلامت رانندگان هستید. تمامی حقوق برای وزارت صحت عامه محفوظ است.
+               شما در حال استفاده از نسخه ۱.۰.۲ سامانه مدیریت مکتب و صدور کارت هویت شاگردان هستید. تمامی حقوق برای مکتب مربوطه و والدین شاگردان محفوظ است.
             </p>
             <div className="p-4 bg-white/10 rounded-xl text-[10px] font-mono">
               Build ID: afg-prod-2024-v1

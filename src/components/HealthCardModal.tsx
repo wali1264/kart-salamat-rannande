@@ -37,7 +37,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
       const { error } = await supabase
         .from('health_cards')
         .insert({
-          driver_id: driver.id,
+          driver_id: driver.id, // Keeping table column name driver_id for compatibility, but it points to student now
           issuer_id: profile?.id,
           issue_date: issueDate.toISOString(),
           expiry_date: expiryDate.toISOString(),
@@ -90,7 +90,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
                 {isRenewal ? 'کارت با موفقیت تمدید شد' : 'کارت با موفقیت صادر شد'}
               </h3>
               <p className="text-slate-500">
-                کارت راننده {driver.name} {isRenewal ? 'تمدید' : 'فعال'} و آماده استفاده است.
+                کارت شاگرد {driver.name} {isRenewal ? 'تمدید' : 'فعال'} و آماده چاپ است.
               </p>
             </div>
           ) : (
@@ -98,9 +98,9 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
               <div className="p-8 border-b border-slate-100 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl font-bold text-slate-800">
-                    {isRenewal ? 'تمدید اعتبار کارت سلامت' : 'صدور کارت سلامت'}
+                    {isRenewal ? 'تمدید اعتبار کارت هویت' : 'صدور کارت هویت شاگرد'}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-1">راننده: {driver.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">شاگرد: {driver.name}</p>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                   <X className="w-6 h-6 text-slate-400" />
@@ -136,12 +136,12 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
                   </div>
                 </div>
 
-                <div className="p-6 bg-amber-50 rounded-2xl border border-amber-100 flex items-center justify-between">
+                <div className="p-6 bg-blue-50 rounded-2xl border border-blue-100 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <ShieldCheck className="w-6 h-6 text-amber-600" />
+                    <ShieldCheck className="w-6 h-6 text-blue-600" />
                     <div>
-                      <h4 className="text-sm font-bold text-amber-900">هوشیاری کامل راننده</h4>
-                      <p className="text-[10px] text-amber-700">تایید عدم مصرف الکول یا مواد مخدر</p>
+                      <h4 className="text-sm font-bold text-blue-900">وضعیت انضباطی شاگرد</h4>
+                      <p className="text-[10px] text-blue-700">تایید رعایت قوانین و مقررات مکتب</p>
                     </div>
                   </div>
                   <button 
@@ -184,7 +184,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
                 <div className="p-4 bg-slate-50 rounded-2xl flex items-start gap-3">
                   <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
                   <p className="text-[10px] text-slate-500 leading-relaxed">
-                    با کلیک بر روی دکمه تایید، مسئولیت بررسی و تایید سلامت راننده مذکور را بر اساس استانداردهای وزارت صحت عامه افغانستان بر عهده می‌گیرید. این کارت به مدت {data.validity_period === '12' ? 'یک سال' : 'شش ماه'} معتبر خواهد بود.
+                    با کلیک بر روی دکمه تایید، صحت اطلاعات و وضعیت شاگرد مذکور را تایید می‌نماید. این کارت به مدت {data.validity_period === '12' ? 'یک سال' : 'شش ماه'} معتبر خواهد بود.
                   </p>
                 </div>
               </div>
@@ -195,7 +195,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
                   disabled={loading}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {loading ? (isRenewal ? 'در حال تمدید...' : 'در حال صدور...') : (isRenewal ? 'تایید و تمدید کارت صحی' : 'تایید و صدور کارت صحی')}
+                  {loading ? (isRenewal ? 'در حال تمدید...' : 'در حال صدور...') : (isRenewal ? 'تایید و تمدید کارت هویت' : 'تایید و صدور کارت هویت')}
                 </button>
               </div>
             </div>

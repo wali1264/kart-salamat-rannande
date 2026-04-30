@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 
 export const QrScanner: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [cardData, setCardData] = useState<{ card: any, driver: any } | null>(null);
+  const [cardData, setCardData] = useState<{ card: any, student: any } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showScanner, setShowScanner] = useState(false);
@@ -43,12 +43,11 @@ export const QrScanner: React.FC = () => {
 
       setIsSearching(true);
       try {
-        // Advanced Search: Look up drivers by Name, License, Plate, ID, Phone
-        // Plus S/N (first 8 chars of health card ID)
-        const { data: drivers, error: dError } = await supabase
-          .from('drivers')
+        // Advanced Search: Look up students by Name, ID, Phone, Father Name, Class
+        const { data: students, error: dError } = await supabase
+          .from('students')
           .select(`*, health_cards(id, expiry_date)`)
-          .or(`name.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%`)
+          .or(`name.ilike.%${q}%,student_id_no.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%,father_name.ilike.%${q}%`)
           .limit(5);
 
         // Also search by S/N directly in health_cards if query is short/alphanumeric
@@ -56,19 +55,19 @@ export const QrScanner: React.FC = () => {
         if (q.length >= 4 && /^[a-zA-Z0-9]+$/.test(q)) {
           const { data: cards } = await supabase
             .from('health_cards')
-            .select('*, drivers(*)')
+            .select('*, students(*)')
             .ilike('id', `${q}%`)
             .limit(3);
           
           if (cards) {
             snResults = cards.map(c => ({
-              ...c.drivers,
+              ...c.students,
               health_cards: [{ id: c.id, expiry_date: c.expiry_date }]
             }));
           }
         }
 
-        const combined = [...drivers || [], ...snResults];
+        const combined = [...students || [], ...snResults];
         // Remove duplicates by ID
         const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
         setSuggestions(unique.slice(0, 6));
@@ -145,54 +144,48 @@ export const QrScanner: React.FC = () => {
     try {
       let card = null;
 
-      // STEP 1: Search by all driver fields (Name, License, Plate, ID, etc.)
-      const { data: drivers, error: dError } = await supabase
-        .from('drivers')
+      // STEP 1: Search by all student fields
+      const { data: students, error: dError } = await supabase
+        .from('students')
         .select('id, name')
-        .or(`name.ilike.%${qClean}%,license_number.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%`);
+        .or(`name.ilike.%${qClean}%,student_id_no.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%,father_name.ilike.%${qClean}%`);
 
       if (dError) throw dError;
 
-      let targetDriverId = null;
+      let targetStudentId = null;
 
-      if (drivers && drivers.length > 0) {
-        // If we found a direct match, use it
-        targetDriverId = drivers[0].id;
+      if (students && students.length > 0) {
+        targetStudentId = students[0].id;
       } else {
-        // STEP 2: If no direct match by name/license, try the "Ali Special" - check the UUID prefix manually
-        // We'll fetch all drivers (limited) and see if our SN matches the start of their UUID
-        // This avoids the 404 Casting error entirely
-        const { data: allDrivers } = await supabase.from('drivers').select('id').limit(100);
-        const match = allDrivers?.find(d => d.id.toLowerCase().startsWith(qClean.toLowerCase()));
-        if (match) targetDriverId = match.id;
+        const { data: allStudents } = await supabase.from('students').select('id').limit(100);
+        const match = allStudents?.find(d => d.id.toLowerCase().startsWith(qClean.toLowerCase()));
+        if (match) targetStudentId = match.id;
       }
 
-      if (targetDriverId) {
-        // STEP 3: Now fetch the actual card for this driver
+      if (targetStudentId) {
         const { data: cData } = await supabase
           .from('health_cards')
-          .select('*, drivers(*)')
-          .eq('driver_id', targetDriverId)
+          .select('*, students(*)')
+          .eq('driver_id', targetStudentId)
           .order('created_at', { ascending: false })
           .limit(1);
         
         if (cData && cData.length > 0) card = cData[0];
       }
 
-      // FINAL STEP: If still no card, check if the query itself was a CARD ID
       if (!card) {
-        const { data: directCard } = await supabase.from('health_cards').select('*, drivers(*)').limit(100);
+        const { data: directCard } = await supabase.from('health_cards').select('*, students(*)').limit(100);
         const cardMatch = directCard?.find(c => c.id.toLowerCase().startsWith(qClean.toLowerCase()));
         if (cardMatch) card = cardMatch;
       }
 
       if (!card) {
         setScanStatus('fake');
-        throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است یا با این مشخصات راننده‌ای وجود ندارد.');
+        throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است یا با این مشخصات شاگردی وجود ندارد.');
       }
 
       const isExpired = new Date(card.expiry_date) < new Date();
-      setCardData({ card, driver: card.drivers });
+      setCardData({ card, student: card.students });
       setScanStatus(isExpired ? 'expired' : 'success');
 
     } catch (err: any) {
@@ -278,8 +271,8 @@ export const QrScanner: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-800 truncate text-sm mb-1">{driver.name}</h4>
                   <div className="flex gap-2 items-center">
-                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">پلاک: {driver.license_plate}</span>
-                    <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">جواز: {driver.license_number}</span>
+                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">صنف: {driver.class_name}</span>
+                    <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">نمبر اساس: {driver.student_id_no}</span>
                   </div>
                 </div>
                 <div className="bg-blue-100 text-blue-600 p-2 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -365,25 +358,25 @@ export const QrScanner: React.FC = () => {
           <div className="p-5">
             <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b border-slate-100 text-center">
               <div className="w-28 h-40 bg-slate-100 rounded-[1.5rem] border-4 border-white shadow-xl overflow-hidden bg-cover bg-center" 
-                   style={{ backgroundImage: cardData.driver.photo_url ? `url(${cardData.driver.photo_url})` : 'none' }}>
-                {!cardData.driver.photo_url && <UserIcon className="w-16 h-16 text-slate-300 mt-12 mx-auto" />}
+                   style={{ backgroundImage: cardData.student.photo_url ? `url(${cardData.student.photo_url})` : 'none' }}>
+                {!cardData.student.photo_url && <UserIcon className="w-16 h-16 text-slate-300 mt-12 mx-auto" />}
               </div>
               <div>
-                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">شناسه راننده</p>
-                <h3 className="text-2xl font-black text-slate-800 leading-tight">{cardData.driver.name}</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase mb-1">نام شاگرد</p>
+                <h3 className="text-2xl font-black text-slate-800 leading-tight">{cardData.student.name}</h3>
                 <span className="inline-block mt-2 px-3 py-1 bg-slate-900 text-white rounded-lg text-[9px] font-bold">S/N: {cardData.card.id.slice(0, 8)}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-6 text-right">
               {[
-                { label: 'نام پدر', value: cardData.driver.father_name },
-                { label: 'نمبر جواز', value: cardData.driver.license_number, mono: true },
-                { label: 'پلاک موتر', value: cardData.driver.license_plate },
-                { label: 'نوع وسایط', value: cardData.driver.vehicle_type },
-                { label: 'نمبر تذکره', value: cardData.driver.id_number },
-                { label: 'گروه خون', value: cardData.driver.blood_type, color: 'text-rose-600' },
-                { label: 'شماره تماس', value: cardData.driver.phone, mono: true },
+                { label: 'نام پدر', value: cardData.student.father_name },
+                { label: 'نمبر اساس', value: cardData.student.student_id_no, mono: true },
+                { label: 'بخش/شعبه', value: cardData.student.license_plate },
+                { label: 'صنف', value: cardData.student.class_name },
+                { label: 'نمبر تذکره', value: cardData.student.id_number },
+                { label: 'گروه خون', value: cardData.student.blood_type, color: 'text-rose-600' },
+                { label: 'شماره تماس', value: cardData.student.phone, mono: true },
                 { label: 'تاریخ انقضا', value: new Date(cardData.card.expiry_date).toLocaleDateString('fa-AF'), color: scanStatus === 'expired' ? 'text-rose-600' : 'text-emerald-600' }
               ].map((item, idx) => (
                 <div key={idx} className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100">

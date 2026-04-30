@@ -34,12 +34,12 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
       setFormData({
         name: driver.name || '',
         father_name: driver.father_name || '',
-        license_plate: driver.license_plate || '',
-        license_number: driver.license_number || '',
+        license_plate: driver.license_plate || '', // Repurposed for Section
+        license_number: (driver as any).student_id_no || driver.license_number || '', // Roll Number
         phone: driver.phone || '',
         id_number: driver.id_number || '',
-        vehicle_type: driver.vehicle_type || 'باربری',
-        blood_type: driver.blood_type || 'O+',
+        vehicle_type: (driver as any).class_name || driver.vehicle_type || 'صنف اول', // Grade
+        blood_type: driver.blood_type || 'نامعلوم',
       });
       setPhoto(driver.photo_url || null);
     }
@@ -61,9 +61,23 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
     setError(null);
 
     try {
+      const updateData = {
+        name: formData.name,
+        father_name: formData.father_name,
+        phone: formData.phone,
+        id_number: formData.id_number,
+        blood_type: formData.blood_type,
+        photo_url: photo || '',
+        class_name: formData.vehicle_type,
+        student_id_no: formData.license_number,
+        license_plate: formData.license_plate,
+        vehicle_type: formData.vehicle_type,
+        license_number: formData.license_number
+      };
+
       const { error: updateError } = await supabase
-        .from('drivers')
-        .update({ ...formData, photo_url: photo || '' })
+        .from('students')
+        .update(updateData)
         .eq('id', driver.id);
 
       if (updateError) throw updateError;
@@ -104,8 +118,8 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
           <div className="flex flex-col h-full max-h-[90vh]">
             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-bold text-slate-800">ویرایش مشخصات راننده</h3>
-                <p className="text-xs text-slate-500 mt-1">تغییر اطلاعات در سیستم مرکزی</p>
+                <h3 className="text-xl font-bold text-slate-800">ویرایش مشخصات شاگرد</h3>
+                <p className="text-xs text-slate-500 mt-1">تغییر اطلاعات در سیستم مدیریت مکتب</p>
               </div>
               <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition-colors">
                 <X className="w-6 h-6 text-slate-400" />
@@ -143,11 +157,11 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500" />
                       )}
                     </label>
-                    <span className="text-[10px] text-slate-400 font-bold mt-2 uppercase">تصویر راننده</span>
+                    <span className="text-[10px] text-slate-400 font-bold mt-2 uppercase">تصویر شاگرد</span>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام راننده</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام شاگرد</label>
                     <div className="relative">
                       <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -189,7 +203,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">شماره تماس</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">شماره تماس والدین</label>
                     <div className="relative">
                       <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -203,7 +217,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر جواز رانندگی</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر اساس (Roll Number)</label>
                     <div className="relative">
                       <CreditCard className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 
@@ -217,16 +231,19 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نوع موتر</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">صنف / صنف تحصیلی</label>
                     <select 
                       value={formData.vehicle_type}
                       onChange={(e) => setFormData({...formData, vehicle_type: e.target.value})}
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     >
-                      <option value="باربری">باربری (Truck)</option>
-                      <option value="مسافربری">مسافربری (Bus)</option>
-                      <option value="تیزرفتار">تیزرفتار (Taxi/Private)</option>
-                      <option value="ترانزیت">ترانزیت (Transit)</option>
+                      {[
+                        'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
+                        'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
+                        'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
+                      ].map(grade => (
+                        <option key={grade} value={grade}>{grade}</option>
+                      ))}
                     </select>
                   </div>
 
@@ -237,14 +254,14 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                       onChange={(e) => setFormData({...formData, blood_type: e.target.value})}
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     >
-                      {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
+                      {['نامعلوم', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </select>
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">پلاک موتر</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">بخش / شعبه (Section)</label>
                     <div className="relative">
                       <Hash className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input 

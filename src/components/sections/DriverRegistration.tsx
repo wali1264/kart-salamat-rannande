@@ -16,12 +16,12 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const [formData, setFormData] = useState({
     name: '',
     father_name: '',
-    license_plate: '',
-    license_number: '',
+    license_plate: '', // Repurposed for Class/Grade Section
+    license_number: '', // Repurposed for Roll Number
     phone: '',
     id_number: '',
-    vehicle_type: 'باربری',
-    blood_type: 'O+',
+    vehicle_type: 'صنف اول', // Repurposed for Grade/Level
+    blood_type: 'نامعلوم',
   });
   const [photo, setPhoto] = useState<string | null>(null);
 
@@ -39,9 +39,25 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     setError(null);
 
     try {
+      // Map form data to the correct database columns in the 'students' table
+      const studentData = {
+        name: formData.name,
+        father_name: formData.father_name,
+        phone: formData.phone,
+        id_number: formData.id_number,
+        blood_type: formData.blood_type,
+        photo_url: photo || '',
+        // Use new specialized columns if they exist, or fallback to repurposed ones
+        class_name: formData.vehicle_type, // Grade
+        student_id_no: formData.license_number, // Roll Number
+        license_plate: formData.license_plate, // Section/Group
+        vehicle_type: formData.vehicle_type, // Maintain legacy field compatibility
+        license_number: formData.license_number // Maintain legacy field compatibility
+      };
+
       const { error: insertError } = await supabase
-        .from('drivers')
-        .insert([{ ...formData, photo_url: photo || '' }]);
+        .from('students')
+        .insert([studentData]);
 
       if (insertError) throw insertError;
 
@@ -59,8 +75,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="mb-2">
-        <h2 className="text-2xl font-bold text-slate-800">ثبت راننده جدید</h2>
-        <p className="text-slate-500 text-sm">مشخصات راننده را طبق اسناد رسمی وارد نمایید.</p>
+        <h2 className="text-2xl font-bold text-slate-800">ثبت شاگرد جدید</h2>
+        <p className="text-slate-500 text-sm">مشخصات شاگرد را طبق اسناد رسمی وارد نمایید.</p>
       </div>
 
       {success ? (
@@ -73,7 +89,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
             <CheckCircle className="w-8 h-8 text-white" />
           </div>
           <h3 className="text-xl font-bold text-emerald-900 mb-2">ثبت موفقیت‌آمیز!</h3>
-          <p className="text-emerald-700/80 text-sm">اطلاعات در پایگاه داده مرکزی ANDHP ذخیره شد.</p>
+          <p className="text-emerald-700/80 text-sm">اطلاعات شاگرد در سامانه مکتب ذخیره شد.</p>
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-6">
@@ -97,7 +113,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   <Upload className="w-8 h-8 text-slate-300 group-hover:text-blue-500" />
                 </div>
                 <div className="text-center">
-                  <h4 className="font-bold text-slate-700 text-sm">تصویر راننده</h4>
+                  <h4 className="font-bold text-slate-700 text-sm">تصویر شاگرد</h4>
                   <p className="text-[10px] text-slate-400 mt-1 uppercase">کلیک کنید یا عکس را بکشید (MAX 10MB)</p>
                 </div>
               </>
@@ -107,7 +123,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
           <div className="col-span-12 lg:col-span-8 bento-card space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام راننده</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نام شاگرد</label>
                   <div className="relative">
                     <User className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -156,7 +172,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
           <div className="col-span-12 lg:col-span-12 bento-card">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">شماره تماس</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">شماره تماس والدین</label>
                   <div className="relative">
                     <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -171,7 +187,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                </div>
 
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر جواز رانندگی</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نمبر اساس (Roll Number)</label>
                   <div className="relative">
                     <CreditCard className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -179,23 +195,26 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.license_number}
                       onChange={(e) => setFormData({...formData, license_number: e.target.value})}
-                      placeholder="D-XXXXXX"
+                      placeholder="SN-XXXX"
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     />
                   </div>
                </div>
 
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">نوع موتر</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">صنف / صنف تحصیلی</label>
                   <select 
                     value={formData.vehicle_type}
                     onChange={(e) => setFormData({...formData, vehicle_type: e.target.value})}
                     className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                   >
-                    <option value="باربری">باربری (Truck)</option>
-                    <option value="مسافربری">مسافربری (Bus)</option>
-                    <option value="تیزرفتار">تیزرفتار (Taxi/Private)</option>
-                    <option value="ترانزیت">ترانزیت (Transit)</option>
+                    {[
+                      'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
+                      'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
+                      'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
+                    ].map(grade => (
+                      <option key={grade} value={grade}>{grade}</option>
+                    ))}
                   </select>
                </div>
 
@@ -206,14 +225,14 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                     onChange={(e) => setFormData({...formData, blood_type: e.target.value})}
                     className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                   >
-                    {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
+                    {['نامعلوم', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
                </div>
 
                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">پلاک موتر</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">بخش / شعبه (Section)</label>
                   <div className="relative">
                     <Hash className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
@@ -221,7 +240,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.license_plate}
                       onChange={(e) => setFormData({...formData, license_plate: e.target.value})}
-                      placeholder="کابل-۱۲۳۴"
+                      placeholder="بخش الف / ب"
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
                     />
                   </div>
@@ -240,7 +259,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                   disabled={loading}
                   className="bg-blue-900 hover:bg-blue-950 text-white font-bold py-4 px-12 rounded-xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 mr-auto"
                 >
-                  {loading ? 'در حال ثبت...' : 'ثبت راننده جدید +'}
+                  {loading ? 'در حال ثبت...' : 'ثبت شاگرد جدید +'}
                 </button>
             </div>
           </div>

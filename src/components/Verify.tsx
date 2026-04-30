@@ -13,7 +13,7 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
       try {
         const { data: card, error: cardError } = await supabase
           .from('health_cards')
-          .select('*, drivers(*)')
+          .select('*, students(*)')
           .eq('id', cardId)
           .single();
 
@@ -52,7 +52,7 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
   }
 
   const isExpired = new Date(data.expiry_date) < new Date();
-  const driver = data.drivers;
+  const driver = data.students;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 flex flex-col items-center justify-center" dir="rtl">
@@ -68,8 +68,8 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
                  <ShieldCheck className="w-6 h-6 text-white" />
               </div>
               <div className="text-right">
-                 <h1 className="text-xs font-bold text-slate-800">سامانه ملی سلامت رانندگان</h1>
-                 <p className="text-[10px] text-slate-500">جمهوری اسلامی افغانستان</p>
+                 <h1 className="text-xs font-bold text-slate-800">سامانه مدیریت مکتب و هویت شاگردان</h1>
+                 <p className="text-[10px] text-slate-500">امارت اسلامی افغانستان</p>
               </div>
            </div>
         </div>
@@ -90,7 +90,7 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
                 <div className="flex-1 space-y-4 w-full">
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                         <p className="text-[10px] text-slate-400 font-bold uppercase">نام راننده</p>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase">نام شاگرد</p>
                          <p className="font-bold text-slate-800">{driver.name}</p>
                       </div>
                       <div className="space-y-1 text-left md:text-right">
@@ -98,12 +98,12 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
                          <p className="font-bold text-slate-800">{driver.father_name || '---'}</p>
                       </div>
                       <div className="space-y-1">
-                         <p className="text-[10px] text-slate-400 font-bold uppercase">نمبر جواز</p>
-                         <p className="font-bold text-slate-800 font-mono tracking-wider">{driver.license_number}</p>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase">نمبر اساس</p>
+                         <p className="font-bold text-slate-800 font-mono tracking-wider">{driver.student_id_no || driver.license_number}</p>
                       </div>
                       <div className="space-y-1 text-left md:text-right">
-                         <p className="text-[10px] text-slate-400 font-bold uppercase">پلاک موتر</p>
-                         <p className="font-bold text-slate-800">{driver.license_plate}</p>
+                         <p className="text-[10px] text-slate-400 font-bold uppercase">صنف</p>
+                         <p className="font-bold text-slate-800">{driver.class_name || driver.vehicle_type}</p>
                       </div>
                    </div>
                 </div>
@@ -112,25 +112,25 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
                    <Activity className="w-5 h-5 text-blue-600 mx-auto mb-2" />
-                   <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">فشار خون</p>
-                   <p className="text-sm font-bold text-slate-800">{data.blood_pressure}</p>
+                   <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">گروه خون</p>
+                   <p className="text-sm font-bold text-slate-800">{driver.blood_type || 'نامعلوم'}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
                    <Calendar className="w-5 h-5 text-indigo-600 mx-auto mb-2" />
-                   <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">تاریخ انقضا</p>
+                   <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">تاریخ انقضای کارت</p>
                    <p className="text-sm font-bold text-slate-800">{new Date(data.expiry_date).toLocaleDateString('fa-AF')}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-center">
                    <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-2" />
-                   <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">هوشیاری</p>
-                   <p className="text-sm font-bold text-emerald-600">{data.is_sober ? 'تایید شده' : 'نامشخص'}</p>
+                   <p className="text-[10px] text-slate-400 font-bold mb-1 uppercase">وضعیت انضباطی</p>
+                   <p className="text-sm font-bold text-emerald-600">تایید شده</p>
                 </div>
              </div>
 
              <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-2xl border border-blue-100">
                 <ShieldCheck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                 <p className="text-[10px] text-blue-800/80 leading-relaxed">
-                   این اطلاعات مستقیماً از دیتا سنتر وزارت صحت عامه (ANDHP) استخراج شده و نشان‌دهنده اصالت فیزیکی کارت می‌باشد. هرگونه تغییر فیزیکی در کارت بدون تایید سامانه، باطل است.
+                   این اطلاعات مستقیماً از سامانه مدیریت هویت شاگردان مکتب استخراج شده و نشان‌دهنده اصالت فیزیکی کارت می‌باشد. هرگونه تغییر فیزیکی در کارت بدون تایید سامانه، باطل است.
                 </p>
              </div>
           </div>
@@ -143,7 +143,7 @@ export const Verify: React.FC<{ cardId: string }> = ({ cardId }) => {
 
         <div className="mt-8 text-center">
            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-loose">
-              Security System v1.5 • National Health Database<br/>
+              ID Management System v1.5 • National Student Database<br/>
               KABUL, AFGHANISTAN
            </p>
         </div>

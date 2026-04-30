@@ -12,7 +12,8 @@ import {
   Settings,
   Bell,
   User as UserIcon,
-  ShieldCheck
+  ShieldCheck,
+  CreditCard as FinanceIcon
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { DashboardHome } from './sections/DashboardHome';
@@ -20,9 +21,10 @@ import { DriverRegistration } from './sections/DriverRegistration';
 import { DriverList } from './sections/DriverList';
 import { QrScanner } from './sections/QrScanner';
 import { SettingsSection } from './sections/SettingsSection';
+import { FinancialManagement } from './sections/FinancialManagement';
 import { Auth } from './Auth';
 
-type Section = 'home' | 'registration' | 'drivers' | 'scanner' | 'settings' | 'auth';
+type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'scanner' | 'settings' | 'auth';
 
 const SectionWrapper: React.FC<{ 
   activeSection: Section; 
@@ -36,6 +38,7 @@ const SectionWrapper: React.FC<{
     case 'home': return <DashboardHome />;
     case 'registration': return <DriverRegistration onComplete={() => setActiveSection('drivers')} />;
     case 'drivers': return <DriverList />;
+    case 'finance': return <FinancialManagement />;
     case 'scanner': return <QrScanner searchQuery={searchQuery} />;
     case 'settings': return <SettingsSection />;
     case 'auth': return <Auth />;
@@ -58,8 +61,9 @@ export const Landing: React.FC = () => {
 
   const navItems = [
     { id: 'home', label: 'داشبورد', icon: LayoutDashboard, protected: true },
-    { id: 'drivers', label: 'لیست رانندگان', icon: Users, protected: true },
-    { id: 'registration', label: 'ثبت راننده جدید', icon: PlusCircle, protected: true },
+    { id: 'drivers', label: 'لیست شاگردان', icon: Users, protected: true },
+    { id: 'registration', label: 'ثبت شاگرد جدید', icon: PlusCircle, protected: true },
+    { id: 'finance', label: 'مدیریت مالی', icon: FinanceIcon, protected: true },
     { id: 'scanner', label: 'اسکنر QR', icon: QrCode, protected: false },
     { id: 'settings', label: 'تنظیمات', icon: Settings, protected: true },
   ];
@@ -88,10 +92,10 @@ export const Landing: React.FC = () => {
       `}>
         <div className="h-full flex flex-col p-8">
           <div className="flex items-center gap-3 mb-12">
-            <div className="w-12 h-12 navy-gradient rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl">A</div>
+            <div className="w-12 h-12 navy-gradient rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl">S</div>
             <div>
-              <h1 className="font-bold text-slate-800 leading-tight text-sm">سامانه ملی سلامت</h1>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Afghanistan ANDHP</p>
+              <h1 className="font-bold text-slate-800 leading-tight text-sm">سامانه مدیریت مکاتب</h1>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">School Management System</p>
             </div>
           </div>
 
@@ -178,7 +182,7 @@ export const Landing: React.FC = () => {
                   type="text" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="جستجوی سریع راننده (نمبر جواز، پلاک...)"
+                  placeholder="جستجوی سریع شاگرد (نمبر تذکره، نام...)"
                   className="w-full bg-white border border-slate-200 rounded-2xl py-3 pr-11 pl-4 text-xs focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
                 />
               </div>

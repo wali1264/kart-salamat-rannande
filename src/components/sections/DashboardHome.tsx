@@ -36,14 +36,14 @@ const data = [
 export const DashboardHome: React.FC = () => {
   const { profile } = useAuth();
   const [stats, setStats] = useState({
-    totalDrivers: 0,
+    totalStudents: 0,
     activeCards: 0,
     expiringSoon: [] as any[]
   });
 
   useEffect(() => {
     const fetchStats = async () => {
-      const { count: driversCount } = await supabase.from('drivers').select('*', { count: 'exact', head: true });
+      const { count: studentsCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
       const { count: cardsCount } = await supabase.from('health_cards').select('*', { count: 'exact', head: true }).eq('status', 'active');
       
       const oneMonthFromNow = new Date();
@@ -51,13 +51,13 @@ export const DashboardHome: React.FC = () => {
       
       const { data: expiring } = await supabase
         .from('health_cards')
-        .select('*, drivers(*)')
+        .select('*, students(*)')
         .eq('status', 'active')
         .lt('expiry_date', oneMonthFromNow.toISOString())
         .limit(3);
 
       setStats({
-        totalDrivers: driversCount || 0,
+        totalStudents: studentsCount || 0,
         activeCards: cardsCount || 0,
         expiringSoon: expiring || []
       });
@@ -70,13 +70,13 @@ export const DashboardHome: React.FC = () => {
       {/* Top Banner - Span 12 in mobile, Span 8 in desktop */}
       <div className="col-span-12 lg:col-span-8 lg:row-span-2 bento-card navy-gradient text-white flex flex-col justify-center relative overflow-hidden group">
         <div className="relative z-10">
-          <h2 className="text-3xl font-bold mb-3">خوش آمدید به پنل ANDHP</h2>
+          <h2 className="text-3xl font-bold mb-3">خوش آمدید به سامانه مدیریت هوشمند مکاتب</h2>
           <p className="text-blue-100 text-sm max-w-lg mb-6 leading-relaxed">
-            سیستم مدیریت سلامت و استعلام اصالت کارتهای صحی وزارت ترافیک. تمامی آمارها بصورت لحظه‌ای بروزرسانی می‌شوند.
+            مدیریت شاگردان، صدور کارتهای هویت و کنترل سیستم مالی مکتب بصورت یکپارچه.
           </p>
           <div className="flex gap-2">
              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse mt-1"></span>
-             <span className="text-xs font-medium text-blue-100/80 uppercase tracking-widest">System Online & Secure</span>
+             <span className="text-xs font-medium text-blue-100/80 uppercase tracking-widest">School Management Online</span>
           </div>
         </div>
         <div className="absolute left-0 bottom-0 opacity-10 pointer-events-none group-hover:scale-110 transition-transform duration-700">
@@ -95,7 +95,7 @@ export const DashboardHome: React.FC = () => {
           </div>
           <div>
             <div className="font-bold text-slate-800">{profile?.name}</div>
-            <div className="text-[10px] text-slate-500 font-medium">{profile?.role === 'officer' ? 'مامور ترافیک' : 'داکتر موظف'}</div>
+            <div className="text-[10px] text-slate-500 font-medium">{profile?.role === 'officer' ? 'ادمین مکتب' : 'کاربر سیستم'}</div>
           </div>
         </div>
         <div className="space-y-4">
@@ -112,8 +112,8 @@ export const DashboardHome: React.FC = () => {
 
       {/* Stat 1 */}
       <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card">
-        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">مجموع رانندگان</span>
-        <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.totalDrivers.toLocaleString('fa-AF')}</div>
+        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">مجموع شاگردان</span>
+        <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.totalStudents.toLocaleString('fa-AF')}</div>
         <div className="mt-auto text-emerald-600 text-[10px] font-bold flex items-center gap-1">
           <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید
         </div>
@@ -121,9 +121,9 @@ export const DashboardHome: React.FC = () => {
 
       {/* Stat 2 */}
       <div className="col-span-12 sm:col-span-6 lg:col-span-3 bento-card border-l-4 border-l-blue-500">
-        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">کارت‌های فعال</span>
+        <span className="text-slate-400 text-[10px] font-bold uppercase mb-2 block tracking-widest">کارت‌های صادر شده</span>
         <div className="text-4xl font-bold text-slate-800 tracking-tighter">{stats.activeCards.toLocaleString('fa-AF')}</div>
-        <div className="mt-auto text-blue-600 text-[10px] font-bold">تاییدیه صحی معتبر</div>
+        <div className="mt-auto text-blue-600 text-[10px] font-bold">کارت هویت معتبر</div>
       </div>
 
       {/* Expiring Soon Section */}
@@ -139,9 +139,9 @@ export const DashboardHome: React.FC = () => {
              <div key={item.id} className="flex items-center justify-between p-3 bg-white rounded-xl border border-amber-100/50 shadow-sm">
                 <div className="flex items-center gap-3">
                    <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-xs">
-                     {item.drivers?.name?.charAt(0)}
+                     {item.students?.name?.charAt(0)}
                    </div>
-                   <div className="text-xs font-bold text-slate-800">{item.drivers?.name}</div>
+                   <div className="text-xs font-bold text-slate-800">{item.students?.name}</div>
                 </div>
                 <div className="text-[10px] text-amber-600 font-bold">
                    تنها {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} روز

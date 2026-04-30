@@ -33,20 +33,20 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
         title_primary_dr: 'د افغانستان اسلامی امارت',
         title_primary_ps: 'امارت اسلامی افغانستان',
         title_primary_en: 'Islamic Emirate of Afghanistan',
-        title_secondary_dr: 'د عامې روغتیا وزارت / وزارت صحت عامه',
-        title_card_ps: 'د چلوونکي د روغتیا کارت',
-        title_card_dr: 'کارت صحت راننده',
-        title_card_en: 'Driver\'s Health Card',
-        footer_en: 'Islamic Emirate of Afghanistan / Ministry of Public Health (MoPH)',
+        title_secondary_dr: 'نام مکتب تان را اینجا بنویسید (وزارت معارف)',
+        title_card_ps: 'د زده کوونکي د هویت کارت',
+        title_card_dr: 'کارت هویت شاگرد',
+        title_card_en: 'Student Identity Card',
+        footer_en: 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
         regulations_ps: [
-          'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
-          'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
-          'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+          'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
+          'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
+          'دغه کارت یوازې د ټاکل شوې ښوونیزې دورې پورې اعتبار لري.'
         ],
         regulations_dr: [
-          'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
-          'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
-          'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+          'این کارت تاییدیه رسمی هویت شاگرد جهت فعالیت در محیط مکتب است.',
+          'شاگرد متعهد می‌گردد تمامی مقررات انضباطی و آموزشی مکتب را به طور کامل رعایت نماید.',
+          'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
         ]
       };
 
@@ -54,22 +54,22 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
       if (customizationRaw) {
         if (!customization.regulations_ps) {
           customization.regulations_ps = [
-            'دا کارت د ټرانسپورټ په سیسټم کې د فعالیت لپاره د چلوونکي د روغتیا حالت رسمي تاییدیه ده.',
-            'چلوونکی مکلف دی چې د هر ډول روغتیايي ستونزو درامنځته کېدو سره تایید شویو روغتیايي مرکزونو ته مراجعه وکړي.',
-            'دغه کارت یوازې د ټاکل شوې مودې (انقضا نیټې) پورې اعتبار لري.'
+            'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
+            'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
+            'دغه کارت یوازې د ټاکل شوې ښوونیزې دورې پورې اعتبار لري.'
           ];
         }
         if (!customization.regulations_dr) {
           customization.regulations_dr = [
-            'این کارت تاییدیه رسمی وضعیت سلامت راننده جهت فعالیت در سیستم حمل و نقل است.',
-            'راننده متعهد می‌گردد در صورت بروز هرگونه عارضه صحی، به مراکز تایید شده مراجعه نماید.',
-            'این کارت صرفاً تا تاریخ انقضای مندرج در آن اعتبار دارد.'
+            'این کارت تاییدیه رسمی هویت شاگرد جهت فعالیت در محیط مکتب است.',
+            'شاگرد متعهد می‌گردد تمامی مقررات انضباطی و آموزشی مکتب را به طور کامل رعایت نماید.',
+            'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
           ];
         }
-        if (!customization.title_card_dr || customization.title_card_dr.includes('وزارت')) {
-          customization.title_card_ps = 'د چلوونکي د روغتیا کارت';
-          customization.title_card_dr = 'کارت صحت راننده';
-          customization.title_card_en = 'Driver\'s Health Card';
+        if (!customization.title_card_dr || customization.title_card_dr.includes('صح')) {
+          customization.title_card_ps = 'د زده کوونکي د هویت کارت';
+          customization.title_card_dr = 'کارت هویت شاگرد';
+          customization.title_card_en = 'Student Identity Card';
         }
       }
       
@@ -386,15 +386,15 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <div class="info-section">
               <div class="info-block">
                 <div class="info-label">
-                  <span>نوم / نام</span>
-                  <span>Driver Name</span>
+                  <span>نام شاگرد</span>
+                  <span>Student Name</span>
                 </div>
                 <div class="info-value">${driver.name}</div>
               </div>
               
               <div class="info-block">
                 <div class="info-label">
-                  <span>د پلار نوم / نام پدر</span>
+                  <span>نام پدر</span>
                   <span>Father Name</span>
                 </div>
                 <div class="info-value" style="font-size: 8.5pt;">${driver.father_name || '---'}</div>
@@ -404,21 +404,22 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             <!-- Side technical panel under the photo -->
             <div class="technical-panel">
                <div class="tech-item">
-                  <div class="tech-label"><span>پلیت / پلاک</span><span>Plate</span></div>
+                  <div class="tech-label"><span>بخش / شعبه</span><span>Section</span></div>
                   <div class="tech-value">${driver.license_plate}</div>
                </div>
                <div class="tech-item">
-                  <div class="tech-label"><span>د جواز نمبر</span><span>Lic. No</span></div>
+                  <div class="tech-label"><span>نمبر اساس</span><span>Roll No</span></div>
                   <div class="tech-value" style="font-size: 6.5pt; font-family: monospace;">${driver.license_number}</div>
                </div>
                <div class="tech-item">
-                  <div class="tech-label"><span>صدور / انقضا</span><span>Dates</span></div>
-                  <div class="tech-date" style="color: #1a365d;">${new Date(card.issue_date).toLocaleDateString('fa-AF')} / <span style="color: #900;">${new Date(card.expiry_date).toLocaleDateString('fa-AF')}</span></div>
+                  <div class="tech-label"><span>صنف</span><span>Grade</span></div>
+                  <div class="tech-value" style="font-size: 7pt; font-weight: bold;">${driver.vehicle_type}</div>
                </div>
+               ${driver.blood_type && driver.blood_type !== 'نامعلوم' ? `
                <div class="tech-item">
                   <div class="tech-label"><span>د وینې نوعه</span><span>BT</span></div>
-                  <div class="tech-value" style="font-size: 6.5pt;">${driver.blood_type || 'O+'}</div>
-               </div>
+                  <div class="tech-value" style="font-size: 6.5pt;">${driver.blood_type}</div>
+               </div>` : ''}
             </div>
 
             <div class="qr-container" id="qrcode-front"></div>

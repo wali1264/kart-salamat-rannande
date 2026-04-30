@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle } from 'lucide-react';
+import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/utils';
 
@@ -22,6 +22,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     id_number: '',
     vehicle_type: 'صنف اول', // Repurposed for Grade/Level
     blood_type: 'نامعلوم',
+    total_monthly_fee: '1500', // Default fee
   });
   const [photo, setPhoto] = useState<string | null>(null);
 
@@ -47,6 +48,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         id_number: formData.id_number,
         blood_type: formData.blood_type,
         photo_url: photo || '',
+        total_monthly_fee: parseFloat(formData.total_monthly_fee),
         // Use new specialized columns if they exist, or fallback to repurposed ones
         class_name: formData.vehicle_type, // Grade
         student_id_no: formData.license_number, // Roll Number
@@ -242,6 +244,21 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       onChange={(e) => setFormData({...formData, license_plate: e.target.value})}
                       placeholder="بخش الف / ب"
                       className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                    />
+                  </div>
+               </div>
+
+               <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">فیس ماهانه (افغانی)</label>
+                  <div className="relative">
+                    <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input 
+                      type="number" 
+                      required
+                      value={formData.total_monthly_fee}
+                      onChange={(e) => setFormData({...formData, total_monthly_fee: e.target.value})}
+                      placeholder="مثلا ۱۵۰۰"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all font-bold"
                     />
                   </div>
                </div>

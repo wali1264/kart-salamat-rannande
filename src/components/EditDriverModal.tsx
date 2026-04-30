@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, Save } from 'lucide-react';
+import { X, User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, Save, DollarSign } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/utils';
 import { Driver } from '../types';
@@ -26,6 +26,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
     id_number: '',
     vehicle_type: 'باربری',
     blood_type: 'O+',
+    total_monthly_fee: '0',
   });
   const [photo, setPhoto] = useState<string | null>(null);
 
@@ -40,6 +41,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         id_number: driver.id_number || '',
         vehicle_type: (driver as any).class_name || driver.vehicle_type || 'صنف اول', // Grade
         blood_type: driver.blood_type || 'نامعلوم',
+        total_monthly_fee: (driver as any).total_monthly_fee?.toString() || '0',
       });
       setPhoto(driver.photo_url || null);
     }
@@ -68,6 +70,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         id_number: formData.id_number,
         blood_type: formData.blood_type,
         photo_url: photo || '',
+        total_monthly_fee: parseFloat(formData.total_monthly_fee),
         class_name: formData.vehicle_type,
         student_id_no: formData.license_number,
         license_plate: formData.license_plate,
@@ -270,6 +273,20 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         value={formData.license_plate}
                         onChange={(e) => setFormData({...formData, license_plate: e.target.value})}
                         className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">فیس ماهانه (افغانی)</label>
+                    <div className="relative">
+                      <DollarSign className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <input 
+                        type="number" 
+                        required
+                        value={formData.total_monthly_fee}
+                        onChange={(e) => setFormData({...formData, total_monthly_fee: e.target.value})}
+                        className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all font-bold text-blue-600"
                       />
                     </div>
                   </div>

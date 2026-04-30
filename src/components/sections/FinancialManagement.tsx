@@ -26,6 +26,11 @@ export const FinancialManagement: React.FC = () => {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(AFGHAN_MONTHS[0]);
   const [processing, setProcessing] = useState(false);
+  
+  // Inline Editing State
+  const [inlineEditingId, setInlineEditingId] = useState<string | null>(null);
+  const [inlineAmount, setInlineAmount] = useState<string>('');
+  const [inlineProcessing, setInlineProcessing] = useState(false);
   const [taxSettings, setTaxSettings] = useState({ threshold: 500, rate: 5 });
   const [systemSettings, setSystemSettings] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,25 +147,46 @@ export const FinancialManagement: React.FC = () => {
     }
   };
 
-  const startEditing = (p: any) => {
-    // Scroll to top to see the edit form clearly
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const startEditingInPlace = (p: any) => {
+    setInlineEditingId(p.id);
+    setInlineAmount(p.amount_paid.toString());
+  };
+
+  const handleInlineSave = async (p: any) => {
+    if (!inlineAmount || inlineProcessing) return;
+    setInlineProcessing(true);
     
-    setEditingPayment(p);
-    setSelectedMonth(p.for_month);
-    setPaymentAmount(p.amount_paid.toString());
-    
-    // Critical: Close history modal first
-    setHistoryStudent(null);
-    
-    // Use a small timeout to ensure the modal state is fully cleared before triggering the edit form
-    // This solves the issue where the edit form wouldn't open after the modal closed
-    setTimeout(() => {
-      const student = records.find(s => s.id === p.student_id);
-      if (student) {
-        setSelectedStudent(student);
-      }
-    }, 100);
+    try {
+      const amount = parseFloat(inlineAmount);
+      const tax = calculateTax(amount);
+      const netAmount = amount - tax;
+      const monthlyFee = historyStudent?.total_monthly_fee || 0;
+
+      const { error } = await supabase
+        .from('fee_payments')
+        .update({
+          amount_paid: amount,
+          tax_amount: tax,
+          net_amount: netAmount,
+          balance_remaining: Math.max(0, monthlyFee - amount)
+        })
+        .eq('id', p.id);
+
+      if (error) throw error;
+      
+      setInlineEditingId(null);
+      fetchFees();
+    } catch (err) {
+      console.error('Inline update failed:', err);
+      alert('خطا در بروزرسانی مبلغ');
+    } finally {
+      setInlineProcessing(false);
+    }
+  };
+
+  const handleInlineCancel = () => {
+    setInlineEditingId(null);
+    setInlineAmount('');
   };
 
   const exportToExcel = () => {
@@ -180,107 +206,33 @@ export const FinancialManagement: React.FC = () => {
     XLSX.writeFile(workbook, `${historyStudent.name}_History.xlsx`);
   };
 
-  const exportToPDF = async () => {
-    if (!historyStudent) return;
-    
-    const element = document.getElementById('printable-invoice');
-    if (!element) return;
-    
-    // Create a toast/loading indicator if needed, but here we just process
-    const originalStyle = element.style.display;
-    element.style.display = 'block';
-    element.style.position = 'fixed';
-    element.style.left = '-9999px'; // Move out of view but keep rendered
-    
-    try {
-      // Small delay to ensure rendering
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          // IMPORTANT: html2canvas doesn't support oklch colors (standard in Tailwind v4)
-          // We find all elements in the clone and force hex/rgb colors if needed
-          const clonedElement = clonedDoc.getElementById('printable-invoice');
-          if (clonedElement) {
-            clonedElement.style.display = 'block';
-            clonedElement.style.position = 'static';
-            clonedElement.style.left = 'auto';
-            
-            // Force replace any oklch or problematic colors if they still exist
-            const allElements = clonedElement.getElementsByTagName('*');
-            for (let i = 0; i < allElements.length; i++) {
-              const el = allElements[i] as HTMLElement;
-              const style = window.getComputedStyle(el);
-              // Force safe colors for common border/text issues
-              if (style.color.includes('oklch')) el.style.color = '#1e293b';
-              if (style.backgroundColor.includes('oklch')) {
-                 if (el.tagName === 'TH') el.style.backgroundColor = '#0f172a';
-                 else el.style.backgroundColor = 'transparent';
-              }
-            }
-          }
-        }
-      });
-      
-      const imgData = canvas.toDataURL('image/png', 1.0);
-      const pdf = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4',
-        compress: true
-      });
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-      
-      // Use Blob and URL.createObjectURL to force a real file download in most browsers
-      const fileName = `Invoice_${historyStudent.name.replace(/\s+/g, '_')}_${new Date().toLocaleDateString('fa-AF').replace(/\//g, '-')}.pdf`;
-      const pdfBlob = pdf.output('blob');
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-
-    } catch (err) {
-      console.error('PDF generation failed:', err);
-      alert('خطا در ایجاد فایل PDF. لطفا دوباره تلاش کنید.');
-    } finally {
-      element.style.display = originalStyle;
-      element.style.position = 'fixed';
-      element.style.left = '0';
-    }
-  };
-
   const printHistory = () => {
     // Before printing, ensure the hidden element is visible for the media query
     const element = document.getElementById('printable-invoice');
     if (!element) return;
     
-    // Remove all hidden classes and force visibility
-    element.style.display = 'block';
-    element.style.visibility = 'visible';
-    element.style.position = 'fixed';
+    // Force visibility for printing
+    const originalDisplay = element.style.display;
+    const originalVisibility = element.style.visibility;
+    const originalPosition = element.style.position;
+    
+    element.style.setProperty('display', 'block', 'important');
+    element.style.setProperty('visibility', 'visible', 'important');
+    element.style.setProperty('position', 'fixed', 'important');
     element.style.top = '0';
     element.style.left = '0';
+    element.style.width = '100%';
+    element.style.height = 'auto';
+    element.style.zIndex = '9999999';
     
     // Small delay to allow the browser to process the visual change before the print dialog opens
     setTimeout(() => {
       window.print();
-      // Restore state after print dialog is closed (note: print is blocking in many browsers)
-      element.style.display = 'none';
-      element.style.visibility = 'hidden';
-      element.style.position = 'fixed';
-    }, 100);
+      // Restore state after print dialog is closed
+      element.style.display = originalDisplay;
+      element.style.visibility = originalVisibility;
+      element.style.position = originalPosition;
+    }, 150);
   };
 
   const deletePayment = async (paymentId: string) => {
@@ -653,15 +605,12 @@ export const FinancialManagement: React.FC = () => {
                  </div>
                  <div className="flex items-center gap-2">
                     <div className="flex bg-white rounded-2xl border border-slate-100 p-1 shadow-sm">
-                      <button onClick={exportToPDF} className="p-2.5 md:p-3 text-slate-400 hover:text-rose-500 transition-colors" title="Download PDF">
-                         <FileText className="w-5 h-5" />
-                      </button>
-                      <button onClick={exportToExcel} className="p-2.5 md:p-3 text-slate-400 hover:text-emerald-500 transition-colors" title="Download Excel">
-                         <Table className="w-5 h-5" />
-                      </button>
-                      <button onClick={printHistory} className="p-2.5 md:p-3 text-slate-400 hover:text-blue-600 transition-colors" title="Print History">
-                         <Printer className="w-5 h-5" />
-                      </button>
+                       <button onClick={exportToExcel} className="p-2.5 md:p-3 text-slate-400 hover:text-emerald-500 transition-colors" title="Download Excel">
+                          <Table className="w-5 h-5" />
+                       </button>
+                       <button onClick={printHistory} className="p-2.5 md:p-3 text-slate-400 hover:text-blue-600 transition-colors" title="Print History">
+                          <Printer className="w-5 h-5" />
+                       </button>
                     </div>
                     <button 
                       onClick={() => setHistoryStudent(null)}
@@ -718,14 +667,45 @@ export const FinancialManagement: React.FC = () => {
                           className="group bg-slate-50/50 hover:bg-white rounded-[1.8rem] md:rounded-[2.5rem] border border-slate-100 hover:border-blue-200 transition-all p-5 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 md:gap-8 relative overflow-hidden"
                         >
                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-slate-200 group-hover:bg-blue-600 transition-colors" />
-                           <div className="flex items-center gap-4 md:gap-6">
+                           <div className="flex items-center gap-4 md:gap-6 flex-1">
                               <div className="w-12 h-12 md:w-14 md:h-14 bg-white rounded-xl md:rounded-2xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100 group-hover:scale-110 transition-transform shrink-0">
                                  <DollarSign className="w-6 h-6 md:w-7 md:h-7" />
                               </div>
-                              <div className="text-right">
+                              <div className="text-right flex-1">
                                  <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1">
-                                    <h4 className="text-xl md:text-2xl font-black text-slate-800">{p.amount_paid.toLocaleString()} AFN</h4>
-                                    <span className="px-2.5 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] md:text-[10px] font-black">ماه {p.for_month.split(' ')[0]}</span>
+                                    {inlineEditingId === p.id ? (
+                                      <div className="flex items-center gap-2">
+                                        <input 
+                                          autoFocus
+                                          type="number"
+                                          value={inlineAmount}
+                                          onChange={(e) => setInlineAmount(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleInlineSave(p);
+                                            if (e.key === 'Escape') handleInlineCancel();
+                                          }}
+                                          className="w-32 bg-white border-2 border-blue-400 rounded-xl px-3 py-1 font-black text-slate-800 outline-none text-right text-lg"
+                                        />
+                                        <button 
+                                          onClick={() => handleInlineSave(p)}
+                                          disabled={inlineProcessing}
+                                          className="text-[10px] font-bold text-emerald-600 hover:bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 transition-colors"
+                                        >
+                                          ذخیره
+                                        </button>
+                                        <button 
+                                          onClick={handleInlineCancel}
+                                          className="text-[10px] font-bold text-slate-400 hover:bg-slate-100 px-2 py-1 rounded-lg border border-slate-100 transition-colors"
+                                        >
+                                          لغو
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <h4 className="text-xl md:text-2xl font-black text-slate-800">{p.amount_paid.toLocaleString()} AFN</h4>
+                                        <span className="px-2.5 py-1 bg-indigo-50 text-indigo-500 rounded-full text-[9px] md:text-[10px] font-black">ماه {p.for_month.split(' ')[0]}</span>
+                                      </>
+                                    )}
                                  </div>
                                  <div className="flex items-center gap-4 text-slate-400 text-[10px] md:text-[11px] font-bold">
                                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3 md:w-3.5 md:h-3.5" /> {new Date(p.payment_date).toLocaleDateString('fa-AF')}</span>
@@ -742,8 +722,12 @@ export const FinancialManagement: React.FC = () => {
                               </div>
                               <div className="flex items-center gap-2">
                                  <button 
-                                  onClick={() => startEditing(p)}
-                                  className="p-2.5 md:p-3 bg-blue-50 hover:bg-blue-600 text-blue-500 hover:text-white rounded-xl md:rounded-2xl transition-all border border-blue-100 shadow-sm active:scale-90"
+                                  onClick={() => startEditingInPlace(p)}
+                                   className={`p-2.5 md:p-3 transition-all border shadow-sm active:scale-90 rounded-xl md:rounded-2xl ${
+                                     inlineEditingId === p.id 
+                                       ? 'bg-blue-600 text-white border-blue-600' 
+                                       : 'bg-blue-50 text-blue-500 border-blue-100 hover:bg-blue-600 hover:text-white'
+                                   }`}
                                   title="ویرایش تراکنش"
                                  >
                                     <Edit3 className="w-4 md:w-5 h-4 md:h-5" />

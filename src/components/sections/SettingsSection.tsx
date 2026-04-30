@@ -45,52 +45,77 @@ export const SettingsSection: React.FC = () => {
     fetchSettings();
   }, []);
 
-  const fetchSettings = () => {
+  const fetchSettings = async () => {
     try {
-      const main = localStorage.getItem('andhp_main_logo') || '';
-      const mini = localStorage.getItem('andhp_mini_logo') || '';
-      setLogos({ main, mini });
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('id', '00000000-0000-0000-0000-000000000000')
+        .single();
 
-      const storedCustom = localStorage.getItem('andhp_card_customization');
-      if (storedCustom) {
-        const parsed = JSON.parse(storedCustom);
-        if (!parsed.regulations_ps) parsed.regulations_ps = customization.regulations_ps;
-        if (!parsed.regulations_dr) parsed.regulations_dr = customization.regulations_dr;
-        if (!parsed.title_card_dr || parsed.title_card_dr.includes('صحت')) {
-          parsed.title_card_ps = 'د زده کوونکي د هویت کارت';
-          parsed.title_card_dr = 'کارت هویت شاگرد';
-          parsed.title_card_en = 'Student Identity Card';
+      if (error && error.code !== 'PGRST116') throw error;
+
+      if (data) {
+        setLogos({
+          main: data.card_logo_main || '',
+          mini: data.card_logo_mini || ''
+        });
+
+        setCustomization({
+          title_primary_dr: data.card_front_text_dari || 'د افغانستان اسلامی امارت',
+          title_primary_ps: data.card_front_text_pashto || 'امارت اسلامی افغانستان',
+          title_primary_en: data.card_front_text_english || 'Islamic Emirate of Afghanistan',
+          title_secondary_dr: data.card_back_text_dari || 'وزارت معارف / ریاست معارف ولایت مربوطه',
+          title_secondary_ps: data.card_back_text_pashto || '',
+          title_secondary_en: data.card_back_text_english || '',
+          regulations_ps: customization.regulations_ps,
+          regulations_dr: customization.regulations_dr
+        });
+
+        setTaxSettings({
+          threshold: data.fee_tax_threshold || 500,
+          rate: data.fee_tax_rate || 5,
+          enabled: true
+        });
+
+        if (data.student_categories) {
+          setCategories(data.student_categories);
         }
-        setCustomization(parsed);
-      }
-
-      const storedTax = localStorage.getItem('andhp_tax_settings');
-      if (storedTax) {
-        setTaxSettings(JSON.parse(storedTax));
-      }
-
-      const storedCats = localStorage.getItem('andhp_student_categories');
-      if (storedCats) {
-        setCategories(JSON.parse(storedCats));
       }
     } catch (err) {
-      console.error('Error fetching settings from localStorage:', err);
+      console.error('Error fetching settings from Supabase:', err);
     }
   };
 
-  const saveSettings = (newLogos: { main: string; mini: string }, newCustom: any, newTax?: any, newCats?: string[]) => {
+  const saveSettings = async (newLogos: { main: string; mini: string }, newCustom: any, newTax?: any, newCats?: string[]) => {
     setLogoLoading(true);
     try {
-      localStorage.setItem('andhp_main_logo', newLogos.main);
-      localStorage.setItem('andhp_mini_logo', newLogos.mini);
-      localStorage.setItem('andhp_card_customization', JSON.stringify(newCustom));
-      if (newTax) localStorage.setItem('andhp_tax_settings', JSON.stringify(newTax));
-      if (newCats) localStorage.setItem('andhp_student_categories', JSON.stringify(newCats));
+      const updates = {
+        id: '00000000-0000-0000-0000-000000000000',
+        card_logo_main: newLogos.main,
+        card_logo_mini: newLogos.mini,
+        card_front_text_dari: newCustom.title_primary_dr,
+        card_front_text_pashto: newCustom.title_primary_ps,
+        card_front_text_english: newCustom.title_primary_en,
+        card_back_text_dari: newCustom.title_secondary_dr,
+        card_back_text_pashto: newCustom.title_secondary_ps || '',
+        card_back_text_english: newCustom.title_secondary_en || '',
+        fee_tax_threshold: newTax?.threshold ?? taxSettings.threshold,
+        fee_tax_rate: newTax?.rate ?? taxSettings.rate,
+        student_categories: newCats ?? categories,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert(updates);
+
+      if (error) throw error;
       
       setSaveStatus('success');
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) {
-      console.error('Error saving settings to localStorage:', err);
+      console.error('Error saving settings to Supabase:', err);
       setSaveStatus('error');
     } finally {
       setLogoLoading(false);
@@ -384,14 +409,38 @@ export const SettingsSection: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-400">نام مکتب یا دیپارتمنت (دری/پشتو)</label>
-                        <input 
-                          type="text" 
-                          value={customization.title_secondary_dr}
-                          onChange={(e) => updateCustomization('title_secondary_dr', e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-100 rounded-xl py-4 px-6 text-sm outline-none focus:ring-2 focus:ring-indigo-100 transition-all font-bold"
-                        />
+                      <div className="space-y-4 pt-6 border-t border-slate-100">
+                        <label className="text-xs font-bold text-slate-600 block">فیلدهای تکمیلی کارت (نام مکتب و فوتر)</label>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400">نام مکتب (دری)</label>
+                            <input 
+                              type="text" 
+                              value={customization.title_secondary_dr}
+                              onChange={(e) => updateCustomization('title_secondary_dr', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm outline-none focus:border-indigo-300 transition-all font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400">نام مکتب (پشتو)</label>
+                            <input 
+                              type="text" 
+                              value={customization.title_secondary_ps}
+                              onChange={(e) => updateCustomization('title_secondary_ps', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm outline-none focus:border-indigo-300 transition-all font-bold"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold text-slate-400">فوتر انگلیسی (پشت کارت)</label>
+                            <input 
+                              type="text" 
+                              value={customization.title_secondary_en}
+                              onChange={(e) => updateCustomization('title_secondary_en', e.target.value)}
+                              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-sm outline-none focus:border-indigo-300 transition-all font-mono"
+                              dir="ltr"
+                            />
+                          </div>
+                        </div>
                       </div>
                   </div>
                 </div>

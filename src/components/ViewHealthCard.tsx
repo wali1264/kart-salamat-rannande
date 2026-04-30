@@ -23,21 +23,25 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
     }
   }, [isOpen]);
 
-  const fetchSettings = () => {
+  const fetchSettings = async () => {
     try {
-      const main = localStorage.getItem('andhp_main_logo');
-      const mini = localStorage.getItem('andhp_mini_logo');
-      const customizationRaw = localStorage.getItem('andhp_card_customization');
-      
-      const customization = customizationRaw ? JSON.parse(customizationRaw) : {
-        title_primary_dr: 'د افغانستان اسلامی امارت',
-        title_primary_ps: 'امارت اسلامی افغانستان',
-        title_primary_en: 'Islamic Emirate of Afghanistan',
-        title_secondary_dr: 'نام مکتب تان را اینجا بنویسید (وزارت معارف)',
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('*')
+        .eq('id', '00000000-0000-0000-0000-000000000000')
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+
+      const customization = {
+        title_primary_dr: data?.card_front_text_dari || 'د افغانستان اسلامی امارت',
+        title_primary_ps: data?.card_front_text_pashto || 'امارت اسلامی افغانستان',
+        title_primary_en: data?.card_front_text_english || 'Islamic Emirate of Afghanistan',
+        title_secondary_dr: data?.card_back_text_dari || 'مکتب هوشمند افغان-افغان',
         title_card_ps: 'د زده کوونکي د هویت کارت',
         title_card_dr: 'کارت هویت شاگرد',
         title_card_en: 'Student Identity Card',
-        footer_en: 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
+        footer_en: data?.card_back_text_english || 'Islamic Emirate of Afghanistan / Ministry of Education (MoE)',
         regulations_ps: [
           'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
           'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
@@ -49,38 +53,15 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
           'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
         ]
       };
-
-      // Safety merge for missing fields in old stored customization
-      if (customizationRaw) {
-        if (!customization.regulations_ps) {
-          customization.regulations_ps = [
-            'دا کارت د ښوونځي په سیسټم کې د فعالیت لپاره د زده کوونکي د هویت رسمي تاییدیه ده.',
-            'زده کوونکی مکلف دی چې په ښوونځي کې د ټاکل شویو مقرراتو او انضباطي اصولو مراعات وکړي.',
-            'دغه کارت یوازې د ټاکل شوې ښوونیزې دورې پورې اعتبار لري.'
-          ];
-        }
-        if (!customization.regulations_dr) {
-          customization.regulations_dr = [
-            'این کارت تاییدیه رسمی هویت شاگرد جهت فعالیت در محیط مکتب است.',
-            'شاگرد متعهد می‌گردد تمامی مقررات انضباطی و آموزشی مکتب را به طور کامل رعایت نماید.',
-            'این کارت صرفاً تا تاریخ انقضای مندرج در آن (پایان سال تحصیلی) اعتبار دارد.'
-          ];
-        }
-        if (!customization.title_card_dr || customization.title_card_dr.includes('صح')) {
-          customization.title_card_ps = 'د زده کوونکي د هویت کارت';
-          customization.title_card_dr = 'کارت هویت شاگرد';
-          customization.title_card_en = 'Student Identity Card';
-        }
-      }
       
       setSettings({
-        id: 'local',
-        main_logo_url: main || undefined,
-        mini_logo_url: mini || undefined,
+        id: 'db',
+        main_logo_url: data?.card_logo_main || undefined,
+        mini_logo_url: data?.card_logo_mini || undefined,
         customization
       });
     } catch (err) {
-      console.error('Error fetching logos for card from localStorage:', err);
+      console.error('Error fetching settings for card from Supabase:', err);
     } finally {
       setLoading(false);
     }

@@ -30,16 +30,24 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const [categories, setCategories] = useState<string[]>([]);
 
   React.useEffect(() => {
-    const storedCats = localStorage.getItem('andhp_student_categories');
-    const cats = storedCats ? JSON.parse(storedCats) : [
-      'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
-      'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
-      'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
-    ];
-    setCategories(cats);
-    if (cats.length > 0) {
-      setFormData(prev => ({ ...prev, vehicle_type: cats[0] }));
-    }
+    const fetchCats = async () => {
+      const { data } = await supabase
+        .from('system_settings')
+        .select('student_categories')
+        .eq('id', '00000000-0000-0000-0000-000000000000')
+        .single();
+      
+      const cats = data?.student_categories || [
+        'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
+        'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
+        'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
+      ];
+      setCategories(cats);
+      if (cats.length > 0) {
+        setFormData(prev => ({ ...prev, vehicle_type: cats[0] }));
+      }
+    };
+    fetchCats();
   }, []);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

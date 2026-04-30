@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 
 const AFGHAN_MONTHS = [
@@ -27,6 +27,7 @@ export const FinancialManagement: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(AFGHAN_MONTHS[0]);
   const [processing, setProcessing] = useState(false);
   const [taxSettings, setTaxSettings] = useState({ threshold: 500, rate: 5 });
+  const [systemSettings, setSystemSettings] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Filters for History Modal
@@ -35,9 +36,16 @@ export const FinancialManagement: React.FC = () => {
 
   useEffect(() => {
     fetchFees();
-    const storedTax = localStorage.getItem('andhp_tax_settings');
-    if (storedTax) setTaxSettings(JSON.parse(storedTax));
+    fetchSystemSettings();
   }, []);
+
+  const fetchSystemSettings = async () => {
+    const { data } = await supabase.from('system_settings').select('*').eq('id', '00000000-0000-0000-0000-000000000000').single();
+    if (data) {
+      setSystemSettings(data);
+      setTaxSettings({ threshold: data.fee_tax_threshold || 500, rate: data.fee_tax_rate || 5 });
+    }
+  };
 
   const fetchFees = async () => {
     setLoading(true);
@@ -159,32 +167,40 @@ export const FinancialManagement: React.FC = () => {
     XLSX.writeFile(workbook, `${historyStudent.name}_History.xlsx`);
   };
 
-  const exportToPDF = () => {
-    if (!historyStudent || !historyStudent.fee_payments) return;
-    const doc = new jsPDF();
+  const exportToPDF = async () => {
+    if (!historyStudent) return;
     
-    doc.text(`School Management System - Financial Report`, 14, 15);
-    doc.text(`Student: ${historyStudent.name} / Class: ${historyStudent.class_name}`, 14, 25);
+    // Use html2canvas to render the print section
+    const element = document.getElementById('printable-invoice');
+    if (!element) return;
     
-    const filteredPayments = historyStudent.fee_payments
-      .filter((p: any) => (historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter));
-
-    const tableData = filteredPayments.map((p: any) => [
-      p.for_month,
-      p.amount_paid.toLocaleString(),
-      new Date(p.payment_date).toLocaleDateString('fa-AF'),
-      p.balance_remaining.toLocaleString()
-    ]);
-
-    autoTable(doc, {
-      startY: 35,
-      head: [['Month', 'Amount (AFN)', 'Date', 'Remaining']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [79, 70, 229] },
-    });
-
-    doc.save(`Invoice_${historyStudent.name}.pdf`);
+    // Temporarily show it for capturing
+    element.classList.remove('hidden');
+    element.classList.add('block');
+    
+    try {
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Invoice_${historyStudent.name}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      alert('خطا در ایجاد فایل PDF');
+    } finally {
+      element.classList.add('hidden');
+      element.classList.remove('block');
+    }
   };
 
   const printHistory = () => {
@@ -675,70 +691,98 @@ export const FinancialManagement: React.FC = () => {
       </AnimatePresence>
 
       {/* Hidden Printable Invoice Section */}
-      <div className="hidden print:block fixed inset-0 bg-white z-[9999] p-10 font-sans text-right" dir="rtl">
-        <div className="flex justify-between items-start mb-10 border-b-2 border-slate-900 pb-6">
-          <div className="text-3xl font-black text-slate-900">سامانه مدیریت مالی مکتب</div>
+      <div id="printable-invoice" className="hidden print-only fixed inset-0 bg-white z-[9999] p-12 font-sans text-right" dir="rtl">
+        <div className="flex justify-between items-center mb-10 border-b-4 border-slate-900 pb-8">
+          <div className="flex items-center gap-6">
+            {systemSettings?.card_logo_main && (
+              <img src={systemSettings.card_logo_main} alt="Logo" className="w-24 h-24 object-contain" />
+            )}
+            <div className="text-right">
+              <div className="text-3xl font-black text-slate-900 mb-1">{systemSettings?.card_front_text_dari || 'د افغانستان اسلامی امارت'}</div>
+              <div className="text-lg font-bold text-slate-600">{systemSettings?.card_front_text_pashto || 'امارت اسلامی افعانستان'}</div>
+              <div className="text-sm font-bold text-slate-500">{systemSettings?.card_back_text_dari || 'وزارت معارف / ریاست معارف'}</div>
+            </div>
+          </div>
           <div className="text-left">
-            <p className="font-bold underline">فاکتور تصفیه فیس شاگرد</p>
-            <p className="text-sm mt-1">تاریخ گزارش: {new Date().toLocaleDateString('fa-AF')}</p>
+            <h1 className="text-3xl font-black text-rose-600 border-b-2 border-rose-600 inline-block mb-4 pb-1">فاکتور تصفیه فیس شاگرد</h1>
+            <p className="text-sm font-bold text-slate-500">تاریخ گزارش: {new Date().toLocaleDateString('fa-AF')}</p>
+            <p className="text-xs text-slate-400 mt-1" dir="ltr">Ref: {historyStudent?.id?.slice(0,8).toUpperCase()}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-10 mb-10 text-lg">
-          <div className="space-y-2">
-            <p><span className="font-bold">نام شاگرد:</span> {historyStudent?.name}</p>
-            <p><span className="font-bold">نام پدر:</span> {historyStudent?.father_name}</p>
+        <div className="grid grid-cols-2 gap-12 mb-12 bg-slate-50 p-8 rounded-3xl border border-slate-200">
+          <div className="space-y-3">
+             <div className="flex gap-2">
+                <span className="font-bold text-slate-400">نام شاگرد:</span>
+                <span className="text-xl font-black text-slate-800">{historyStudent?.name}</span>
+             </div>
+             <div className="flex gap-2 text-lg">
+                <span className="font-bold text-slate-400">نام پدر:</span>
+                <span className="font-bold text-slate-700">{historyStudent?.father_name}</span>
+             </div>
           </div>
-          <div className="space-y-2">
-            <p><span className="font-bold">صنف:</span> {historyStudent?.class_name}</p>
-            <p><span className="font-bold">بخش:</span> {historyStudent?.license_plate}</p>
+          <div className="space-y-3">
+             <div className="flex gap-2 text-lg">
+                <span className="font-bold text-slate-400">صنف:</span>
+                <span className="font-bold text-slate-700">{historyStudent?.class_name}</span>
+             </div>
+             <div className="flex gap-2 text-lg">
+                <span className="font-bold text-slate-400">بخش / نمبر اساس:</span>
+                <span className="font-bold text-slate-700">{historyStudent?.license_plate} - {historyStudent?.license_number}</span>
+             </div>
           </div>
         </div>
 
-        <table className="w-full border-collapse border border-slate-900 mb-10">
+        <table className="w-full border-collapse mb-12">
           <thead>
-            <tr className="bg-slate-100 font-bold border-b border-slate-900">
-              <th className="border border-slate-900 p-3">ماه</th>
-              <th className="border border-slate-900 p-3">مبلغ پرداختی (AFN)</th>
-              <th className="border border-slate-900 p-3">تاریخ پرداخت</th>
-              <th className="border border-slate-900 p-3">باقی‌مانده</th>
+            <tr className="bg-slate-900 text-white text-lg">
+              <th className="border-2 border-slate-900 p-4">ماه</th>
+              <th className="border-2 border-slate-900 p-4">مبلغ پرداختی (AFN)</th>
+              <th className="border-2 border-slate-900 p-4">تاریخ پرداخت</th>
+              <th className="border-2 border-slate-900 p-4">باقی‌مانده فیس</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="text-center text-lg">
             {(historyStudent?.fee_payments || [])
               .filter((p: any) => historyMonthFilter === 'همه ماه ها' || p.for_month === historyMonthFilter)
               .map((p: any) => (
-              <tr key={p.id} className="border-b border-slate-900">
-                <td className="border border-slate-900 p-3 text-center">{p.for_month}</td>
-                <td className="border border-slate-900 p-3 text-center">{p.amount_paid.toLocaleString()}</td>
-                <td className="border border-slate-900 p-3 text-center">{new Date(p.payment_date).toLocaleDateString('fa-AF')}</td>
-                <td className="border border-slate-900 p-3 text-center">{p.balance_remaining.toLocaleString()}</td>
+              <tr key={p.id} className="border-2 border-slate-900">
+                <td className="p-4 font-black">{p.for_month}</td>
+                <td className="p-4 font-black">{p.amount_paid.toLocaleString()}</td>
+                <td className="p-4">{new Date(p.payment_date).toLocaleDateString('fa-AF')}</td>
+                <td className={`p-4 font-black ${p.balance_remaining > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  {p.balance_remaining <= 0 ? 'تسویه ' : p.balance_remaining.toLocaleString()}
+                </td>
               </tr>
             ))}
           </tbody>
           <tfoot>
-            <tr className="bg-slate-50 font-black">
-              <td className="border border-slate-900 p-3 text-right">مجموع پرداختی:</td>
-              <td colSpan={3} className="border border-slate-900 p-3 text-right">
+            <tr className="bg-slate-100 font-black text-2xl">
+              <td className="border-2 border-slate-900 p-5 text-right">مجموع پرداختی:</td>
+              <td colSpan={3} className="border-2 border-slate-900 p-5 text-right text-indigo-700">
                 {historyStudent?.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} افغانی
               </td>
             </tr>
           </tfoot>
         </table>
 
-        <div className="mt-20 flex justify-between px-10">
+        <div className="grid grid-cols-2 gap-20 mt-32 px-10">
           <div className="text-center">
-            <p className="font-bold underline pb-10">امضاء و مهر مدیریت</p>
-            <div className="w-40 h-1 bg-slate-900 mx-auto"></div>
+            <p className="font-black text-xl mb-20">مضاء و مهر مدیریت مکتب</p>
+            <div className="w-64 h-0.5 bg-slate-900 mx-auto"></div>
           </div>
           <div className="text-center">
-            <p className="font-bold underline pb-10">امضاء ولی شاگرد</p>
-            <div className="w-40 h-1 bg-slate-900 mx-auto"></div>
+            <p className="font-black text-xl mb-20">امضاء و اثر انگشت ولی شاگرد</p>
+            <div className="w-64 h-0.5 bg-slate-900 mx-auto"></div>
           </div>
         </div>
 
-        <div className="mt-20 text-[10px] text-slate-500 text-center border-t pt-4">
-          این گزارش توسط سیستم مدیریت هوشمند مکتب تولید شده است و به عنوان رسید رسمی معتبر می‌باشد.
+        <div className="absolute bottom-12 left-12 right-12 text-center">
+           <div className="border-t border-slate-200 pt-6 flex justify-between items-center text-[10px] text-slate-400">
+             <span>زمان صدور گزارش: {new Date().toLocaleTimeString('fa-AF')}</span>
+             <span className="font-bold text-slate-500 uppercase tracking-widest">{systemSettings?.card_back_text_english || 'Islamic Emirate of Afghanistan'}</span>
+             <span>صفحه ۱ از ۱</span>
+           </div>
         </div>
       </div>
     </div>

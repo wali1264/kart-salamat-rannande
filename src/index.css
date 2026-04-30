@@ -8,8 +8,26 @@
 
 @layer utilities {
   @media print {
-    body * {
-      visibility: hidden !important;
+    .no-print {
+      display: none !important;
+    }
+    
+    body {
+      background: white !important;
+    }
+
+    .print-only {
+      display: block !important;
+      visibility: visible !important;
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important;
+      width: 100% !important;
+    }
+
+    /* Hide everything else when printing if a print-only section is active */
+    body > *:not(.print-only) {
+      display: none !important;
     }
   }
 }

@@ -37,18 +37,19 @@ export const ManualAttendance: React.FC = () => {
         .from('students')
         .select('*', { count: 'exact' })
         .eq('is_teacher', isTeacherMode)
-        .order('id', { ascending: false })
+        .order('name', { ascending: true })
         .range(0, currentLimit - 1);
 
-      if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,national_id.ilike.%${searchQuery}%`);
+      if (searchQuery.trim()) {
+        const val = `%${searchQuery.trim()}%`;
+        query = query.or(`name.ilike.${val},national_id.ilike.${val}`);
       }
 
       const { data, error, count } = await query;
 
       if (error) throw error;
       setPeople(data || []);
-      setHasMore(count ? data.length < count : false);
+      setHasMore(count ? (data?.length || 0) < count : false);
     } catch (err) {
       console.error('Error fetching people:', err);
     } finally {

@@ -36,13 +36,13 @@ export const ManualAttendance: React.FC = () => {
       let query = supabase
         .from('students')
         .select('*', { count: 'exact' })
-        .eq('is_teacher', isTeacherMode)
-        .order('name', { ascending: true })
+        .eq('type', isTeacherMode ? 'teacher' : 'student')
+        .order('created_at', { ascending: false })
         .range(0, currentLimit - 1);
 
       if (searchQuery.trim()) {
         const val = `%${searchQuery.trim()}%`;
-        query = query.or(`name.ilike.${val},national_id.ilike.${val}`);
+        query = query.or(`name.ilike.${val},id_number.ilike.${val}`);
       }
 
       const { data, error, count } = await query;
@@ -84,8 +84,7 @@ export const ManualAttendance: React.FC = () => {
           student_id: selectedPerson.id,
           type: actionType,
           recorded_at: timestamp,
-          is_manual: true,
-          is_teacher: isTeacherMode
+          method: 'manual'
         }]);
 
       if (error) throw error;
@@ -160,7 +159,7 @@ export const ManualAttendance: React.FC = () => {
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black">{p.name}</p>
-                      <p className="text-[10px] opacity-60 font-bold">{p.national_id || 'بدون کد شناسایی'}</p>
+                      <p className="text-[10px] opacity-60 font-bold">{p.id_number || 'بدون کد شناسایی'}</p>
                     </div>
                   </div>
                   <ChevronLeft className={`w-4 h-4 opacity-30 ${selectedPerson?.id === p.id ? 'translate-x-1' : ''} transition-transform`} />
@@ -203,7 +202,7 @@ export const ManualAttendance: React.FC = () => {
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 uppercase tracking-tighter">
                       {isTeacherMode ? 'معلم' : 'شاگرد'}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-bold">{selectedPerson.national_id}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{selectedPerson.id_number}</span>
                   </div>
                 </div>
               </div>

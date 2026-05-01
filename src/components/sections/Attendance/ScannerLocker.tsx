@@ -76,13 +76,13 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
       const { data: people, error } = await supabase
         .from('students')
         .select('*')
-        .eq('is_teacher', isTeacherMode);
+        .eq('type', isTeacherMode ? 'teacher' : 'student');
 
       if (error) throw error;
 
       const person = people?.find(p => 
         (p.fingerprints && p.fingerprints.includes(Number(code))) || 
-        p.national_id === code ||
+        p.id_number === code ||
         p.id === code
       );
 
@@ -144,8 +144,7 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
           student_id: person.id,
           type: finalType,
           recorded_at: new Date().toISOString(),
-          is_manual: false,
-          is_teacher: isTeacherMode
+          method: 'scanner'
         }]);
 
       if (attError) throw attError;

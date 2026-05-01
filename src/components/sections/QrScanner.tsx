@@ -4,6 +4,8 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 import { useSystem } from '../../contexts/SystemContext';
 
+import { useScanner } from '../../hooks/useScanner';
+
 export const QrScanner: React.FC = () => {
   const { mode, isTeacherMode } = useSystem();
   const [loading, setLoading] = useState(false);
@@ -13,8 +15,14 @@ export const QrScanner: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'expired' | 'fake'>('idle');
   const [fingerprintMode, setFingerprintMode] = useState(false);
+  const [isScannerConnected, setIsScannerConnected] = useState(true); // Default to true since HID is passive
   
-  // Search states
+  // Real scanner input listener
+  useScanner((code) => {
+    if (fingerprintMode && !cardData && !loading) {
+      handleFingerprintSearch(code);
+    }
+  }, fingerprintMode);
   const [searchInput, setSearchInput] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -51,7 +59,7 @@ export const QrScanner: React.FC = () => {
           .from('students')
           .select(`*, health_cards(id, expiry_date)`)
           .eq('type', mode)
-          .or(`name.ilike.%${q}%,student_id_no.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%,father_name.ilike.%${q}%`)
+          .or(`name.ilike.%${q}%,student_id_no.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%,father_name.ilike.%${q}%,vehicle_type.ilike.%${q}%`)
           .limit(5);
 
         // Also search by S/N directly in health_cards if query is short/alphanumeric
@@ -154,7 +162,7 @@ export const QrScanner: React.FC = () => {
         .from('students')
         .select('id, name')
         .eq('type', mode)
-        .or(`name.ilike.%${qClean}%,student_id_no.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%,father_name.ilike.%${qClean}%`);
+        .or(`name.ilike.%${qClean}%,student_id_no.ilike.%${qClean}%,license_number.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%,father_name.ilike.%${qClean}%,vehicle_type.ilike.%${qClean}%`);
 
       if (dError) throw dError;
 
@@ -217,23 +225,29 @@ export const QrScanner: React.FC = () => {
     if (!fingerprintId || !navigator.onLine) return;
     
     setLoading(true);
+    setScanStatus('idle');
+    setError(null);
+
     try {
       // Search for a student who has this fingerprint ID in their fingerprints array
-      const { data, error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('students')
         .select('*')
         .eq('type', mode)
         .contains('fingerprints', [fingerprintId])
-        .limit(1)
-        .single();
+        .limit(1);
 
-      if (error || !data) {
-        throw new Error('شاگردی با این اثر انگشت یافت نشد.');
+      if (fetchError) throw fetchError;
+
+      if (!data || data.length === 0) {
+        throw new Error('اثر انگشت در سامانه یافت نشد. این فرد ثبت‌نام نشده است.');
       }
 
+      const matchedStudent = data[0];
       // If found, trigger the normal verification using the student ID
-      verifyCard(data.id);
+      await verifyCard(matchedStudent.id);
     } catch (err: any) {
+      console.error("Fingerprint search error:", err);
       setError(err.message);
       setScanStatus('fake');
     } finally {
@@ -307,8 +321,8 @@ export const QrScanner: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-slate-800 truncate text-sm mb-1">{driver.name}</h4>
                   <div className="flex gap-2 items-center">
-                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">{isTeacherMode ? 'رتبه' : 'صنف'}: {driver.class_name}</span>
-                    <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}: {driver.student_id_no}</span>
+                    <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">{isTeacherMode ? 'رتبه' : 'صنف'}: {driver.class_name || driver.vehicle_type}</span>
+                    <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}: {driver.student_id_no || driver.license_number}</span>
                   </div>
                 </div>
                 <div className="bg-blue-100 text-blue-600 p-2 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
@@ -362,20 +376,10 @@ export const QrScanner: React.FC = () => {
            <h3 className="text-xl font-black text-blue-900 mb-2">آماده شناسایی اثر انگشت</h3>
            <p className="text-xs text-blue-600 font-bold mb-6">لطفاً انگشت خود را روی دستگاه قرار دهید</p>
            
-           <div className="bg-white/60 p-4 rounded-2xl border border-blue-100">
-              <p className="text-[10px] text-slate-500 font-bold">دستگاه سختافزاری متصل است. سیستم منتظر داده میباشد...</p>
+           <div className="bg-white/60 p-4 rounded-2xl border border-blue-100 flex items-center justify-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <p className="text-[10px] text-slate-500 font-bold">دستگاه اسکنر متصل و آماده دریافت اطلاعات می‌باشد</p>
            </div>
-           
-           {/* Mock simulation for development */}
-           <button 
-             onClick={() => {
-                // In a real scenario, this would come from a keyboard/USB event
-                handleFingerprintSearch('MOCK_FP_DATA');
-             }}
-             className="mt-6 text-[10px] text-blue-400 hover:text-blue-600 underline font-black"
-           >
-             شبیه‌سازی اثر کپی شده (برای توسعه)
-           </button>
         </div>
       )}
 
@@ -452,9 +456,9 @@ export const QrScanner: React.FC = () => {
             <div className="grid grid-cols-2 gap-3 mb-6 text-right">
               {[
                 { label: 'د پلار نوم / نام پدر', value: cardData.student.father_name },
-                { label: isTeacherMode ? 'کد شناسایی' : 'نمبر اساس', value: cardData.student.student_id_no, mono: true },
+                { label: isTeacherMode ? 'کد شناسایی' : 'نمبر اساس', value: cardData.student.student_id_no || cardData.student.license_number, mono: true },
                 { label: isTeacherMode ? 'بخش / شعبه' : 'بخش/شعبه', value: cardData.student.license_plate },
-                { label: isTeacherMode ? 'بست / رتبه' : 'صنف', value: cardData.student.class_name },
+                { label: isTeacherMode ? 'بست / رتبه' : 'صنف', value: cardData.student.class_name || cardData.student.vehicle_type },
                 { label: 'نمبر تذکره', value: cardData.student.id_number },
                 { label: 'گروه خون', value: cardData.student.blood_type, color: 'text-rose-600' },
                 { label: 'شماره تماس', value: cardData.student.phone, mono: true },

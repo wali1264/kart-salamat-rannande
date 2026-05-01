@@ -11,6 +11,8 @@ interface Props {
   onComplete: () => void;
 }
 
+import { useScanner } from '../../hooks/useScanner';
+
 export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const { user } = useAuth();
   const { mode, isTeacherMode } = useSystem();
@@ -32,6 +34,19 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const [photo, setPhoto] = useState<string | null>(null);
   const [fingerprints, setFingerprints] = useState<string[]>([]);
   const [activeFingerIndex, setActiveFingerIndex] = useState<number | null>(null);
+
+  // Real scanner input listener for registration
+  useScanner((code) => {
+    if (activeFingerIndex !== null) {
+      const newFingerprints = [...fingerprints];
+      newFingerprints[activeFingerIndex] = code;
+      setFingerprints(newFingerprints);
+      setActiveFingerIndex(null);
+      
+      // Optional: Add a small feedback sound or vibration if supported
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+  }, activeFingerIndex !== null);
 
   // Fetch dynamic categories from localStorage
   const [categories, setCategories] = useState<string[]>([]);
@@ -255,26 +270,21 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
               ))}
             </div>
             {activeFingerIndex !== null && (
-              <div className="bg-blue-600 text-white p-4 rounded-2xl flex items-center justify-between">
+              <div className="bg-blue-600 text-white p-4 rounded-2xl flex items-center justify-between animate-pulse">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center animate-spin">
+                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
                     <Fingerprint className="w-4 h-4" />
                   </div>
-                  <span className="text-xs font-bold">لطفاً انگشت مورد نظر را روی دستگاه قرار دهید...</span>
+                  <span className="text-xs font-bold">دستگاه آماده است. لطفاً انگشت مورد نظر را روی اسکنر قرار دهید...</span>
                 </div>
                 <button 
                    onClick={(e) => {
                      e.preventDefault();
-                     // Simulated Fingerprint Capture
-                     const mockFingerprint = `FP_${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-                     const newFingerprints = [...fingerprints];
-                     newFingerprints[activeFingerIndex] = mockFingerprint;
-                     setFingerprints(newFingerprints);
                      setActiveFingerIndex(null);
                    }}
-                   className="bg-white text-blue-600 px-4 py-2 rounded-xl text-[10px] font-black hover:bg-slate-100"
+                   className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-xl text-[10px] font-black"
                 >
-                  شبیه‌سازی اسکن انگشت
+                  انصراف
                 </button>
               </div>
             )}

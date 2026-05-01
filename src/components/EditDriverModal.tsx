@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, Save, DollarSign } from 'lucide-react';
+import { X, User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, Save, DollarSign, Fingerprint } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { compressImage } from '../lib/utils';
 import { Driver } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystem } from '../contexts/SystemContext';
 import { logActivity } from '../lib/logger';
+import { useScanner } from '../hooks/useScanner';
 
 interface Props {
   isOpen: boolean;
@@ -34,6 +35,19 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
     total_monthly_fee: '0',
   });
   const [photo, setPhoto] = useState<string | null>(null);
+  const [fingerprints, setFingerprints] = useState<string[]>([]);
+  const [activeFingerIndex, setActiveFingerIndex] = useState<number | null>(null);
+
+  // Scanner listener for editing fingerprints
+  useScanner((code) => {
+    if (activeFingerIndex !== null) {
+      const newFingerprints = [...fingerprints];
+      newFingerprints[activeFingerIndex] = code;
+      setFingerprints(newFingerprints);
+      setActiveFingerIndex(null);
+      if (navigator.vibrate) navigator.vibrate(50);
+    }
+  }, activeFingerIndex !== null);
 
   useEffect(() => {
     if (driver) {
@@ -49,6 +63,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         total_monthly_fee: (driver as any).total_monthly_fee?.toString() || '0',
       });
       setPhoto(driver.photo_url || null);
+      setFingerprints((driver as any).fingerprints || []);
     }
   }, [driver]);
 
@@ -76,6 +91,7 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         blood_type: formData.blood_type,
         photo_url: photo || '',
         total_monthly_fee: parseFloat(formData.total_monthly_fee),
+        fingerprints: fingerprints.filter(f => f),
         class_name: formData.vehicle_type,
         student_id_no: formData.license_number,
         license_plate: formData.license_plate,
@@ -300,6 +316,57 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
                         className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all font-bold text-blue-600 text-right"
                       />
                     </div>
+                  </div>
+
+                  {/* Fingerprint Section in Edit Modal */}
+                  <div className="md:col-span-2 bento-card bg-slate-50/50 border-slate-100 flex flex-col gap-4 mt-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-100">
+                          <Fingerprint className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-slate-800 text-sm">بروزرسانی اثر انگشت (اختیاری)</h4>
+                          <p className="text-[9px] text-slate-400 font-bold uppercase">برای تغییر یا افزودن اثر انگشت، روی آیکون مورد نظر کلیک کنید</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-5 gap-2">
+                      {[1, 2, 3, 4, 5].map((num) => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => setActiveFingerIndex(num - 1)}
+                          className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all relative group ${
+                            activeFingerIndex === num - 1
+                              ? 'bg-blue-50 border-blue-500 text-blue-600'
+                              : fingerprints[num - 1]
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'
+                          }`}
+                        >
+                          <Fingerprint className={`w-6 h-6 mb-1 ${fingerprints[num - 1] ? 'text-emerald-500' : ''}`} />
+                          <span className="text-[8px] font-black">انگشت {num}</span>
+                          {fingerprints[num - 1] && (
+                            <div className="absolute top-1 left-1 w-2 h-2 bg-emerald-500 rounded-full border border-white" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+
+                    {activeFingerIndex !== null && (
+                      <div className="bg-blue-600 text-white p-3 rounded-xl flex items-center justify-between animate-pulse">
+                        <span className="text-[10px] font-bold">لطفاً انگشت را روی اسکنر قرار دهید...</span>
+                        <button 
+                          type="button"
+                          onClick={() => setActiveFingerIndex(null)}
+                          className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-[9px] font-black"
+                        >
+                          انصراف
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-2 pt-6 flex flex-col items-center">

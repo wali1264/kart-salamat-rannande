@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint, Edit } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 import { useSystem } from '../../contexts/SystemContext';
 
 import { useScanner } from '../../hooks/useScanner';
+import { EditDriverModal } from '../EditDriverModal';
 
 export const QrScanner: React.FC = () => {
   const { mode, isTeacherMode } = useSystem();
@@ -16,6 +17,8 @@ export const QrScanner: React.FC = () => {
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'expired' | 'fake'>('idle');
   const [fingerprintMode, setFingerprintMode] = useState(false);
   const [isScannerConnected, setIsScannerConnected] = useState(true); // Default to true since HID is passive
+  const [lastMatchedFinger, setLastMatchedFinger] = useState<number | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Real scanner input listener
   useScanner((code) => {
@@ -244,6 +247,9 @@ export const QrScanner: React.FC = () => {
       }
 
       const matchedStudent = data[0];
+      const fingerIndex = (matchedStudent.fingerprints || []).indexOf(fingerprintId);
+      setLastMatchedFinger(fingerIndex !== -1 ? fingerIndex + 1 : null);
+      
       // If found, trigger the normal verification using the student ID
       await verifyCard(matchedStudent.id);
     } catch (err: any) {
@@ -376,10 +382,10 @@ export const QrScanner: React.FC = () => {
            <h3 className="text-xl font-black text-blue-900 mb-2">آماده شناسایی اثر انگشت</h3>
            <p className="text-xs text-blue-600 font-bold mb-6">لطفاً انگشت خود را روی دستگاه قرار دهید</p>
            
-           <div className="bg-white/60 p-4 rounded-2xl border border-blue-100 flex items-center justify-center gap-3">
+            <div className="bg-white/60 p-4 rounded-2xl border border-blue-100 flex items-center justify-center gap-3">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-[10px] text-slate-500 font-bold">دستگاه اسکنر متصل و آماده دریافت اطلاعات می‌باشد</p>
-           </div>
+              <p className="text-[10px] text-slate-500 font-bold">سیستم آماده دریافت داده از اسکنر می‌باشد</p>
+            </div>
         </div>
       )}
 
@@ -438,6 +444,12 @@ export const QrScanner: React.FC = () => {
                 ? (isTeacherMode ? 'این کارت در سیستم موجود است اما تاریخ اعتبار آن برای استاد مذکور منقضی شده است.' : 'این کارت در سیستم موجود است اما تاریخ اعتبار آن منقضی شده و نیاز به تمدید دارد.')
                 : (isTeacherMode ? 'هویت استاد در سامانه تایید گردید. کارت کاملاً معتبر است.' : 'این کارت موجود و کاملاً معتبر است و نیازی به تمدید ندارد.')}
             </p>
+            {lastMatchedFinger && (
+              <div className="mt-2 bg-white/20 px-3 py-1 rounded-lg flex items-center gap-2">
+                <Fingerprint className="w-3 h-3" />
+                <span className="text-[10px] font-black uppercase tracking-tighter">شناسایی شده توسط: انگشت {lastMatchedFinger}</span>
+              </div>
+            )}
           </div>
 
           <div className="p-5">
@@ -494,10 +506,30 @@ export const QrScanner: React.FC = () => {
               )}
             </div>
 
-            <button onClick={resetScanner} className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-xl ${isTeacherMode ? 'bg-emerald-900' : 'bg-slate-900'} text-white active:scale-95 transition-all`}>استعلام جدید</button>
+            <div className="flex gap-2">
+              <button onClick={resetScanner} className={`flex-1 py-4 rounded-[1.5rem] font-bold text-lg shadow-xl ${isTeacherMode ? 'bg-emerald-900' : 'bg-slate-900'} text-white active:scale-95 transition-all`}>استعلام جدید</button>
+              <button 
+                onClick={() => setIsEditModalOpen(true)}
+                className="bg-white border border-slate-200 text-slate-500 px-6 py-4 rounded-[1.5rem] font-bold text-sm hover:bg-slate-50 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
+              >
+                <Edit className="w-4 h-4" />
+                <span>ویرایش</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      <EditDriverModal 
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        driver={cardData?.student || null}
+        onUpdate={() => {
+          if (cardData?.student?.id) {
+            verifyCard(cardData.student.id);
+          }
+        }}
+      />
 
       <style>{`
         @keyframes scan {

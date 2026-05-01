@@ -240,7 +240,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[10px] text-emerald-600 font-black tracking-tighter">آماده اتصال دستگاه</span>
+                <span className="text-[10px] text-emerald-600 font-black tracking-tighter">سیستم آماده دریافت داده از اسکنر می‌باشد</span>
               </div>
             </div>
 

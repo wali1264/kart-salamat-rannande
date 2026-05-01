@@ -105,14 +105,13 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
       if (checkError) throw checkError;
 
       // Duplicate prevention logic
-      const alreadyEntered = existingRecords?.some(r => r.type === 'entry');
+      const alreadyArrived = existingRecords?.some(r => r.type === 'entry' || r.type === 'present');
       const alreadyExited = existingRecords?.some(r => r.type === 'exit');
-      const alreadyPresent = existingRecords?.some(r => r.type === 'present');
 
       let finalType = attendanceType;
 
       if (mode === 'presence') {
-        if (alreadyPresent || alreadyEntered) {
+        if (alreadyArrived) {
           setStatus('error');
           setMessage('حضور شما قبلاً ثبت شده است.');
           setTimeout(() => setStatus('ready'), 4000);
@@ -121,22 +120,22 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
         finalType = 'present';
       } else {
         // Entry-Exit mode
-        if (finalType === 'entry' && (alreadyEntered || alreadyPresent)) {
+        if (finalType === 'entry' && alreadyArrived) {
           setStatus('error');
           setMessage('ورود شما قبلاً ثبت شده است.');
           setTimeout(() => setStatus('ready'), 4000);
           return;
         }
         if (finalType === 'exit') {
-          if (alreadyExited || alreadyPresent) {
+          if (alreadyExited) {
             setStatus('error');
             setMessage('خروج شما قبلاً ثبت شده است.');
             setTimeout(() => setStatus('ready'), 4000);
             return;
           }
-          if (!alreadyEntered) {
+          if (!alreadyArrived) {
             setStatus('error');
-            setMessage('ابتدا باید ورود ثبت شود.');
+            setMessage('ابتدا باید ورود یا حاضری ثبت شود.');
             setTimeout(() => setStatus('ready'), 4000);
             return;
           }

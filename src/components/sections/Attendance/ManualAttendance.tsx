@@ -103,7 +103,7 @@ export const ManualAttendance: React.FC = () => {
 
       if (error) throw error;
       
-      // Fetch stats for each person (absences this month)
+      // Fetch stats for each person (unique presence days this month)
       const peopleWithStats = await Promise.all((data || []).map(async (p) => {
         let statsDate = new Date();
         statsDate = setYear(statsDate, statsYear);
@@ -112,12 +112,17 @@ export const ManualAttendance: React.FC = () => {
         const start = startOfMonth(statsDate);
         const end = endOfMonth(statsDate);
 
-        const { count: attCount } = await supabase
+        const { data: monthRecords } = await supabase
           .from('attendance')
-          .select('*', { count: 'exact', head: true })
+          .select('recorded_at')
           .eq('student_id', p.id)
           .gte('recorded_at', start.toISOString())
           .lte('recorded_at', end.toISOString());
+
+        // Count unique dates
+        const uniqueDays = new Set(
+          (monthRecords || []).map(r => format(new Date(r.recorded_at), 'yyyy-MM-dd'))
+        ).size;
 
         // Also check if they are present today
         const todayStart = new Date();
@@ -130,7 +135,7 @@ export const ManualAttendance: React.FC = () => {
         
         return { 
           ...p, 
-          attendanceCount: attCount || 0,
+          attendanceCount: uniqueDays,
           isPresentToday: (todayCount || 0) > 0
         };
       }));
@@ -159,30 +164,23 @@ export const ManualAttendance: React.FC = () => {
     if (!selectedPerson) return;
     
     // Logic checks
-    const hasEntry = todayRecords.some(r => r.type === 'entry');
+    const hasArrival = todayRecords.some(r => r.type === 'entry' || r.type === 'present');
     const hasExit = todayRecords.some(r => r.type === 'exit');
-    const hasPresent = todayRecords.some(r => r.type === 'present');
 
-    if (actionType === 'entry' && (hasEntry || hasPresent)) {
-      setErrorStatus('ورود برای این روز قبلاً ثبت شده است.');
+    if ((actionType === 'entry' || actionType === 'present') && hasArrival) {
+      setErrorStatus('وضعیت حضور (ورود/حاضری) قبلاً برای این روز ثبت شده است.');
       setTimeout(() => setErrorStatus(null), 3000);
       return;
     }
 
-    if (actionType === 'exit' && (hasExit || hasPresent)) {
+    if (actionType === 'exit' && hasExit) {
       setErrorStatus('خروج برای این روز قبلاً ثبت شده است.');
       setTimeout(() => setErrorStatus(null), 3000);
       return;
     }
 
-    if (actionType === 'exit' && !hasEntry) {
-      setErrorStatus('ابتدا باید ورود ثبت شود.');
-      setTimeout(() => setErrorStatus(null), 3000);
-      return;
-    }
-
-    if (actionType === 'present' && (hasEntry || hasExit || hasPresent)) {
-      setErrorStatus('وضعیت حضور قبلاً ثبت شده است.');
+    if (actionType === 'exit' && !hasArrival) {
+      setErrorStatus('ابتدا باید ورود یا حاضری ثبت شود.');
       setTimeout(() => setErrorStatus(null), 3000);
       return;
     }
@@ -229,7 +227,7 @@ export const ManualAttendance: React.FC = () => {
     'میزان', 'عقرب', 'قوس', 'جدی', 'دلو', 'حوت'
   ];
 
-  const jalaliYears = [1402, 1403, 1404, 1405, 1406];
+  const jalaliYears = [1405, 1406, 1407, 1408, 1409, 1410];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
@@ -402,9 +400,27 @@ export const ManualAttendance: React.FC = () => {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 block">نوع وضعیت</label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { id: 'entry', label: 'ورود', color: 'emerald', icon: <CheckCircle2 className="w-5 h-5" />, active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present') },
-                      { id: 'exit', label: 'خروج', color: 'rose', icon: <XCircle className="w-5 h-5" />, active: todayRecords.some(r => r.type === 'entry') && !todayRecords.some(r => r.type === 'exit' || r.type === 'present') },
-                      { id: 'present', label: 'حاضر', color: 'blue', icon: <Clock className="w-5 h-5" />, active: todayRecords.length === 0 },
+                      { 
+                        id: 'entry', 
+                        label: 'ورود', 
+                        color: 'emerald', 
+                        icon: <CheckCircle2 className="w-5 h-5" />, 
+                        active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present') 
+                      },
+                      { 
+                        id: 'exit', 
+                        label: 'خروج', 
+                        color: 'rose', 
+                        icon: <XCircle className="w-5 h-5" />, 
+                        active: todayRecords.some(r => r.type === 'entry' || r.type === 'present') && !todayRecords.some(r => r.type === 'exit') 
+                      },
+                      { 
+                        id: 'present', 
+                        label: 'حاضر', 
+                        color: 'blue', 
+                        icon: <Clock className="w-5 h-5" />, 
+                        active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present') 
+                      },
                     ].map((btn) => (
                       <button
                         key={btn.id}

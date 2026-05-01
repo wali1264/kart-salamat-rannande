@@ -16,33 +16,56 @@ export const ManualAttendance: React.FC = () => {
   const [manualTime, setManualTime] = useState(new Date().toTimeString().slice(0, 5));
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  
+  // Pagination and Search states
+  const [limit, setLimit] = useState(5);
+  const [hasMore, setHasMore] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    fetchPeople();
+    fetchPeople(true);
   }, [isTeacherMode]);
 
-  const fetchPeople = async () => {
+  const fetchPeople = async (reset = false) => {
     setLoading(true);
+    const currentLimit = reset ? 5 : limit + 5;
+    if (reset) setLimit(5);
+    else setLimit(currentLimit);
+
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('students')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('is_teacher', isTeacherMode)
-        .order('name');
+        .order('id', { ascending: false })
+        .range(0, currentLimit - 1);
+
+      if (searchQuery) {
+        query = query.or(`name.ilike.%${searchQuery}%,national_id.ilike.%${searchQuery}%`);
+      }
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
       setPeople(data || []);
+      setHasMore(count ? data.length < count : false);
     } catch (err) {
       console.error('Error fetching people:', err);
     } finally {
       setLoading(false);
+      setIsSearching(false);
     }
   };
 
-  const filteredPeople = people.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.national_id?.includes(searchQuery)
-  );
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSearching(true);
+    fetchPeople(true);
+  };
+
+  const loadMore = () => {
+    fetchPeople(false);
+  };
 
   const handleSubmit = async () => {
     if (!selectedPerson) return;
@@ -82,59 +105,81 @@ export const ManualAttendance: React.FC = () => {
       {/* List Section */}
       <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col overflow-hidden">
         <div className="p-6 border-b border-slate-50">
-          <div className="relative">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text"
-              placeholder={`جستجوی ${isTeacherMode ? 'معلم' : 'شاگرد'}...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
-            />
-          </div>
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input 
+                type="text"
+                placeholder={`جستجوی ${isTeacherMode ? 'معلم' : 'شاگرد'}...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={isSearching}
+              className="bg-slate-900 text-white px-6 rounded-2xl text-xs font-black hover:bg-slate-800 transition-all disabled:opacity-50"
+            >
+              {isSearching ? '...' : 'جستجو'}
+            </button>
+          </form>
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
-          {loading ? (
+          {loading && people.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-400">
               <div className="w-8 h-8 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin" />
               <p className="text-xs font-bold">در حال بارگذاری لیست...</p>
             </div>
-          ) : filteredPeople.length === 0 ? (
+          ) : people.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-300">
               <AlertCircle className="w-12 h-12 opacity-20" />
               <p className="text-sm font-bold">موردی یافت نشد</p>
             </div>
           ) : (
-            filteredPeople.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPerson(p)}
-                className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
-                  selectedPerson?.id === p.id 
-                    ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : 'bg-blue-50 text-blue-900 border border-blue-100')
-                    : 'hover:bg-slate-50 text-slate-600 border border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${
+            <>
+              {people.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPerson(p)}
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
                     selectedPerson?.id === p.id 
-                      ? (isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500') 
-                      : 'bg-slate-200'
-                  }`}>
-                    {p.name.charAt(0)}
+                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : 'bg-blue-50 text-blue-900 border border-blue-100')
+                      : 'hover:bg-slate-50 text-slate-600 border border-transparent'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${
+                      selectedPerson?.id === p.id 
+                        ? (isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500') 
+                        : 'bg-slate-200'
+                    }`}>
+                      {p.name.charAt(0)}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black">{p.name}</p>
+                      <p className="text-[10px] opacity-60 font-bold">{p.national_id || 'بدون کد شناسایی'}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black">{p.name}</p>
-                    <p className="text-[10px] opacity-60 font-bold">{p.national_id || 'بدون کد شناسایی'}</p>
-                  </div>
-                </div>
-                <ChevronLeft className={`w-4 h-4 opacity-30 ${selectedPerson?.id === p.id ? 'translate-x-1' : ''} transition-transform`} />
-              </button>
-            ))
+                  <ChevronLeft className={`w-4 h-4 opacity-30 ${selectedPerson?.id === p.id ? 'translate-x-1' : ''} transition-transform`} />
+                </button>
+              ))}
+              
+              {hasMore && (
+                <button 
+                  onClick={loadMore}
+                  disabled={loading}
+                  className="w-full py-4 text-[10px] font-black text-blue-600 hover:bg-blue-50 rounded-2xl transition-all uppercase tracking-widest"
+                >
+                  {loading ? 'در حال بارگذاری...' : 'نمایش بیشتر +'}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
+
 
       {/* Action Section */}
       <AnimatePresence mode="wait">

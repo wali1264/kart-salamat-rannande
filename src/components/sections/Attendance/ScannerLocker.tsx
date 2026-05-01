@@ -7,17 +7,26 @@ import { supabase } from '../../../lib/supabase';
 
 interface Props {
   onUnlock: () => void;
+  mode: 'presence' | 'entry-exit';
+  autoSwitch: boolean;
 }
 
 type ScanStatus = 'ready' | 'identifying' | 'success' | 'error';
 
-export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
+export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) => {
   const { isTeacherMode } = useSystem();
   const [status, setStatus] = useState<ScanStatus>('ready');
   const [matchedPerson, setMatchedPerson] = useState<any | null>(null);
-  const [attendanceType, setAttendanceType] = useState<'entry' | 'exit'>('entry');
+  const [attendanceType, setAttendanceType] = useState<'entry' | 'exit' | 'present'>('entry');
   const [message, setMessage] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // Auth state for unlocking
+  const [showUnlockAuth, setShowUnlockAuth] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   // Clock update
   useEffect(() => {
@@ -25,21 +34,45 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
     return () => clearInterval(timer);
   }, []);
 
-  // Determine auto-mode
+  // Determine auto-mode based on 24h clock
   useEffect(() => {
-    const hour = new Date().getHours();
-    setAttendanceType(hour < 12 ? 'entry' : 'exit');
-  }, []);
+    if (autoSwitch && mode === 'entry-exit') {
+      const hour = new Date().getHours();
+      setAttendanceType(hour < 12 ? 'entry' : 'exit');
+    } else if (mode === 'presence') {
+      setAttendanceType('present');
+    }
+  }, [autoSwitch, mode]);
+
+  const handleUnlockAttempt = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsAuthenticating(true);
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      });
+
+      if (error) throw error;
+
+      onUnlock();
+    } catch (err: any) {
+      setAuthError('ایمیل یا رمز عبور اشتباه است.');
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
 
   const handleScan = async (code: string) => {
-    if (status !== 'ready') return;
+    if (status !== 'ready' || showUnlockAuth) return;
     
     setStatus('identifying');
     setMatchedPerson(null);
 
     try {
-      // Find person by fingerprint/card code
-      // We look for students/teachers where fingerprints array contains the scanned code
+      // Find person
       const { data: people, error } = await supabase
         .from('students')
         .select('*')
@@ -47,8 +80,6 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
 
       if (error) throw error;
 
-      // Find the person whose fingerprints include this code
-      // Note: Scanner might return card ID as well.
       const person = people?.find(p => 
         (p.fingerprints && p.fingerprints.includes(Number(code))) || 
         p.national_id === code ||
@@ -62,6 +93,48 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
         return;
       }
 
+      // Check for duplicate entry today
+      const today = new Date().toISOString().split('T')[0];
+      const { data: existingRecords, error: checkError } = await supabase
+        .from('attendance')
+        .select('type')
+        .eq('student_id', person.id)
+        .gte('recorded_at', `${today}T00:00:00`)
+        .lte('recorded_at', `${today}T23:59:59`);
+
+      if (checkError) throw checkError;
+
+      // Duplicate prevention logic
+      const alreadyEntered = existingRecords?.some(r => r.type === 'entry');
+      const alreadyExited = existingRecords?.some(r => r.type === 'exit');
+      const alreadyPresent = existingRecords?.some(r => r.type === 'present');
+
+      let finalType = attendanceType;
+
+      if (mode === 'presence') {
+        if (alreadyPresent) {
+          setStatus('error');
+          setMessage('حضور شما قبلاً در امروز ثبت شده است.');
+          setTimeout(() => setStatus('ready'), 4000);
+          return;
+        }
+        finalType = 'present';
+      } else {
+        // Entry-Exit mode
+        if (finalType === 'entry' && alreadyEntered) {
+          setStatus('error');
+          setMessage('ورود شما قبلاً در امروز ثبت شده است.');
+          setTimeout(() => setStatus('ready'), 4000);
+          return;
+        }
+        if (finalType === 'exit' && alreadyExited) {
+          setStatus('error');
+          setMessage('خروج شما قبلاً در امروز ثبت شده است.');
+          setTimeout(() => setStatus('ready'), 4000);
+          return;
+        }
+      }
+
       setMatchedPerson(person);
 
       // Record attendance
@@ -69,7 +142,7 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
         .from('attendance')
         .insert([{
           student_id: person.id,
-          type: attendanceType,
+          type: finalType,
           recorded_at: new Date().toISOString(),
           is_manual: false,
           is_teacher: isTeacherMode
@@ -78,9 +151,9 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
       if (attError) throw attError;
 
       setStatus('success');
-      setMessage(attendanceType === 'entry' ? `خوش آمدید، ${person.name}!` : `خداحافظ، ${person.name}!`);
+      const actionLabel = finalType === 'entry' ? 'ورود' : finalType === 'exit' ? 'خروج' : 'حضور';
+      setMessage(`${actionLabel} شما با موفقیت ثبت شد.`);
       
-      // Auto reset after 5 seconds
       setTimeout(() => {
         setStatus('ready');
         setMatchedPerson(null);
@@ -222,24 +295,26 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
 
       {/* Footer / Unlock */}
       <div className="w-full flex flex-col items-center gap-6 relative z-10">
-        <div className="flex gap-4">
-           {['entry', 'exit'].map((type) => (
-             <button
-               key={type}
-               onClick={() => setAttendanceType(type as any)}
-               className={`px-8 py-3 rounded-2xl font-black text-xs transition-all border-2 ${
-                 attendanceType === type 
-                   ? (type === 'entry' ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20' : 'bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-500/20') 
-                   : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'
-               }`}
-             >
-               حالت دستی: {type === 'entry' ? 'فقط ورود' : 'فقط خروج'}
-             </button>
-           ))}
-        </div>
+        {!autoSwitch && mode === 'entry-exit' && (
+          <div className="flex gap-4">
+            {['entry', 'exit'].map((type) => (
+              <button
+                key={type}
+                onClick={() => setAttendanceType(type as any)}
+                className={`px-8 py-3 rounded-2xl font-black text-xs transition-all border-2 ${
+                  attendanceType === type 
+                    ? (type === 'entry' ? 'bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20' : 'bg-rose-600 border-rose-500 text-white shadow-lg shadow-rose-500/20') 
+                    : 'bg-white/5 border-white/5 text-slate-500 hover:bg-white/10'
+                }`}
+              >
+                حالت دستی: {type === 'entry' ? 'فقط ورود' : 'فقط خروج'}
+              </button>
+            ))}
+          </div>
+        )}
 
         <button 
-          onClick={onUnlock}
+          onClick={() => setShowUnlockAuth(true)}
           className="group flex flex-col items-center gap-2 opacity-20 hover:opacity-100 transition-all"
         >
           <div className="p-4 bg-white/5 group-hover:bg-rose-500/20 rounded-full transition-colors border border-white/5 group-hover:border-rose-500/30">
@@ -248,6 +323,79 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock }) => {
           <span className="text-[10px] font-black text-slate-600 group-hover:text-rose-400 uppercase tracking-widest">خروج از پیشخوان (مدیر)</span>
         </button>
       </div>
+
+      {/* Unlock Authentication Modal */}
+      <AnimatePresence>
+        {showUnlockAuth && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-white rounded-[2.5rem] w-full max-w-md p-10 flex flex-col items-center shadow-2xl"
+            >
+              <div className="w-20 h-20 bg-rose-50 rounded-3xl flex items-center justify-center mb-6">
+                <ShieldCheck className="w-10 h-10 text-rose-500" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-800 mb-2">تأیید هویت مدیر</h2>
+              <p className="text-sm text-slate-500 font-bold mb-8 text-center uppercase tracking-tighter">Enter credentials to exit scanner mode</p>
+              
+              <form onSubmit={handleUnlockAttempt} className="w-full space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 px-2 uppercase">ایمیل مدیریت</label>
+                  <input 
+                    type="email"
+                    value={authEmail}
+                    onChange={(e) => setAuthEmail(e.target.value)}
+                    required
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 text-sm font-bold focus:border-rose-500/30 outline-none transition-all"
+                    placeholder="admin@school.com"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 px-2 uppercase">رمز عبور</label>
+                  <input 
+                    type="password"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    required
+                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl py-4 px-6 text-sm font-bold focus:border-rose-500/30 outline-none transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
+
+                {authError && (
+                  <p className="text-[10px] font-black text-rose-500 bg-rose-50 py-2 px-4 rounded-xl text-center">{authError}</p>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowUnlockAuth(false);
+                      setAuthError('');
+                    }}
+                    className="flex-1 py-4 rounded-2xl font-black text-slate-400 hover:bg-slate-50 transition-all"
+                  >
+                    انصراف
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={isAuthenticating}
+                    className="flex-[2] py-4 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800 transition-all shadow-xl disabled:opacity-50"
+                  >
+                    {isAuthenticating ? 'در حال بررسی...' : 'تأیید و خروج'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         @keyframes scan {

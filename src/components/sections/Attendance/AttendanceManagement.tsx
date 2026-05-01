@@ -8,10 +8,35 @@ import { ScannerLocker } from './ScannerLocker';
 export const AttendanceManagement: React.FC = () => {
   const { isTeacherMode } = useSystem();
   const [activeTab, setActiveTab] = useState<'manual' | 'scanner'>('manual');
-  const [isLocked, setIsLocked] = useState(false);
+  const [isLocked, setIsLocked] = useState(() => localStorage.getItem('attendance_locked') === 'true');
+  const [lockSettings, setLockSettings] = useState<{ mode: 'presence' | 'entry-exit', autoSwitch: boolean }>({
+    mode: 'entry-exit',
+    autoSwitch: true
+  });
+
+  const handleLock = (settings: { mode: 'presence' | 'entry-exit', autoSwitch: boolean }) => {
+    setLockSettings(settings);
+    setIsLocked(true);
+    localStorage.setItem('attendance_locked', 'true');
+    localStorage.setItem('attendance_settings', JSON.stringify(settings));
+  };
+
+  const handleUnlock = () => {
+    setIsLocked(false);
+    localStorage.removeItem('attendance_locked');
+    localStorage.removeItem('attendance_settings');
+  };
 
   if (isLocked) {
-    return <ScannerLocker onUnlock={() => setIsLocked(false)} />;
+    const savedSettings = localStorage.getItem('attendance_settings');
+    const settingsToUse = savedSettings ? JSON.parse(savedSettings) : lockSettings;
+    return (
+      <ScannerLocker 
+        onUnlock={handleUnlock} 
+        mode={settingsToUse.mode} 
+        autoSwitch={settingsToUse.autoSwitch} 
+      />
+    );
   }
 
   return (
@@ -48,7 +73,7 @@ export const AttendanceManagement: React.FC = () => {
         {activeTab === 'manual' ? (
           <ManualAttendance />
         ) : (
-          <AdvancedScanner onLock={() => setIsLocked(true)} />
+          <AdvancedScanner onLock={handleLock} />
         )}
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   X, 
   Settings,
   Bell,
+  ListChecks,
   User as UserIcon,
   ShieldCheck,
   CreditCard as FinanceIcon
@@ -21,11 +22,12 @@ import { DashboardHome } from './sections/DashboardHome';
 import { DriverRegistration } from './sections/DriverRegistration';
 import { DriverList } from './sections/DriverList';
 import { QrScanner } from './sections/QrScanner';
+import { AttendanceManagement } from './sections/Attendance/AttendanceManagement';
 import { SettingsSection } from './sections/SettingsSection';
 import { FinancialManagement } from './sections/FinancialManagement';
 import { Auth } from './Auth';
 
-type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'scanner' | 'settings' | 'auth';
+type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'attendance' | 'scanner' | 'settings' | 'auth';
 
 const SectionWrapper: React.FC<{ 
   activeSection: Section; 
@@ -40,6 +42,7 @@ const SectionWrapper: React.FC<{
     case 'registration': return <DriverRegistration onComplete={() => setActiveSection('drivers')} />;
     case 'drivers': return <DriverList />;
     case 'finance': return <FinancialManagement />;
+    case 'attendance': return <AttendanceManagement />;
     case 'scanner': return <QrScanner searchQuery={searchQuery} />;
     case 'settings': return <SettingsSection />;
     case 'auth': return <Auth />;
@@ -65,6 +68,7 @@ export const Landing: React.FC = () => {
     { id: 'home', label: 'روزنامچه', icon: LayoutDashboard, protected: true },
     { id: 'drivers', label: isTeacherMode ? 'لیست معلمین' : 'لیست شاگردان', icon: Users, protected: true },
     { id: 'registration', label: isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید', icon: PlusCircle, protected: true },
+    { id: 'attendance', label: 'مدیریت حضور و غیاب', icon: ListChecks, protected: true },
     { id: 'finance', label: isTeacherMode ? 'حقوق و دستمزد' : 'مدیریت مالی', icon: FinanceIcon, protected: true },
     { id: 'scanner', label: 'اسکنر QR', icon: QrCode, protected: false },
     { id: 'settings', label: 'تنظیمات', icon: Settings, protected: true },

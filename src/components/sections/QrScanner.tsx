@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint, Edit } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 import { useSystem } from '../../contexts/SystemContext';
 
 import { useScanner } from '../../hooks/useScanner';
-import { EditDriverModal } from '../EditDriverModal';
 
 export const QrScanner: React.FC = () => {
   const { mode, isTeacherMode } = useSystem();
@@ -18,7 +17,6 @@ export const QrScanner: React.FC = () => {
   const [fingerprintMode, setFingerprintMode] = useState(false);
   const [isScannerConnected, setIsScannerConnected] = useState(true); // Default to true since HID is passive
   const [lastMatchedFinger, setLastMatchedFinger] = useState<number | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Real scanner input listener
   useScanner((code) => {
@@ -507,29 +505,13 @@ export const QrScanner: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={resetScanner} className={`flex-1 py-4 rounded-[1.5rem] font-bold text-lg shadow-xl ${isTeacherMode ? 'bg-emerald-900' : 'bg-slate-900'} text-white active:scale-95 transition-all`}>استعلام جدید</button>
-              <button 
-                onClick={() => setIsEditModalOpen(true)}
-                className="bg-white border border-slate-200 text-slate-500 px-6 py-4 rounded-[1.5rem] font-bold text-sm hover:bg-slate-50 active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                <span>ویرایش</span>
-              </button>
+              <button onClick={resetScanner} className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-xl ${isTeacherMode ? 'bg-emerald-900' : 'bg-slate-900'} text-white active:scale-95 transition-all`}>استعلام جدید</button>
             </div>
           </div>
         </div>
       )}
 
-      <EditDriverModal 
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        driver={cardData?.student || null}
-        onUpdate={() => {
-          if (cardData?.student?.id) {
-            verifyCard(cardData.student.id);
-          }
-        }}
-      />
+      {/* Edit modal removed from here for security - only accessible via list views */}
 
       <style>{`
         @keyframes scan {

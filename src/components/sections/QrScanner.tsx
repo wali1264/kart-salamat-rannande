@@ -420,43 +420,45 @@ export const QrScanner: React.FC = () => {
       {/* Result: SUCCESS or EXPIRED */}
       {cardData && (
         <div className="bg-white border border-slate-100 rounded-[3rem] shadow-2xl overflow-hidden relative animate-in slide-in-from-bottom duration-500">
-          <div className={`p-4 flex flex-col items-center justify-center gap-2 ${scanStatus === 'expired' ? 'bg-amber-500' : 'bg-emerald-500'} text-white`}>
+          <div className={`p-4 flex flex-col items-center justify-center gap-2 ${scanStatus === 'expired' ? 'bg-amber-500' : isTeacherMode ? 'bg-emerald-500' : 'bg-blue-600'} text-white`}>
             <div className="flex items-center gap-3">
               {scanStatus === 'expired' ? <Clock className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
               <span className="text-sm font-black uppercase tracking-tight">
-                {scanStatus === 'expired' ? 'کارت منقضی شده است' : 'کارت معتبر و تایید شده'}
+                {scanStatus === 'expired' 
+                  ? (isTeacherMode ? 'کارت استاد منقضی شده است' : 'کارت شاگرد منقضی شده است')
+                  : (isTeacherMode ? 'کارت استاد معتبر و تایید شده' : 'کارت شاگرد معتبر و تایید شده')}
               </span>
             </div>
             <p className="text-[11px] font-bold opacity-90">
               {scanStatus === 'expired' 
-                ? 'این کارت در سیستم موجود است اما تاریخ اعتبار آن منقضی شده و نیاز به تمدید دارد.' 
-                : 'این کارت موجود و کاملاً معتبر است و نیازی به تمدید ندارد.'}
+                ? (isTeacherMode ? 'این کارت در سیستم موجود است اما تاریخ اعتبار آن برای استاد مذکور منقضی شده است.' : 'این کارت در سیستم موجود است اما تاریخ اعتبار آن منقضی شده و نیاز به تمدید دارد.')
+                : (isTeacherMode ? 'هویت استاد در سامانه تایید گردید. کارت کاملاً معتبر است.' : 'این کارت موجود و کاملاً معتبر است و نیازی به تمدید ندارد.')}
             </p>
           </div>
 
           <div className="p-5">
             <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b border-slate-100 text-center">
-              <div className="w-28 h-40 bg-slate-100 rounded-[1.5rem] border-4 border-white shadow-xl overflow-hidden bg-cover bg-center" 
+              <div className={`w-28 h-40 bg-slate-100 rounded-[1.5rem] border-4 border-white shadow-xl overflow-hidden bg-cover bg-center ${isTeacherMode ? 'ring-2 ring-emerald-100' : 'ring-2 ring-blue-100'}`} 
                    style={{ backgroundImage: cardData.student.photo_url ? `url(${cardData.student.photo_url})` : 'none' }}>
                 {!cardData.student.photo_url && <UserIcon className="w-16 h-16 text-slate-300 mt-12 mx-auto" />}
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 font-black uppercase mb-1">نوم / نام</p>
                 <h3 className="text-2xl font-black text-slate-800 leading-tight">{cardData.student.name}</h3>
-                <span className="inline-block mt-2 px-3 py-1 bg-slate-900 text-white rounded-lg text-[9px] font-bold">S/N: {cardData.card.id.slice(0, 8)}</span>
+                <span className={`inline-block mt-2 px-3 py-1 ${isTeacherMode ? 'bg-emerald-600' : 'bg-slate-900'} text-white rounded-lg text-[9px] font-bold`}>S/N: {cardData.card.id.slice(0, 8)}</span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-6 text-right">
               {[
                 { label: 'د پلار نوم / نام پدر', value: cardData.student.father_name },
-                { label: 'نمبر اساس', value: cardData.student.student_id_no, mono: true },
-                { label: 'بخش/شعبه', value: cardData.student.license_plate },
-                { label: 'صنف', value: cardData.student.class_name },
+                { label: isTeacherMode ? 'کد شناسایی' : 'نمبر اساس', value: cardData.student.student_id_no, mono: true },
+                { label: isTeacherMode ? 'بخش / شعبه' : 'بخش/شعبه', value: cardData.student.license_plate },
+                { label: isTeacherMode ? 'بست / رتبه' : 'صنف', value: cardData.student.class_name },
                 { label: 'نمبر تذکره', value: cardData.student.id_number },
                 { label: 'گروه خون', value: cardData.student.blood_type, color: 'text-rose-600' },
                 { label: 'شماره تماس', value: cardData.student.phone, mono: true },
-                { label: 'تاریخ انقضا', value: new Date(cardData.card.expiry_date).toLocaleDateString('fa-AF'), color: scanStatus === 'expired' ? 'text-rose-600' : 'text-emerald-600' }
+                { label: 'تاریخ انقضا', value: new Date(cardData.card.expiry_date).toLocaleDateString('fa-AF'), color: scanStatus === 'expired' ? 'text-rose-600' : isTeacherMode ? 'text-emerald-600' : 'text-blue-600' }
               ].map((item, idx) => (
                 <div key={idx} className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100">
                   <p className="text-[8px] text-slate-400 font-bold mb-1 uppercase">{item.label}</p>
@@ -467,28 +469,28 @@ export const QrScanner: React.FC = () => {
 
             <div className="mb-6 space-y-3">
               <div className="flex items-center gap-2 pr-1">
-                <div className="w-1 h-3 bg-blue-600 rounded-full" />
-                <h4 className="text-[10px] font-black text-slate-900 uppercase">اطلاعات پرونده صحی</h4>
+                <div className={`w-1 h-3 ${isTeacherMode ? 'bg-emerald-600' : 'bg-blue-600'} rounded-full`} />
+                <h4 className="text-[10px] font-black text-slate-900 uppercase">{isTeacherMode ? 'اطلاعات بیومتریک و اداری' : 'اطلاعات پرونده صحی'}</h4>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-                  <p className="text-[8px] text-blue-400 font-bold mb-0.5 uppercase">فشار خون</p>
-                  <p className="text-xs font-bold text-blue-900">{cardData.card.blood_pressure || 'سالم'}</p>
+                <div className={`${isTeacherMode ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'} p-3 rounded-xl border`}>
+                  <p className={`text-[8px] ${isTeacherMode ? 'text-emerald-500' : 'text-blue-400'} font-bold mb-0.5 uppercase`}>{isTeacherMode ? 'وضعیت تایید' : 'فشار خون'}</p>
+                  <p className={`text-xs font-bold ${isTeacherMode ? 'text-emerald-900' : 'text-blue-900'}`}>{isTeacherMode ? 'تایید شده' : (cardData.card.blood_pressure || 'سالم')}</p>
                 </div>
-                <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
-                  <p className="text-[8px] text-blue-400 font-bold mb-0.5 uppercase">وضعیت بینایی</p>
-                  <p className="text-xs font-bold text-blue-900">{cardData.card.vision_status || 'سالم'}</p>
+                <div className={`${isTeacherMode ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'} p-3 rounded-xl border`}>
+                  <p className={`text-[8px] ${isTeacherMode ? 'text-emerald-500' : 'text-blue-400'} font-bold mb-0.5 uppercase`}>{isTeacherMode ? 'آخرین استعلام' : 'وضعیت بینایی'}</p>
+                  <p className={`text-xs font-bold ${isTeacherMode ? 'text-emerald-900' : 'text-blue-900'}`}>{isTeacherMode ? 'امروز' : (cardData.card.vision_status || 'سالم')}</p>
                 </div>
               </div>
               {cardData.card.notes && (
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                  <p className="text-[8px] text-slate-400 font-bold mb-1 uppercase">ملاحظات داکتر</p>
+                  <p className="text-[8px] text-slate-400 font-bold mb-1 uppercase">{isTeacherMode ? 'ملاحظات مدیریتی' : 'ملاحظات داکتر'}</p>
                   <p className="text-[10px] text-slate-700 leading-relaxed font-medium">{cardData.card.notes}</p>
                 </div>
               )}
             </div>
 
-            <button onClick={resetScanner} className="w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-xl bg-slate-900 text-white active:scale-95 transition-all">استعلام جدید</button>
+            <button onClick={resetScanner} className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-xl ${isTeacherMode ? 'bg-emerald-900' : 'bg-slate-900'} text-white active:scale-95 transition-all`}>استعلام جدید</button>
           </div>
         </div>
       )}

@@ -73,6 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const currentUser = session?.user ?? null;
       setUser(currentUser);
       if (currentUser) {
+        setLoading(true);
         fetchProfile(currentUser.id);
       } else {
         setProfile(null);
@@ -80,11 +81,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    // Real-time listener for profile updates
+    let profileSubscription: any = null;
+    
+    if (user) {
+      profileSubscription = supabase
+        .channel(`public:profiles:id=eq.${user.id}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`
+        }, (payload) => {
+          if (mounted && payload.new) {
+            console.log('Profile updated in real-time:', payload.new);
+            setProfile(payload.new as Profile);
+          }
+        })
+        .subscribe();
+    }
+
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      if (profileSubscription) {
+        supabase.removeChannel(profileSubscription);
+      }
     };
-  }, []);
+  }, [user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();

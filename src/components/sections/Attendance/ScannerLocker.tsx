@@ -112,26 +112,34 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
       let finalType = attendanceType;
 
       if (mode === 'presence') {
-        if (alreadyPresent) {
+        if (alreadyPresent || alreadyEntered) {
           setStatus('error');
-          setMessage('حضور شما قبلاً در امروز ثبت شده است.');
+          setMessage('حضور شما قبلاً ثبت شده است.');
           setTimeout(() => setStatus('ready'), 4000);
           return;
         }
         finalType = 'present';
       } else {
         // Entry-Exit mode
-        if (finalType === 'entry' && alreadyEntered) {
+        if (finalType === 'entry' && (alreadyEntered || alreadyPresent)) {
           setStatus('error');
-          setMessage('ورود شما قبلاً در امروز ثبت شده است.');
+          setMessage('ورود شما قبلاً ثبت شده است.');
           setTimeout(() => setStatus('ready'), 4000);
           return;
         }
-        if (finalType === 'exit' && alreadyExited) {
-          setStatus('error');
-          setMessage('خروج شما قبلاً در امروز ثبت شده است.');
-          setTimeout(() => setStatus('ready'), 4000);
-          return;
+        if (finalType === 'exit') {
+          if (alreadyExited || alreadyPresent) {
+            setStatus('error');
+            setMessage('خروج شما قبلاً ثبت شده است.');
+            setTimeout(() => setStatus('ready'), 4000);
+            return;
+          }
+          if (!alreadyEntered) {
+            setStatus('error');
+            setMessage('ابتدا باید ورود ثبت شود.');
+            setTimeout(() => setStatus('ready'), 4000);
+            return;
+          }
         }
       }
 
@@ -251,8 +259,17 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
               animate={{ opacity: 1, y: 0 }}
               className="flex flex-col items-center"
             >
-              <div className={`w-48 h-48 rounded-[3rem] ${isTeacherMode ? 'bg-emerald-500 text-emerald-950' : 'bg-blue-600 text-blue-950'} flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] border-4 border-white/20`}>
-                <UserIcon className="w-24 h-24 text-white" />
+              <div className={`w-48 h-48 rounded-[3rem] overflow-hidden ${isTeacherMode ? 'bg-emerald-500' : 'bg-blue-600'} flex items-center justify-center mb-8 shadow-[0_0_50px_rgba(0,0,0,0.5)] border-4 border-white/20`}>
+                {matchedPerson.photo_url ? (
+                  <img 
+                    src={matchedPerson.photo_url} 
+                    alt={matchedPerson.name} 
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <UserIcon className="w-24 h-24 text-white" />
+                )}
               </div>
               <div className="flex items-center gap-4 mb-4">
                 <CheckCircle2 className="w-10 h-10 text-emerald-400" />

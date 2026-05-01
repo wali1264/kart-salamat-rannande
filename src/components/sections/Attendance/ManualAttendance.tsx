@@ -3,6 +3,7 @@ import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, A
 import { supabase } from '../../../lib/supabase';
 import { useSystem } from '../../../contexts/SystemContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { format, getYear, getMonth, getDate, startOfMonth, endOfMonth, setYear, setMonth, setDate } from 'date-fns-jalali';
 
 export const ManualAttendance: React.FC = () => {
   const { isTeacherMode } = useSystem();
@@ -12,19 +13,72 @@ export const ManualAttendance: React.FC = () => {
   const [selectedPerson, setSelectedPerson] = useState<any | null>(null);
   const [actionType, setActionType] = useState<'entry' | 'exit' | 'present'>('entry');
   const [customDateTime, setCustomDateTime] = useState(false);
-  const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
-  const [manualTime, setManualTime] = useState(new Date().toTimeString().slice(0, 5));
+  
+  // Jalali Date Parts
+  const now = new Date();
+  const [jYear, setJYear] = useState(getYear(now));
+  const [jMonth, setJMonth] = useState(getMonth(now));
+  const [jDay, setJDay] = useState(getDate(now));
+  const [manualTime, setManualTime] = useState(now.toTimeString().slice(0, 5));
+  
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
   
+  // Stats filtering
+  const [statsMonth, setStatsMonth] = useState(getMonth(now));
+  const [statsYear, setStatsYear] = useState(getYear(now));
+
   // Pagination and Search states
   const [limit, setLimit] = useState(5);
   const [hasMore, setHasMore] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Selected person's attendance history for today (based on selected date)
+  const [todayRecords, setTodayRecords] = useState<any[]>([]);
+
   useEffect(() => {
     fetchPeople(true);
-  }, [isTeacherMode]);
+  }, [isTeacherMode, statsMonth, statsYear]);
+
+  // Update today's records when selected person or date changes
+  useEffect(() => {
+    if (selectedPerson) {
+      fetchTodayRecords();
+    }
+  }, [selectedPerson, jYear, jMonth, jDay, customDateTime]);
+
+  const getTargetDateGregorian = () => {
+    if (customDateTime) {
+      let gDate = new Date();
+      gDate = setYear(gDate, jYear);
+      gDate = setMonth(gDate, jMonth);
+      gDate = setDate(gDate, jDay);
+      return gDate;
+    }
+    return new Date();
+  };
+
+  const fetchTodayRecords = async () => {
+    if (!selectedPerson) return;
+    
+    const targetDate = getTargetDateGregorian();
+    const start = new Date(targetDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(targetDate);
+    end.setHours(23, 59, 59, 999);
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('student_id', selectedPerson.id)
+      .gte('recorded_at', start.toISOString())
+      .lte('recorded_at', end.toISOString());
+
+    if (!error && data) {
+      setTodayRecords(data);
+    }
+  };
 
   const fetchPeople = async (reset = false) => {
     setLoading(true);
@@ -48,7 +102,40 @@ export const ManualAttendance: React.FC = () => {
       const { data, error, count } = await query;
 
       if (error) throw error;
-      setPeople(data || []);
+      
+      // Fetch stats for each person (absences this month)
+      const peopleWithStats = await Promise.all((data || []).map(async (p) => {
+        let statsDate = new Date();
+        statsDate = setYear(statsDate, statsYear);
+        statsDate = setMonth(statsDate, statsMonth);
+        
+        const start = startOfMonth(statsDate);
+        const end = endOfMonth(statsDate);
+
+        const { count: attCount } = await supabase
+          .from('attendance')
+          .select('*', { count: 'exact', head: true })
+          .eq('student_id', p.id)
+          .gte('recorded_at', start.toISOString())
+          .lte('recorded_at', end.toISOString());
+
+        // Also check if they are present today
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const { count: todayCount } = await supabase
+          .from('attendance')
+          .select('*', { count: 'exact', head: true })
+          .eq('student_id', p.id)
+          .gte('recorded_at', todayStart.toISOString());
+        
+        return { 
+          ...p, 
+          attendanceCount: attCount || 0,
+          isPresentToday: (todayCount || 0) > 0
+        };
+      }));
+
+      setPeople(peopleWithStats);
       setHasMore(count ? (data?.length || 0) < count : false);
     } catch (err) {
       console.error('Error fetching people:', err);
@@ -70,13 +157,49 @@ export const ManualAttendance: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!selectedPerson) return;
+    
+    // Logic checks
+    const hasEntry = todayRecords.some(r => r.type === 'entry');
+    const hasExit = todayRecords.some(r => r.type === 'exit');
+    const hasPresent = todayRecords.some(r => r.type === 'present');
+
+    if (actionType === 'entry' && (hasEntry || hasPresent)) {
+      setErrorStatus('ورود برای این روز قبلاً ثبت شده است.');
+      setTimeout(() => setErrorStatus(null), 3000);
+      return;
+    }
+
+    if (actionType === 'exit' && (hasExit || hasPresent)) {
+      setErrorStatus('خروج برای این روز قبلاً ثبت شده است.');
+      setTimeout(() => setErrorStatus(null), 3000);
+      return;
+    }
+
+    if (actionType === 'exit' && !hasEntry) {
+      setErrorStatus('ابتدا باید ورود ثبت شود.');
+      setTimeout(() => setErrorStatus(null), 3000);
+      return;
+    }
+
+    if (actionType === 'present' && (hasEntry || hasExit || hasPresent)) {
+      setErrorStatus('وضعیت حضور قبلاً ثبت شده است.');
+      setTimeout(() => setErrorStatus(null), 3000);
+      return;
+    }
+
     setSubmitting(true);
     setSuccess(null);
 
     try {
-      const timestamp = customDateTime 
-        ? `${manualDate}T${manualTime}:00` 
-        : new Date().toISOString();
+      let timestamp;
+      if (customDateTime) {
+        const gregorianDate = getTargetDateGregorian();
+        const [h, m] = manualTime.split(':');
+        gregorianDate.setHours(parseInt(h), parseInt(m), 0, 0);
+        timestamp = gregorianDate.toISOString();
+      } else {
+        timestamp = new Date().toISOString();
+      }
 
       const { error } = await supabase
         .from('attendance')
@@ -89,9 +212,10 @@ export const ManualAttendance: React.FC = () => {
 
       if (error) throw error;
 
-      setSuccess(`حضور ${actionType === 'entry' ? 'ورود' : actionType === 'exit' ? 'خروج' : 'حاضری نهایی'} برای ${selectedPerson.name} ثبت شد.`);
+      setSuccess(`حضور ${actionType === 'entry' ? 'ورود' : actionType === 'exit' ? 'خروج' : 'حاضری'} برای ${selectedPerson.name} ثبت شد.`);
       setTimeout(() => setSuccess(null), 3000);
       setSelectedPerson(null);
+      fetchPeople(true); // Refresh stats
     } catch (err) {
       console.error('Error recording attendance:', err);
       alert('خطا در ثبت حضور و غیاب');
@@ -100,11 +224,18 @@ export const ManualAttendance: React.FC = () => {
     }
   };
 
+  const months = [
+    'حمل', 'ثور', 'جوزا', 'سرطان', 'اسد', 'سنبله',
+    'میزان', 'عقرب', 'قوس', 'جدی', 'دلو', 'حوت'
+  ];
+
+  const jalaliYears = [1402, 1403, 1404, 1405, 1406];
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0">
       {/* List Section */}
       <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-slate-50">
+        <div className="p-6 border-b border-slate-50 space-y-4">
           <form onSubmit={handleSearch} className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -124,6 +255,31 @@ export const ManualAttendance: React.FC = () => {
               {isSearching ? '...' : 'جستجو'}
             </button>
           </form>
+
+          <div className="flex items-center justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest px-2">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3 h-3" />
+              <span>آمار حضور در:</span>
+              <select 
+                value={statsMonth}
+                onChange={(e) => setStatsMonth(parseInt(e.target.value))}
+                className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer text-blue-600 font-bold"
+              >
+                {months.map((m, i) => (
+                  <option key={m} value={i}>{m}</option>
+                ))}
+              </select>
+              <select 
+                value={statsYear}
+                onChange={(e) => setStatsYear(parseInt(e.target.value))}
+                className="bg-transparent border-none p-0 focus:ring-0 cursor-pointer text-blue-600 font-bold ml-1"
+              >
+                {jalaliYears.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
@@ -143,23 +299,43 @@ export const ManualAttendance: React.FC = () => {
                 <button
                   key={p.id}
                   onClick={() => setSelectedPerson(p)}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all border-2 ${
                     selectedPerson?.id === p.id 
-                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border border-emerald-100' : 'bg-blue-50 text-blue-900 border border-blue-100')
-                      : 'hover:bg-slate-50 text-slate-600 border border-transparent'
+                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border-emerald-500/20' : 'bg-blue-50 text-blue-900 border-blue-500/20 shadow-sm')
+                      : 'hover:bg-slate-50 text-slate-600 border-transparent'
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold ${
-                      selectedPerson?.id === p.id 
-                        ? (isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500') 
-                        : 'bg-slate-200'
-                    }`}>
-                      {p.name.charAt(0)}
+                    <div className="relative">
+                      {p.photo_url ? (
+                        <img 
+                          src={p.photo_url} 
+                          alt={p.name} 
+                          className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-sm"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-sm ${
+                          selectedPerson?.id === p.id 
+                            ? (isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500') 
+                            : 'bg-slate-200'
+                        }`}>
+                          {p.name.charAt(0)}
+                        </div>
+                      )}
+                      {p.isPresentToday && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black">{p.name}</p>
-                      <p className="text-[10px] opacity-60 font-bold">{p.id_number || 'بدون کد شناسایی'}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-[10px] opacity-60 font-bold">{p.id_number || 'بدون کد'}</p>
+                        <span className="w-1 h-1 rounded-full bg-slate-300" />
+                        <p className={`text-[10px] font-bold ${p.attendanceCount < 5 ? 'text-rose-500' : 'text-slate-400'}`}>
+                          {p.attendanceCount} روز حضور
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <ChevronLeft className={`w-4 h-4 opacity-30 ${selectedPerson?.id === p.id ? 'translate-x-1' : ''} transition-transform`} />
@@ -189,12 +365,26 @@ export const ManualAttendance: React.FC = () => {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl p-8 flex flex-col justify-between"
+            className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl p-8 flex flex-col justify-between relative overflow-hidden"
           >
-            <div>
+            {/* Background Accent */}
+            <div className={`absolute top-0 right-0 w-32 h-32 blur-3xl opacity-10 rounded-full -mr-16 -mt-16 ${isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500'}`} />
+
+            <div className="relative z-10">
               <div className="flex items-center gap-6 mb-8">
-                <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl text-white font-black shadow-lg ${isTeacherMode ? 'emerald-gradient shadow-emerald-100' : 'navy-gradient shadow-blue-100'}`}>
-                  {selectedPerson.name.charAt(0)}
+                <div className="relative">
+                  {selectedPerson.photo_url ? (
+                    <img 
+                      src={selectedPerson.photo_url} 
+                      alt={selectedPerson.name} 
+                      className="w-20 h-20 rounded-[2rem] object-cover shadow-xl border-4 border-white"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl text-white font-black shadow-lg ${isTeacherMode ? 'emerald-gradient shadow-emerald-100' : 'navy-gradient shadow-blue-100'}`}>
+                      {selectedPerson.name.charAt(0)}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-slate-800">{selectedPerson.name}</h3>
@@ -212,20 +402,23 @@ export const ManualAttendance: React.FC = () => {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 block">نوع وضعیت</label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
-                      { id: 'entry', label: 'ورود', color: 'emerald' },
-                      { id: 'exit', label: 'خروج', color: 'rose' },
-                      { id: 'present', label: 'حاضر', color: 'blue' },
+                      { id: 'entry', label: 'ورود', color: 'emerald', icon: <CheckCircle2 className="w-5 h-5" />, active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present') },
+                      { id: 'exit', label: 'خروج', color: 'rose', icon: <XCircle className="w-5 h-5" />, active: todayRecords.some(r => r.type === 'entry') && !todayRecords.some(r => r.type === 'exit' || r.type === 'present') },
+                      { id: 'present', label: 'حاضر', color: 'blue', icon: <Clock className="w-5 h-5" />, active: todayRecords.length === 0 },
                     ].map((btn) => (
                       <button
                         key={btn.id}
                         onClick={() => setActionType(btn.id as any)}
+                        disabled={!btn.active}
                         className={`flex flex-col items-center gap-2 p-4 rounded-3xl border-2 transition-all ${
+                          !btn.active ? 'opacity-30 cursor-not-allowed grayscale' : ''
+                        } ${
                           actionType === btn.id 
                             ? `border-${btn.color}-500 bg-${btn.color}-50 text-${btn.color}-600 shadow-md`
                             : 'border-slate-100 text-slate-400 hover:border-slate-200'
                         }`}
                       >
-                        {btn.id === 'entry' ? <CheckCircle2 className="w-5 h-5" /> : btn.id === 'exit' ? <XCircle className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                        {btn.icon}
                         <span className="text-xs font-black">{btn.label}</span>
                       </button>
                     ))}
@@ -234,7 +427,7 @@ export const ManualAttendance: React.FC = () => {
 
                 <div className="pt-4 border-t border-slate-100">
                   <div className="flex items-center justify-between mb-4">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تنظیم زمان و تاریخ</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">تنظیم زمان و تاریخ (هجری شمسی)</label>
                     <button 
                       onClick={() => setCustomDateTime(!customDateTime)}
                       className={`text-[10px] font-black px-3 py-1 rounded-full transition-all ${customDateTime ? 'bg-orange-50 text-orange-600' : 'bg-slate-100 text-slate-500'}`}
@@ -247,25 +440,58 @@ export const ManualAttendance: React.FC = () => {
                     <motion.div 
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="grid grid-cols-2 gap-4"
+                      className="space-y-4"
                     >
-                      <div className="relative">
-                        <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                          type="date"
-                          value={manualDate}
-                          onChange={(e) => setManualDate(e.target.value)}
-                          className="w-full bg-slate-50 border-none rounded-xl py-3 pr-10 pl-3 text-xs font-bold focus:ring-2 focus:ring-orange-500/10 outline-none"
-                        />
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 px-2">روز</label>
+                          <select 
+                            value={jDay}
+                            onChange={(e) => setJDay(parseInt(e.target.value))}
+                            className="w-full bg-slate-50 border-none rounded-xl py-3 px-3 text-xs font-bold outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500/20"
+                          >
+                            {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                              <option key={d} value={d}>{d}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 px-2">ماه</label>
+                          <select 
+                            value={jMonth}
+                            onChange={(e) => setJMonth(parseInt(e.target.value))}
+                            className="w-full bg-slate-50 border-none rounded-xl py-3 px-3 text-xs font-bold outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500/20"
+                          >
+                            {months.map((m, i) => (
+                              <option key={m} value={i}>{m}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-400 px-2">سال</label>
+                          <select 
+                            value={jYear}
+                            onChange={(e) => setJYear(parseInt(e.target.value))}
+                            className="w-full bg-slate-50 border-none rounded-xl py-3 px-3 text-xs font-bold outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500/20"
+                          >
+                            {jalaliYears.map(y => (
+                              <option key={y} value={y}>{y}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
-                      <div className="relative">
-                        <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                        <input 
-                          type="time"
-                          value={manualTime}
-                          onChange={(e) => setManualTime(e.target.value)}
-                          className="w-full bg-slate-50 border-none rounded-xl py-3 pr-10 pl-3 text-xs font-bold focus:ring-2 focus:ring-orange-500/10 outline-none"
-                        />
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 px-2 block">ساعت و دقیقه</label>
+                        <div className="relative">
+                          <Clock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input 
+                            type="time"
+                            value={manualTime}
+                            onChange={(e) => setManualTime(e.target.value)}
+                            className="w-full bg-slate-50 border-none rounded-xl py-3 pr-10 pl-3 text-xs font-bold outline-none ring-1 ring-slate-100 focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </div>
                       </div>
                     </motion.div>
                   )}
@@ -274,11 +500,16 @@ export const ManualAttendance: React.FC = () => {
                     <div className="bg-slate-50 p-4 rounded-2xl flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Clock className="w-4 h-4 text-blue-500" />
-                        <span className="text-xs font-bold text-slate-600">زمان فعلی سیستم ثبت خواهد شد</span>
+                        <span className="text-xs font-bold text-slate-600">ثبت در تاریخ امروز</span>
                       </div>
-                      <span className="text-xs font-black text-blue-600 tracking-wider" dir="ltr">
-                        {new Date().toLocaleTimeString('fa-AF', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs font-black text-blue-600 tracking-wider">
+                          {format(new Date(), 'dd MMMM yyyy')}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1" dir="ltr">
+                          {format(new Date(), 'HH:mm:ss')}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -317,7 +548,7 @@ export const ManualAttendance: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Success Notification overlay */}
+      {/* Notifications */}
       <AnimatePresence>
         {success && (
           <motion.div 
@@ -328,6 +559,17 @@ export const ManualAttendance: React.FC = () => {
           >
             <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             <p className="text-sm font-bold">{success}</p>
+          </motion.div>
+        )}
+        {errorStatus && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 bg-rose-900/90 backdrop-blur-xl text-white px-8 py-4 rounded-2xl shadow-2xl z-50 flex items-center gap-3 border border-rose-500/20"
+          >
+            <AlertCircle className="w-5 h-5 text-rose-300" />
+            <p className="text-sm font-bold">{errorStatus}</p>
           </motion.div>
         )}
       </AnimatePresence>

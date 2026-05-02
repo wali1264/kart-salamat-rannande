@@ -184,7 +184,7 @@ export const ManualAttendance: React.FC = () => {
           let s = new Date(abs.start_date);
           let e = new Date(abs.end_date);
           let curr = new Date(s);
-          while (curr < e) { // Non-inclusive of end_date (return date)
+          while (curr <= e) { // Inclusive of end_date
             if (curr >= start && curr <= end) {
               absenceDays.add(format(curr, 'yyyy-MM-dd'));
             }

@@ -39,15 +39,67 @@ export const LeaveManagement: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [editingLeave, setEditingLeave] = useState<any | null>(null);
 
+  const [existingLeaveDays, setExistingLeaveDays] = useState<Set<string>>(new Set());
+  const [existingHolidays, setExistingHolidays] = useState<Set<string>>(new Set());
+
+  // Range Selection for leave
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [viewYearRegister, setViewYearRegister] = useState(getYear(now));
+  const [viewMonthRegister, setViewMonthRegister] = useState(getMonth(now));
+
   useEffect(() => {
     if (activeSubTab === 'register') {
       fetchPeople();
+      fetchExistingHolidays();
     } else if (activeSubTab === 'holidays') {
       fetchHolidays();
     } else if (activeSubTab === 'history' && selectedPerson) {
       fetchLeaveHistory();
     }
-  }, [isTeacherMode, activeSubTab, viewMonth, viewYear, selectedPerson, limit]);
+    
+    if (selectedPerson && activeSubTab === 'register') {
+      fetchExistingLeaveDays();
+    }
+  }, [isTeacherMode, activeSubTab, viewMonth, viewYear, selectedPerson, limit, viewMonthRegister, viewYearRegister]);
+
+  const fetchExistingHolidays = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('holidays')
+        .select('date');
+      if (error) throw error;
+      const days = new Set<string>();
+      (data || []).forEach(h => days.add(h.date));
+      setExistingHolidays(days);
+    } catch (err) {
+      console.error('Error fetching existing holidays:', err);
+    }
+  };
+
+  const fetchExistingLeaveDays = async () => {
+    if (!selectedPerson) return;
+    try {
+      const { data, error } = await supabase
+        .from('absences')
+        .select('start_date, end_date')
+        .eq('student_id', selectedPerson.id);
+      
+      if (error) throw error;
+      
+      const days = new Set<string>();
+      (data || []).forEach(leave => {
+        let curr = new Date(leave.start_date);
+        const end = new Date(leave.end_date);
+        while (curr <= end) {
+          days.add(curr.toISOString().split('T')[0]);
+          curr = addDays(curr, 1);
+        }
+      });
+      setExistingLeaveDays(days);
+    } catch (err) {
+      console.error('Error fetching existing leave days:', err);
+    }
+  };
 
   const fetchPeople = async () => {
     setLoading(true);
@@ -130,11 +182,6 @@ export const LeaveManagement: React.FC = () => {
       setLoading(false);
     }
   };
-
-  // Range Selection for leave
-  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [viewYearRegister, setViewYearRegister] = useState(getYear(now));
-  const [viewMonthRegister, setViewMonthRegister] = useState(getMonth(now));
 
   const handleDateClick = (day: Date) => {
     if (selectedDates.length === 0) {
@@ -344,22 +391,34 @@ export const LeaveManagement: React.FC = () => {
               <div className="flex-1 overflow-y-auto max-h-64 pr-2 space-y-2 custom-scrollbar">
                 <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                   {days.map(day => {
+                    const dayStr = day.toISOString().split('T')[0];
                     const isSelected = isInRange(day);
+                    const isAlreadyLeave = existingLeaveDays.has(dayStr);
+                    const isHoliday = existingHolidays.has(dayStr);
                     const isFriday = day.getDay() === 5;
+                    
+                    const isDisabled = isAlreadyLeave || isHoliday;
+                    
                     return (
                       <button
                         key={day.toISOString()}
-                        onClick={() => handleDateClick(day)}
-                        className={`group flex flex-col items-center justify-center p-2 rounded-2xl border-2 transition-all ${
+                        onClick={() => !isDisabled && handleDateClick(day)}
+                        disabled={isDisabled}
+                        className={`group flex flex-col items-center justify-center p-2 rounded-2xl border-2 transition-all relative ${
                           isSelected 
                           ? 'bg-orange-600 border-orange-600 text-white shadow-lg shadow-orange-100' 
-                          : isFriday
-                            ? 'bg-red-50 border-transparent text-red-400 opacity-50'
-                            : 'bg-slate-50 border-transparent text-slate-600 hover:border-slate-200'
+                          : isDisabled
+                            ? 'bg-rose-50 border-rose-100 text-rose-400 cursor-not-allowed'
+                            : isFriday
+                              ? 'bg-red-50 border-transparent text-red-400 opacity-50'
+                              : 'bg-slate-50 border-transparent text-slate-600 hover:border-slate-200'
                         }`}
                       >
                         <span className="text-[8px] font-black opacity-60 uppercase">{format(day, 'EEEE').substring(0, 3)}</span>
                         <span className="text-sm font-black">{getDate(day)}</span>
+                        {isDisabled && (
+                          <div className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+                        )}
                       </button>
                     );
                   })}

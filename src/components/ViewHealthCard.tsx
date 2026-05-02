@@ -449,9 +449,9 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
                 </div>
               </div>
 
-              <div style="margin-top: auto; display: flex; justify-content: center; border-top: 0.1mm solid #eee; padding-top: 2mm; text-align: center;">
-                <span style="font-size: 3.8pt; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1mm; line-height: 1.2;">${customization.footer_en}</span>
-              </div>
+            <div class="qr-container" id="qrcode-back" style="bottom: 4mm; left: 4.5mm;"></div>
+            <div style="position: absolute; bottom: 3.5mm; right: 4.5mm; left: 24.5mm; text-align: left;">
+              <span style="font-size: 4.2pt; color: #1a365d; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1mm; line-height: 1.2; word-break: break-all;">${customization.footer_en}</span>
             </div>
           </div>
         </div>
@@ -463,6 +463,16 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
             qr.addData('${window.location.origin}/verify/${card.id}');
             qr.make();
             document.getElementById('qrcode-front').innerHTML = qr.createSvgTag(1.8);
+
+            var qrBack = qrcode(0, 'M');
+            var backUrl = '${window.location.origin}';
+            // Use footer text if it looks like a URL
+            if ('${customization.footer_en}'.toLowerCase().startsWith('http')) {
+              backUrl = '${customization.footer_en}';
+            }
+            qrBack.addData(backUrl);
+            qrBack.make();
+            document.getElementById('qrcode-back').innerHTML = qrBack.createSvgTag(1.8);
             
             window.onload = function() {
               setTimeout(function() {

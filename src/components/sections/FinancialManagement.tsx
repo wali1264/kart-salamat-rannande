@@ -43,6 +43,115 @@ export const FinancialManagement: React.FC = () => {
   // Filters for History Modal
   const [historyMonthFilter, setHistoryMonthFilter] = useState<string>('همه ماه ها');
   const [historyYearFilter, setHistoryYearFilter] = useState<string>(YEARS[0]);
+  const [attendanceStats, setAttendanceStats] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
+  useEffect(() => {
+    if (historyStudent && isTeacherMode) {
+      fetchAttendanceStatsForTeacher();
+    }
+  }, [historyStudent, historyMonthFilter, historyYearFilter]);
+
+  const fetchAttendanceStatsForTeacher = async () => {
+    if (!historyStudent) return;
+    setStatsLoading(true);
+    
+    try {
+      // Find month index and year
+      const monthIdx = AFGHAN_MONTHS.indexOf(historyMonthFilter);
+      const year = parseInt(historyYearFilter);
+      
+      // Calculate date range for the month
+      // Note: This is an approximation for Afghan months logic but sufficient for stats
+      // Standard Gregorian logic for now as a fallback
+      const start = new Date(year - 579, monthIdx, 1);
+      const end = new Date(year - 579, monthIdx + 1, 0);
+      
+      const startStr = start.toISOString().split('T')[0];
+      const endStr = end.toISOString().split('T')[0];
+
+      // Fetch Attendance
+      const { data: attendanceData } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', historyStudent.id)
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+      // Fetch Leave
+      const { data: leaveData } = await supabase
+        .from('leave_requests')
+        .select('*')
+        .eq('student_id', historyStudent.id)
+        .eq('status', 'approved');
+
+      // Fetch Holidays
+      const { data: holidayData } = await supabase
+        .from('holidays')
+        .select('*')
+        .gte('date', startStr)
+        .lte('date', endStr);
+
+      // Same logic as ManualAttendance.tsx
+      const dailyRecords: any = {};
+      (attendanceData || []).forEach(record => {
+        const d = record.date;
+        if (!dailyRecords[d]) dailyRecords[d] = {};
+        if (record.type === 'entry') dailyRecords[d].entry = new Date(record.timestamp);
+        if (record.type === 'exit') dailyRecords[d].exit = new Date(record.timestamp);
+      });
+
+      const approvedLeaveDays = new Set<string>();
+      (leaveData || []).forEach(req => {
+        let curr = new Date(req.start_date);
+        const lEnd = new Date(req.end_date);
+        while (curr <= lEnd) {
+          approvedLeaveDays.add(curr.toISOString().split('T')[0]);
+          curr.setDate(curr.getDate() + 1);
+        }
+      });
+
+      const holidayDays = new Set<string>();
+      (holidayData || []).forEach(h => holidayDays.add(h.date));
+
+      let totalHours = 0;
+      let netBalanceHours = 0;
+      const standardHours = historyStudent.standard_working_hours || 8;
+
+      Object.values(dailyRecords).forEach((day: any) => {
+        if (day.entry && day.exit) {
+          const duration = (day.exit.getTime() - day.entry.getTime()) / (1000 * 60 * 60);
+          totalHours += duration;
+          netBalanceHours += (duration - standardHours);
+        }
+      });
+
+      // Calculate absences
+      let absCount = 0;
+      let check = new Date(start);
+      const now = new Date();
+      while (check <= end && check <= now) {
+        const dStr = check.toISOString().split('T')[0];
+        const isFri = check.getDay() === 5;
+        const isHol = holidayDays.has(dStr) || isFri;
+        const isLeave = approvedLeaveDays.has(dStr);
+        const isPresent = !!dailyRecords[dStr];
+
+        if (!isHol && !isLeave && !isPresent) absCount++;
+        check.setDate(check.getDate() + 1);
+      }
+
+      setAttendanceStats({
+        absences: absCount,
+        netBalance: Math.round(netBalanceHours * 10) / 10,
+        totalHours: Math.round(totalHours * 10) / 10
+      });
+    } catch (err) {
+      console.error('Stats fetch error:', err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchFees(searchQuery);
@@ -698,6 +807,32 @@ export const FinancialManagement: React.FC = () => {
                  </div>
 
                  <div className="mr-auto hidden sm:flex items-center gap-3">
+                    {isTeacherMode && attendanceStats && (
+                      <div className="flex items-center gap-3 mr-4">
+                        <div className="px-4 py-2 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col items-center">
+                          <span className="text-[7px] font-black uppercase text-rose-400">تاثیر حضور در معاش</span>
+                          <span className={`text-xs font-black ${
+                            ((attendanceStats.absences * -(historyStudent.total_monthly_fee / 26)) + (attendanceStats.netBalance * (historyStudent.total_monthly_fee / 26 / 8))) >= 0 
+                            ? 'text-emerald-600' : 'text-rose-600'
+                          }`}>
+                            {Math.round((attendanceStats.absences * -(historyStudent.total_monthly_fee / 26)) + (attendanceStats.netBalance * (historyStudent.total_monthly_fee / 26 / 8))).toLocaleString()}
+                            <span className="text-[9px] font-normal mr-1">AFN</span>
+                          </span>
+                        </div>
+                        <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl flex flex-col items-center">
+                          <span className="text-[7px] font-black uppercase text-emerald-400">معاش پیشنهادی (تصفیه)</span>
+                          <span className="text-xs font-black text-emerald-700">
+                            {Math.round(
+                              ((historyStudent.fee_payments?.length > 0 
+                                ? [...historyStudent.fee_payments].sort((a:any, b:any) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0].balance_remaining 
+                                : historyStudent.total_monthly_fee) || 0) + 
+                              ((attendanceStats.absences * -(historyStudent.total_monthly_fee / 26)) + (attendanceStats.netBalance * (historyStudent.total_monthly_fee / 26 / 8)))
+                            ).toLocaleString()}
+                            <span className="text-[9px] font-normal mr-1">AFN</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <div className="px-5 py-2.5 bg-blue-50 text-blue-600 rounded-2xl border border-blue-100 flex flex-col items-center">
                        <span className="text-[7px] font-black uppercase opacity-60">{isTeacherMode ? 'کل معاشات دریافتی' : 'کل پرداختی'}</span>
                        <span className="text-xs font-black">{historyStudent.fee_payments?.reduce((s:number, p:any) => s+p.amount_paid, 0).toLocaleString()} <span className="text-[9px] font-normal opacity-50">AFN</span></span>

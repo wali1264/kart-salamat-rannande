@@ -168,13 +168,18 @@ export const ManualAttendance: React.FC = () => {
 
         const uniqueDays = Object.keys(dailyRecords).length;
         let totalHours = 0;
+        let netBalanceHours = 0;
 
         Object.values(dailyRecords).forEach(day => {
+          const standard = (p.standard_working_hours || 8);
           if (day.entry && day.exit) {
-            totalHours += Math.max(0, (day.exit.getTime() - day.entry.getTime()) / (1000 * 60 * 60));
+            const duration = (day.exit.getTime() - day.entry.getTime()) / (1000 * 60 * 60);
+            totalHours += duration;
+            netBalanceHours += (duration - standard);
           } else if (day.entry) {
-            // Use custom standard hours or default to 8
-            totalHours += (p.standard_working_hours || 8);
+            // Using standard hours for entry-only records
+            totalHours += standard;
+            // Balance is 0 if we assume they worked standard hours
           }
         });
 
@@ -218,6 +223,7 @@ export const ManualAttendance: React.FC = () => {
           leaveCount: absenceDays.size,
           holidaysCount: holidaysCount.size,
           totalHours: Math.round(totalHours * 10) / 10,
+          netBalance: Math.round(netBalanceHours * 10) / 10,
           isPresentToday: (todayCount || 0) > 0
         };
       }));
@@ -379,23 +385,23 @@ export const ManualAttendance: React.FC = () => {
                 <button
                   key={p.id}
                   onClick={() => setSelectedPerson(p)}
-                  className={`w-full flex items-center justify-between p-4 rounded-[2rem] transition-all border-2 ${
+                  className={`w-full flex items-center justify-between p-6 rounded-[2.5rem] transition-all border-2 ${
                     selectedPerson?.id === p.id 
-                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border-emerald-500/20 shadow-lg' : 'bg-blue-50 text-blue-900 border-blue-500/20 shadow-lg')
-                      : 'hover:bg-slate-50 text-slate-600 border-transparent hover:border-slate-100'
+                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border-emerald-500/20 shadow-xl scale-[1.02]' : 'bg-blue-50 text-blue-900 border-blue-500/20 shadow-xl scale-[1.02]')
+                      : 'hover:bg-slate-50 text-slate-600 border-transparent hover:border-slate-100 shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center gap-4 flex-1">
+                  <div className="flex items-center gap-6 flex-1">
                     <div className="relative">
                       {p.photo_url ? (
                         <img 
                           src={p.photo_url} 
                           alt={p.name} 
-                          className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md"
+                          className="w-20 h-20 rounded-3xl object-cover border-4 border-white shadow-lg"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-lg text-white font-black shadow-md ${
+                        <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-3xl text-white font-black shadow-lg ${
                           selectedPerson?.id === p.id 
                             ? (isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500') 
                             : 'bg-slate-200'
@@ -404,34 +410,46 @@ export const ManualAttendance: React.FC = () => {
                         </div>
                       )}
                       {p.isPresentToday && (
-                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full shadow-sm flex items-center justify-center">
-                          <CheckCircle2 className="w-3 h-3 text-white" />
+                        <div className="absolute -top-2 -right-2 w-7 h-7 bg-emerald-500 border-4 border-white rounded-full shadow-md flex items-center justify-center">
+                          <CheckCircle2 className="w-4 h-4 text-white" strokeWidth={3} />
                         </div>
                       )}
                     </div>
                     <div className="text-right flex-1">
-                      <p className="text-base font-black tracking-tight">{p.name}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-white/50 text-slate-400 border border-slate-100">
+                      <p className="text-xl font-black tracking-tight text-slate-800 mb-2">{p.name}</p>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-black px-3 py-1 rounded-lg bg-white shadow-sm text-slate-400 border border-slate-100">
                           {p.id_number || '---'}
                         </span>
-                        <div className="flex items-center gap-1.5 mr-auto">
-                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.attendanceCount > 0 ? 'bg-blue-500/5' : 'bg-slate-50'}`}>
-                            <span className="text-[7px] font-black text-slate-400 uppercase">حضور</span>
-                            <span className="text-[10px] font-black text-blue-600">{p.attendanceCount} روز</span>
+                        <div className="flex items-center gap-2.5 mr-auto flex-wrap justify-end no-print">
+                          <div className={`flex flex-col items-center px-4 py-2 rounded-2xl border-2 ${p.attendanceCount > 0 ? 'bg-blue-50 border-blue-100/50' : 'bg-slate-50 border-transparent'}`}>
+                            <span className="text-[10px] font-black text-slate-400 uppercase mb-1">حضور</span>
+                            <span className="text-lg font-black text-blue-600 whitespace-nowrap">{p.attendanceCount} <span className="text-xs">روز</span></span>
                           </div>
-                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.totalHours > 0 ? 'bg-orange-500/5' : 'bg-slate-50'}`}>
-                            <span className="text-[7px] font-black text-slate-400 uppercase">{isTeacherMode ? 'کاری' : 'حضور'}</span>
-                            <span className="text-[10px] font-black text-orange-600">{p.totalHours}ساعت</span>
+                          <div className={`flex flex-col items-center px-4 py-2 rounded-2xl border-2 ${p.totalHours > 0 ? 'bg-orange-50 border-orange-100/50' : 'bg-slate-50 border-transparent'}`}>
+                            <span className="text-[10px] font-black text-slate-400 uppercase mb-1">{isTeacherMode ? 'کاری' : 'حضور'}</span>
+                            <span className="text-lg font-black text-orange-600 whitespace-nowrap">{p.totalHours} <span className="text-xs">ساعت</span></span>
                           </div>
-                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.leaveCount > 0 ? 'bg-amber-500/5' : 'bg-slate-50'}`}>
-                            <span className="text-[7px] font-black text-slate-400 uppercase">مرخصی</span>
-                            <span className="text-[10px] font-black text-amber-600">{p.leaveCount} روز</span>
+                          <div className={`flex flex-col items-center px-4 py-2 rounded-2xl border-2 ${p.leaveCount > 0 ? 'bg-amber-50 border-amber-100/50' : 'bg-slate-50 border-transparent'}`}>
+                            <span className="text-[10px] font-black text-slate-400 uppercase mb-1">مرخصی</span>
+                            <span className="text-lg font-black text-amber-600 whitespace-nowrap">{p.leaveCount} <span className="text-xs">روز</span></span>
                           </div>
-                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.holidaysCount > 0 ? 'bg-red-500/5' : 'bg-slate-50'}`}>
-                            <span className="text-[7px] font-black text-slate-400 uppercase">تعطیل</span>
-                            <span className="text-[10px] font-black text-red-600">{p.holidaysCount} روز</span>
+                          <div className={`flex flex-col items-center px-4 py-2 rounded-2xl border-2 ${p.holidaysCount > 0 ? 'bg-red-50 border-red-100/50' : 'bg-slate-50 border-transparent'}`}>
+                            <span className="text-[10px] font-black text-slate-400 uppercase mb-1">تعطیل</span>
+                            <span className="text-lg font-black text-red-600 whitespace-nowrap">{p.holidaysCount} <span className="text-xs">روز</span></span>
                           </div>
+                          {p.netBalance > 0 && (
+                            <div className="flex flex-col items-center px-4 py-2 rounded-2xl border-2 bg-emerald-50 border-emerald-100/50">
+                              <span className="text-[10px] font-black text-slate-400 uppercase mb-1">اضافه کاری</span>
+                              <span className="text-lg font-black text-emerald-600 whitespace-nowrap">{p.netBalance} <span className="text-xs">ساعت</span></span>
+                            </div>
+                          )}
+                          {p.netBalance < 0 && (
+                            <div className="flex flex-col items-center px-4 py-2 rounded-2xl border-2 bg-rose-50 border-rose-100/50">
+                              <span className="text-[10px] font-black text-slate-400 uppercase mb-1">کم کاری</span>
+                              <span className="text-lg font-black text-rose-600 whitespace-nowrap">{Math.abs(p.netBalance)} <span className="text-xs">ساعت</span></span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

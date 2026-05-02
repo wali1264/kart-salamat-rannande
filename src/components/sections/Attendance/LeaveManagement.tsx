@@ -190,9 +190,16 @@ export const LeaveManagement: React.FC = () => {
     
     if (isHoliday || isAlreadyLeave) return;
 
-    if (selectedDates.length === 0) {
-      setSelectedDates([day]);
-    } else if (selectedDates.length === 1) {
+    const isSelected = isInRange(day);
+
+    if (isSelected) {
+      // Toggle off - just filter it out
+      setSelectedDates(prev => prev.filter(d => !isSameDay(d, day)));
+      return;
+    }
+
+    if (selectedDates.length === 1) {
+      // Create a range if one date was already selected
       const d1 = selectedDates[0];
       const d2 = day;
       const start = d1 < d2 ? d1 : d2;
@@ -212,6 +219,8 @@ export const LeaveManagement: React.FC = () => {
       }
       setSelectedDates(range);
     } else {
+      // Start a new selection (either from 0 or from a previous range)
+      // If user clicks a third time, we start fresh at that day
       setSelectedDates([day]);
     }
   };

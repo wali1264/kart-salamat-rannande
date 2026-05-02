@@ -450,8 +450,13 @@ export const ViewHealthCard: React.FC<Props> = ({ isOpen, onClose, driver, card,
               </div>
 
             <div class="qr-container" id="qrcode-back" style="bottom: 4mm; left: 4.5mm;"></div>
-            <div style="position: absolute; bottom: 3.5mm; right: 4.5mm; left: 24.5mm; text-align: left;">
-              <span style="font-size: 4.2pt; color: #1a365d; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1mm; line-height: 1.2; word-break: break-all;">${customization.footer_en}</span>
+            <div style="position: absolute; bottom: 3.5mm; right: 4.5mm; left: 24.5mm; text-align: left; display: flex; flex-direction: column; gap: 0.3mm;">
+              <div style="display: flex; flex-direction: column; gap: 0.1mm; border-bottom: 0.1mm solid #f0f0f0; padding-bottom: 0.3mm; margin-bottom: 0.2mm; align-items: flex-start; text-align: right; width: 100%;">
+                <span style="font-size: 3.2pt; font-weight: 800; color: #1a365d; direction: rtl; width: 100%;">د هویت د تایید لپاره، دا کیو آر (QR) کوډ سکین کړئ.</span>
+                <span style="font-size: 3.2pt; font-weight: 700; color: #333; direction: rtl; width: 100%;">برای تایید هویت، این کد کیو آر (QR) را اسکن کنید.</span>
+                <span style="font-size: 2.8pt; font-weight: 600; color: #777; text-transform: uppercase; text-align: left; width: 100%;">Scan this QR code for identity verification.</span>
+              </div>
+              <span style="font-size: 4.2pt; color: #1a365d; font-weight: 700; letter-spacing: 0.05mm; line-height: 1.1; word-break: break-all; text-transform: none;">${customization.footer_en}</span>
             </div>
           </div>
         </div>

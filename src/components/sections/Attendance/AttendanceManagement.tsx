@@ -4,10 +4,11 @@ import { useSystem } from '../../../contexts/SystemContext';
 import { ManualAttendance } from './ManualAttendance';
 import { AdvancedScanner } from './AdvancedScanner';
 import { ScannerLocker } from './ScannerLocker';
+import { LeaveManagement } from './LeaveManagement';
 
 export const AttendanceManagement: React.FC = () => {
   const { isTeacherMode } = useSystem();
-  const [activeTab, setActiveTab] = useState<'manual' | 'scanner'>('manual');
+  const [activeTab, setActiveTab] = useState<'manual' | 'scanner' | 'leave'>('manual');
   const [isLocked, setIsLocked] = useState(() => localStorage.getItem('attendance_locked') === 'true');
   const [lockSettings, setLockSettings] = useState<{ mode: 'presence' | 'entry-exit', autoSwitch: boolean }>({
     mode: 'entry-exit',
@@ -66,14 +67,25 @@ export const AttendanceManagement: React.FC = () => {
             <Fingerprint className="w-4 h-4" />
             <span>اسکنر پیشرفته</span>
           </button>
+          <button
+            onClick={() => setActiveTab('leave')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-bold transition-all ${
+              activeTab === 'leave' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <span>مرخصی و تعطیلات</span>
+          </button>
         </div>
       </div>
 
       <div className="flex-1 min-h-0">
         {activeTab === 'manual' ? (
           <ManualAttendance />
-        ) : (
+        ) : activeTab === 'scanner' ? (
           <AdvancedScanner onLock={handleLock} />
+        ) : (
+          <LeaveManagement />
         )}
       </div>
     </div>

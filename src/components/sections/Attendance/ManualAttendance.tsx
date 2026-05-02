@@ -103,7 +103,7 @@ export const ManualAttendance: React.FC = () => {
 
       if (error) throw error;
       
-      // Fetch stats for each person (unique presence days this month)
+      // Fetch stats for each person (unique presence days, working/attendance hours, absences and holidays this month)
       const peopleWithStats = await Promise.all((data || []).map(async (p) => {
         let statsDate = new Date();
         statsDate = setYear(statsDate, statsYear);
@@ -112,17 +112,75 @@ export const ManualAttendance: React.FC = () => {
         const start = startOfMonth(statsDate);
         const end = endOfMonth(statsDate);
 
+        // Fetch Attendance
         const { data: monthRecords } = await supabase
           .from('attendance')
-          .select('recorded_at')
+          .select('recorded_at, type')
           .eq('student_id', p.id)
           .gte('recorded_at', start.toISOString())
           .lte('recorded_at', end.toISOString());
 
-        // Count unique dates
-        const uniqueDays = new Set(
-          (monthRecords || []).map(r => format(new Date(r.recorded_at), 'yyyy-MM-dd'))
-        ).size;
+        // Fetch Absences (Leave)
+        const { data: absenceRecords } = await supabase
+          .from('absences')
+          .select('start_date, end_date')
+          .eq('student_id', p.id)
+          .or(`start_date.lte.${end.toISOString().split('T')[0]},end_date.gte.${start.toISOString().split('T')[0]}`);
+
+        // Fetch Holidays
+        const { data: holidayRecords } = await supabase
+          .from('holidays')
+          .select('date')
+          .gte('date', start.toISOString().split('T')[0])
+          .lte('date', end.toISOString().split('T')[0]);
+
+        // Process Attendance records for statistics
+        const dailyRecords: Record<string, { entry?: Date; exit?: Date }> = {};
+        (monthRecords || []).forEach(r => {
+          const d = new Date(r.recorded_at);
+          const dateStr = format(d, 'yyyy-MM-dd');
+          if (!dailyRecords[dateStr]) dailyRecords[dateStr] = {};
+          if (r.type === 'entry') {
+            if (!dailyRecords[dateStr].entry || d < dailyRecords[dateStr].entry) dailyRecords[dateStr].entry = d;
+          } else if (r.type === 'exit') {
+            if (!dailyRecords[dateStr].exit || d > dailyRecords[dateStr].exit) dailyRecords[dateStr].exit = d;
+          }
+        });
+
+        const uniqueDays = Object.keys(dailyRecords).length;
+        let totalHours = 0;
+        Object.values(dailyRecords).forEach(day => {
+          if (day.entry && day.exit) {
+            totalHours += Math.max(0, (day.exit.getTime() - day.entry.getTime()) / (1000 * 60 * 60));
+          } else if (day.entry) {
+            totalHours += 8;
+          }
+        });
+
+        // Process Leave (Absences)
+        const absenceDays = new Set<string>();
+        (absenceRecords || []).forEach(abs => {
+          let s = new Date(abs.start_date);
+          let e = new Date(abs.end_date);
+          let curr = new Date(s);
+          while (curr <= e) {
+            if (curr >= start && curr <= end) {
+              absenceDays.add(format(curr, 'yyyy-MM-dd'));
+            }
+            curr.setDate(curr.getDate() + 1);
+          }
+        });
+
+        // Process Holidays (Fridays + manual holidays)
+        const holidaysCount = new Set<string>();
+        (holidayRecords || []).forEach(h => holidaysCount.add(h.date));
+        let currDay = new Date(start);
+        while (currDay <= end) {
+          if (currDay.getDay() === 5) { // Friday
+            holidaysCount.add(format(currDay, 'yyyy-MM-dd'));
+          }
+          currDay.setDate(currDay.getDate() + 1);
+        }
 
         // Also check if they are present today
         const todayStart = new Date();
@@ -136,6 +194,9 @@ export const ManualAttendance: React.FC = () => {
         return { 
           ...p, 
           attendanceCount: uniqueDays,
+          leaveCount: absenceDays.size,
+          holidaysCount: holidaysCount.size,
+          totalHours: Math.round(totalHours * 10) / 10,
           isPresentToday: (todayCount || 0) > 0
         };
       }));
@@ -203,7 +264,7 @@ export const ManualAttendance: React.FC = () => {
         .from('attendance')
         .insert([{
           student_id: selectedPerson.id,
-          type: actionType,
+          type: actionType === 'present' ? 'entry' : actionType,
           recorded_at: timestamp,
           method: 'manual'
         }]);
@@ -297,23 +358,23 @@ export const ManualAttendance: React.FC = () => {
                 <button
                   key={p.id}
                   onClick={() => setSelectedPerson(p)}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all border-2 ${
+                  className={`w-full flex items-center justify-between p-4 rounded-[2rem] transition-all border-2 ${
                     selectedPerson?.id === p.id 
-                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border-emerald-500/20' : 'bg-blue-50 text-blue-900 border-blue-500/20 shadow-sm')
-                      : 'hover:bg-slate-50 text-slate-600 border-transparent'
+                      ? (isTeacherMode ? 'bg-emerald-50 text-emerald-900 border-emerald-500/20 shadow-lg' : 'bg-blue-50 text-blue-900 border-blue-500/20 shadow-lg')
+                      : 'hover:bg-slate-50 text-slate-600 border-transparent hover:border-slate-100'
                   }`}
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 flex-1">
                     <div className="relative">
                       {p.photo_url ? (
                         <img 
                           src={p.photo_url} 
                           alt={p.name} 
-                          className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-sm"
+                          className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-sm ${
+                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-lg text-white font-black shadow-md ${
                           selectedPerson?.id === p.id 
                             ? (isTeacherMode ? 'bg-emerald-500' : 'bg-blue-500') 
                             : 'bg-slate-200'
@@ -322,21 +383,38 @@ export const ManualAttendance: React.FC = () => {
                         </div>
                       )}
                       {p.isPresentToday && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-sm" />
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full shadow-sm flex items-center justify-center">
+                          <CheckCircle2 className="w-3 h-3 text-white" />
+                        </div>
                       )}
                     </div>
-                    <div className="text-right">
-                      <p className="text-sm font-black">{p.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-[10px] opacity-60 font-bold">{p.id_number || 'بدون کد'}</p>
-                        <span className="w-1 h-1 rounded-full bg-slate-300" />
-                        <p className={`text-[10px] font-bold ${p.attendanceCount < 5 ? 'text-rose-500' : 'text-slate-400'}`}>
-                          {p.attendanceCount} روز حضور
-                        </p>
+                    <div className="text-right flex-1">
+                      <p className="text-base font-black tracking-tight">{p.name}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-white/50 text-slate-400 border border-slate-100">
+                          {p.id_number || '---'}
+                        </span>
+                        <div className="flex items-center gap-1.5 mr-auto">
+                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.attendanceCount > 0 ? 'bg-blue-500/5' : 'bg-slate-50'}`}>
+                            <span className="text-[7px] font-black text-slate-400 uppercase">حضور</span>
+                            <span className="text-[10px] font-black text-blue-600">{p.attendanceCount} روز</span>
+                          </div>
+                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.totalHours > 0 ? 'bg-orange-500/5' : 'bg-slate-50'}`}>
+                            <span className="text-[7px] font-black text-slate-400 uppercase">{isTeacherMode ? 'کاری' : 'حضور'}</span>
+                            <span className="text-[10px] font-black text-orange-600">{p.totalHours}ساعت</span>
+                          </div>
+                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.leaveCount > 0 ? 'bg-amber-500/5' : 'bg-slate-50'}`}>
+                            <span className="text-[7px] font-black text-slate-400 uppercase">مرخصی</span>
+                            <span className="text-[10px] font-black text-amber-600">{p.leaveCount} روز</span>
+                          </div>
+                          <div className={`flex flex-col items-end px-2 py-1 rounded-xl ${p.holidaysCount > 0 ? 'bg-red-500/5' : 'bg-slate-50'}`}>
+                            <span className="text-[7px] font-black text-slate-400 uppercase">تعطیل</span>
+                            <span className="text-[10px] font-black text-red-600">{p.holidaysCount} روز</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <ChevronLeft className={`w-4 h-4 opacity-30 ${selectedPerson?.id === p.id ? 'translate-x-1' : ''} transition-transform`} />
                 </button>
               ))}
               

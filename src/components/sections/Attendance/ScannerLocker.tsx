@@ -149,7 +149,7 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
         .from('attendance')
         .insert([{
           student_id: person.id,
-          type: finalType,
+          type: finalType === 'present' ? 'entry' : finalType,
           recorded_at: new Date().toISOString(),
           method: 'scanner'
         }]);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter } from 'lucide-react';
+import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Trash2, Edit2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useSystem } from '../../../contexts/SystemContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,14 +34,13 @@ export const ManualAttendance: React.FC = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Selected person's attendance history for today (based on selected date)
   const [todayRecords, setTodayRecords] = useState<any[]>([]);
+  const [fetchingToday, setFetchingToday] = useState(false);
 
   useEffect(() => {
     fetchPeople(true);
   }, [isTeacherMode, statsMonth, statsYear]);
 
-  // Update today's records when selected person or date changes
   useEffect(() => {
     if (selectedPerson) {
       fetchTodayRecords();
@@ -61,22 +60,42 @@ export const ManualAttendance: React.FC = () => {
 
   const fetchTodayRecords = async () => {
     if (!selectedPerson) return;
-    
-    const targetDate = getTargetDateGregorian();
-    const start = new Date(targetDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(targetDate);
-    end.setHours(23, 59, 59, 999);
+    setFetchingToday(true);
+    try {
+      const targetDate = getTargetDateGregorian();
+      const start = new Date(targetDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(targetDate);
+      end.setHours(23, 59, 59, 999);
 
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('student_id', selectedPerson.id)
-      .gte('recorded_at', start.toISOString())
-      .lte('recorded_at', end.toISOString());
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', selectedPerson.id)
+        .gte('recorded_at', start.toISOString())
+        .lte('recorded_at', end.toISOString())
+        .order('recorded_at', { ascending: false });
 
-    if (!error && data) {
-      setTodayRecords(data);
+      if (error) throw error;
+      setTodayRecords(data || []);
+    } catch (err) {
+      console.error('Error fetching today records:', err);
+    } finally {
+      setFetchingToday(false);
+    }
+  };
+
+  const handleDeleteRecord = async (id: string) => {
+    if (!window.confirm('آیا از حذف این رکورد اطمینان دارید؟')) return;
+    try {
+      const { error } = await supabase.from('attendance').delete().eq('id', id);
+      if (error) throw error;
+      setSuccess('رکورد با موفقیت حذف شد');
+      setTimeout(() => setSuccess(null), 3000);
+      fetchTodayRecords();
+      fetchPeople(true);
+    } catch (err) {
+      console.error('Error deleting record:', err);
     }
   };
 
@@ -149,11 +168,13 @@ export const ManualAttendance: React.FC = () => {
 
         const uniqueDays = Object.keys(dailyRecords).length;
         let totalHours = 0;
+
         Object.values(dailyRecords).forEach(day => {
           if (day.entry && day.exit) {
             totalHours += Math.max(0, (day.exit.getTime() - day.entry.getTime()) / (1000 * 60 * 60));
           } else if (day.entry) {
-            totalHours += 8;
+            // Use custom standard hours or default to 8
+            totalHours += (p.standard_working_hours || 8);
           }
         });
 
@@ -163,7 +184,7 @@ export const ManualAttendance: React.FC = () => {
           let s = new Date(abs.start_date);
           let e = new Date(abs.end_date);
           let curr = new Date(s);
-          while (curr <= e) {
+          while (curr < e) { // Non-inclusive of end_date (return date)
             if (curr >= start && curr <= end) {
               absenceDays.add(format(curr, 'yyyy-MM-dd'));
             }
@@ -606,6 +627,44 @@ export const ManualAttendance: React.FC = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Today's History Section */}
+                  <div className="mt-8 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">سوابق ثبت شده امروز</h4>
+                      {fetchingToday && <div className="w-3 h-3 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin" />}
+                    </div>
+                    
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                      {todayRecords.length === 0 ? (
+                        <div className="py-4 text-center border-2 border-dashed border-slate-100 rounded-2xl">
+                          <p className="text-[10px] font-bold text-slate-300">هیچ ترددی برای امروز ثبت نشده است.</p>
+                        </div>
+                      ) : (
+                        todayRecords.map((rec) => (
+                          <div key={rec.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                rec.type === 'entry' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                              }`}>
+                                {rec.type === 'entry' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black text-slate-700 capitalize">{rec.type === 'entry' ? 'ورود' : 'خروج'}</p>
+                                <p className="text-[8px] font-bold text-slate-400" dir="ltr">{format(new Date(rec.recorded_at), 'HH:mm:ss')}</p>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={() => handleDeleteRecord(rec.id)}
+                              className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign, Fingerprint } from 'lucide-react';
+import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign, Fingerprint, WifiOff } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/utils';
 import { logActivity } from '../../lib/logger';
@@ -12,10 +12,12 @@ interface Props {
 }
 
 import { useScanner } from '../../hooks/useScanner';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const { user } = useAuth();
   const { mode, isTeacherMode } = useSystem();
+  const isOnline = useOnlineStatus();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -134,6 +136,18 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         <p className="text-slate-500 text-sm">{isTeacherMode ? 'مشخصات معلم را طبق اسناد رسمی وارد نمایید.' : 'مشخصات شاگرد را طبق اسناد رسمی وارد نمایید.'}</p>
       </div>
 
+      {!isOnline && (
+        <div className="bento-card bg-rose-50 border-rose-100 flex items-center gap-4 mb-6">
+          <div className="w-12 h-12 bg-rose-600 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-100 shrink-0">
+            <WifiOff className="w-6 h-6 text-white" />
+          </div>
+          <div className="text-right">
+            <h4 className="font-black text-rose-900 text-sm">سیستم در حالت دسترسی محدود (آفلاین)</h4>
+            <p className="text-rose-700/70 text-xs">در حال حاضر به دلیل قطع اینترنت، امکان ثبت {isTeacherMode ? 'معلم' : 'شاگرد'} جدید مقدور نیست. لطفاً اتصال خود را بررسی کنید.</p>
+          </div>
+        </div>
+      )}
+
       {success ? (
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
@@ -148,13 +162,15 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-6">
-          <label className="col-span-12 lg:col-span-4 bento-card flex flex-col items-center justify-center gap-4 bg-slate-50 border-dashed border-2 group cursor-pointer hover:border-blue-300 transition-colors py-12 relative overflow-hidden">
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={handlePhotoUpload}
-              className="hidden" 
-            />
+          <fieldset disabled={!isOnline} className={`grid grid-cols-12 gap-6 ${!isOnline ? 'opacity-80' : ''}`}>
+            <label className={`col-span-12 lg:col-span-4 bento-card flex flex-col items-center justify-center gap-4 bg-slate-50 border-dashed border-2 group transition-colors py-12 relative overflow-hidden ${!isOnline ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-blue-300'}`}>
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={handlePhotoUpload}
+                disabled={!isOnline}
+                className="hidden" 
+              />
             {photo ? (
               <div className="absolute inset-0">
                 <img src={photo} alt="Preview" className="w-full h-full object-cover" />
@@ -390,14 +406,20 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                )}
                <button 
                   type="submit" 
-                  disabled={loading}
-                  className="bg-blue-900 hover:bg-blue-950 text-white font-bold py-4 px-12 rounded-xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 mr-auto"
+                  disabled={loading || !isOnline}
+                  className={`bg-blue-900 hover:bg-blue-950 text-white font-bold py-4 px-12 rounded-xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 mr-auto ${!isOnline ? 'bg-slate-400 cursor-not-allowed' : ''}`}
                 >
-                  {loading ? 'در حال ثبت...' : isTeacherMode ? 'ثبت معلم جدید +' : 'ثبت شاگرد جدید +'}
+                  {!isOnline ? (
+                    <>
+                      <WifiOff className="w-4 h-4" />
+                      منتظر اتصال اینترنت...
+                    </>
+                  ) : loading ? 'در حال ثبت...' : isTeacherMode ? 'ثبت معلم جدید +' : 'ثبت شاگرد جدید +'}
                 </button>
             </div>
           </div>
-        </form>
+        </fieldset>
+      </form>
       )}
     </div>
 

@@ -14,7 +14,8 @@ import {
   ListChecks,
   User as UserIcon,
   ShieldCheck,
-  CreditCard as FinanceIcon
+  CreditCard as FinanceIcon,
+  WifiOff
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystem } from '../contexts/SystemContext';
@@ -26,6 +27,8 @@ import { AttendanceManagement } from './sections/Attendance/AttendanceManagement
 import { SettingsSection } from './sections/SettingsSection';
 import { FinancialManagement } from './sections/FinancialManagement';
 import { Auth } from './Auth';
+
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'attendance' | 'scanner' | 'settings' | 'auth';
 
@@ -53,6 +56,7 @@ const SectionWrapper: React.FC<{
 export const Landing: React.FC = () => {
   const { user, profile, signOut } = useAuth();
   const { mode, setMode, isTeacherMode } = useSystem();
+  const isOnline = useOnlineStatus();
   
   // Check if system is locked for attendance
   const [isLocked, setIsLocked] = useState(() => localStorage.getItem('attendance_locked') === 'true');
@@ -135,19 +139,27 @@ export const Landing: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => {
+                    if (item.id === 'registration' && !isOnline) return;
                     setActiveSection(item.id as Section);
                     setIsSidebarOpen(false);
                     setSearchQuery('');
                   }}
+                  disabled={item.id === 'registration' && !isOnline}
                   className={`
-                    w-full flex items-center gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all text-xs
+                    w-full flex items-center justify-between gap-3 px-5 py-3.5 rounded-2xl font-bold transition-all text-xs
                     ${activeSection === item.id 
                       ? 'navy-gradient text-white shadow-xl shadow-blue-100' 
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}
+                    ${item.id === 'registration' && !isOnline ? 'opacity-40 grayscale cursor-not-allowed' : ''}
                   `}
                 >
-                  <item.icon className={`w-4 h-4 ${activeSection === item.id ? 'opacity-100' : 'opacity-40'}`} />
-                  {item.label}
+                  <div className="flex items-center gap-3">
+                    <item.icon className={`w-4 h-4 ${activeSection === item.id ? 'opacity-100' : 'opacity-40'}`} />
+                    {item.label}
+                  </div>
+                  {item.id === 'registration' && !isOnline && (
+                    <WifiOff className="w-3 h-3 text-rose-500" />
+                  )}
                 </button>
               ))}
             </nav>

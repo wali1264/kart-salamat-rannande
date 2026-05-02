@@ -201,11 +201,33 @@ export const ManualAttendance: React.FC = () => {
         const holidaysCount = new Set<string>();
         (holidayRecords || []).forEach(h => holidaysCount.add(h.date));
         let currDay = new Date(start);
+        const dayNames: string[] = []; // Not needed but keeping structure
         while (currDay <= end) {
           if (currDay.getDay() === 5) { // Friday
             holidaysCount.add(format(currDay, 'yyyy-MM-dd'));
           }
           currDay.setDate(currDay.getDate() + 1);
+        }
+
+        // Calculate actual absences (Days that are NOT holidays, NOT leave, and have NO attendance records)
+        let totalAbsenceCount = 0;
+        let checkDay = new Date(start);
+        const today = new Date();
+        today.setHours(23, 59, 59, 999);
+
+        while (checkDay <= end) {
+          // Only count absences up to today
+          if (checkDay > today) break;
+
+          const dateStr = format(checkDay, 'yyyy-MM-dd');
+          const isHoliday = holidaysCount.has(dateStr);
+          const isLeave = absenceDays.has(dateStr);
+          const isPresent = !!dailyRecords[dateStr];
+
+          if (!isHoliday && !isLeave && !isPresent) {
+            totalAbsenceCount++;
+          }
+          checkDay.setDate(checkDay.getDate() + 1);
         }
 
         // Also check if they are present today
@@ -222,6 +244,7 @@ export const ManualAttendance: React.FC = () => {
           attendanceCount: uniqueDays,
           leaveCount: absenceDays.size,
           holidaysCount: holidaysCount.size,
+          absenceCount: totalAbsenceCount,
           totalHours: Math.round(totalHours * 10) / 10,
           netBalance: Math.round(netBalanceHours * 10) / 10,
           isPresentToday: (todayCount || 0) > 0
@@ -438,6 +461,12 @@ export const ManualAttendance: React.FC = () => {
                             <span className="text-[10px] font-black text-slate-400 uppercase mb-1">تعطیل</span>
                             <span className="text-lg font-black text-red-600 whitespace-nowrap">{p.holidaysCount} <span className="text-xs">روز</span></span>
                           </div>
+                          {p.absenceCount > 0 && (
+                            <div className="flex flex-col items-center px-4 py-2 rounded-2xl border-2 bg-rose-50 border-rose-200/50">
+                              <span className="text-[10px] font-black text-slate-400 uppercase mb-1">غیبت</span>
+                              <span className="text-lg font-black text-rose-600 whitespace-nowrap">{p.absenceCount} <span className="text-xs">روز</span></span>
+                            </div>
+                          )}
                           {p.netBalance > 0 && (
                             <div className="flex flex-col items-center px-4 py-2 rounded-2xl border-2 bg-emerald-50 border-emerald-100/50">
                               <span className="text-[10px] font-black text-slate-400 uppercase mb-1">اضافه کاری</span>

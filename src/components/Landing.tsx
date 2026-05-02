@@ -126,7 +126,7 @@ export const Landing: React.FC = () => {
               <div className={`w-12 h-12 ${isTeacherMode ? 'emerald-gradient' : 'navy-gradient'} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl`}>{isTeacherMode ? 'T' : 'S'}</div>
               <div>
                 <h1 className="font-bold text-slate-800 leading-tight text-sm">سامانه مدیریت مکاتب</h1>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">School Management System</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Appointment Management System</p>
               </div>
             </div>
 

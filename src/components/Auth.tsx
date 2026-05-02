@@ -66,8 +66,8 @@ export const Auth: React.FC = () => {
             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mb-6 shadow-lg rotate-3">
               <Shield className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">سامانه ملی سلامت رانندگان</h1>
-            <p className="text-blue-200/60 font-medium">Afghanistan National Driver Health Portal</p>
+            <h1 className="text-3xl font-bold text-white mb-2">سامانه مدیریت مکاتب</h1>
+            <p className="text-blue-200/60 font-medium">Appointment Management System</p>
           </div>
 
           <div className="flex bg-white/5 p-1 rounded-2xl mb-8">

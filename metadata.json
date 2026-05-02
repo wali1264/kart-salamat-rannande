@@ -1,6 +1,6 @@
 {
-  "name": "okok: سامانه ملی سلامت رانندگان افغانستان (ANDHP)",
-  "description": "سیستم مدیریت سلامت و صدور کارت‌های صحی برای وزارت صحت عامه و ترافیک افغانستان.",
+  "name": "سامانه مدیریت مکاتب (Appointment Management System)",
+  "description": "سیستم جامع مدیریت مکاتب، حضور و غیاب، و امور مالی.",
   "requestFramePermissions": [
     "camera"
   ],

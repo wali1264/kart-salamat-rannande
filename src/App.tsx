@@ -10,6 +10,7 @@ import { Auth } from './components/Auth';
 import { WaitingRoom } from './components/WaitingRoom';
 import { Landing } from './components/Landing';
 import { Verify } from './components/Verify';
+import { OfflineNotice } from './components/OfflineNotice';
 
 const AppContent: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -37,7 +38,12 @@ const AppContent: React.FC = () => {
   }
 
   // 4. Always show Landing (Landing will handle public vs private view internally)
-  return <Landing />;
+  return (
+    <>
+      <OfflineNotice />
+      <Landing />
+    </>
+  );
 };
 
 export default function App() {

@@ -162,7 +162,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         </motion.div>
       ) : (
         <form onSubmit={handleSubmit} className="grid grid-cols-12 gap-6">
-          <fieldset disabled={!isOnline} className={`grid grid-cols-12 gap-6 ${!isOnline ? 'opacity-80' : ''}`}>
+          <fieldset disabled={!isOnline} className={`col-span-12 grid grid-cols-12 gap-6 p-0 m-0 border-0 min-w-0 ${!isOnline ? 'opacity-80' : ''}`}>
             <label className={`col-span-12 lg:col-span-4 bento-card flex flex-col items-center justify-center gap-4 bg-slate-50 border-dashed border-2 group transition-colors py-12 relative overflow-hidden ${!isOnline ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-blue-300'}`}>
               <input 
                 type="file" 

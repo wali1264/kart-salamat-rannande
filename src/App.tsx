@@ -11,6 +11,7 @@ import { WaitingRoom } from './components/WaitingRoom';
 import { Landing } from './components/Landing';
 import { Verify } from './components/Verify';
 import { OfflineNotice } from './components/OfflineNotice';
+import { PWAReloadPrompt } from './components/PWAReloadPrompt';
 
 const AppContent: React.FC = () => {
   const { user, profile, loading } = useAuth();
@@ -42,6 +43,7 @@ const AppContent: React.FC = () => {
     <>
       <OfflineNotice />
       <Landing />
+      <PWAReloadPrompt />
     </>
   );
 };

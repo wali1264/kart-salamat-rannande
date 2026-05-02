@@ -2,10 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { registerSW } from 'virtual:pwa-register';
-
-// Register for PWA
-registerSW({ immediate: true });
+// PWA registration is handled by the ReloadPrompt component in App.tsx
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

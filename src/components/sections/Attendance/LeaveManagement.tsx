@@ -184,6 +184,12 @@ export const LeaveManagement: React.FC = () => {
   };
 
   const handleDateClick = (day: Date) => {
+    const dayStr = day.toISOString().split('T')[0];
+    const isHoliday = existingHolidays.has(dayStr) || day.getDay() === 5;
+    const isAlreadyLeave = existingLeaveDays.has(dayStr);
+    
+    if (isHoliday || isAlreadyLeave) return;
+
     if (selectedDates.length === 0) {
       setSelectedDates([day]);
     } else if (selectedDates.length === 1) {
@@ -195,7 +201,13 @@ export const LeaveManagement: React.FC = () => {
       const range = [];
       let curr = new Date(start);
       while (curr <= end) {
-        range.push(new Date(curr));
+        const currStr = curr.toISOString().split('T')[0];
+        const currIsHoliday = existingHolidays.has(currStr) || curr.getDay() === 5;
+        const currIsAlreadyLeave = existingLeaveDays.has(currStr);
+        
+        if (!currIsHoliday && !currIsAlreadyLeave) {
+          range.push(new Date(curr));
+        }
         curr = addDays(curr, 1);
       }
       setSelectedDates(range);
@@ -514,7 +526,7 @@ export const LeaveManagement: React.FC = () => {
                     <p className="text-sm font-black text-slate-800 mb-1">{item.reason || 'بدون توضیح'}</p>
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-black rounded-lg">
-                        {Math.ceil((new Date(item.end_date).getTime() - new Date(item.start_date).getTime()) / (1000 * 60 * 60 * 24))} روز
+                        {Math.round((new Date(item.end_date).getTime() - new Date(item.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1} روز
                       </span>
                     </div>
                   </div>

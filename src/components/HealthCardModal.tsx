@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { Driver } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystem } from '../contexts/SystemContext';
+import { useSync } from '../contexts/SyncContext';
 import { logActivity } from '../lib/logger';
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRenewal = false }) => {
   const { profile } = useAuth();
   const { isTeacherMode } = useSystem();
+  const { performAction } = useSync();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   
@@ -33,32 +35,60 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
   const handleIssue = async () => {
     setLoading(true);
     try {
+      // 1. Deactivate existing active cards first
+      await performAction(
+        'health_cards',
+        'update',
+        { driver_id: driver.id, status: 'inactive' },
+        () => supabase
+          .from('health_cards')
+          .update({ status: 'inactive' })
+          .eq('driver_id', driver.id)
+          .eq('status', 'active')
+      );
+
+      // 2. Issue new card
       const issueDate = new Date();
       const expiryDate = new Date();
       expiryDate.setMonth(expiryDate.getMonth() + parseInt(data.validity_period));
 
-      const { error } = await supabase
-        .from('health_cards')
-        .insert({
-          driver_id: driver.id, // Keeping table column name driver_id for compatibility, but it points to student now
-          issuer_id: profile?.id,
-          issue_date: issueDate.toISOString(),
-          expiry_date: expiryDate.toISOString(),
-          status: 'active',
-          is_sober: data.is_sober,
-          blood_pressure: data.blood_pressure,
-          vision_status: data.vision_status,
-          notes: data.notes
-        });
+      const newCard = {
+        driver_id: driver.id,
+        issuer_id: profile?.id,
+        issue_date: issueDate.toISOString(),
+        expiry_date: expiryDate.toISOString(),
+        status: 'active',
+        is_sober: data.is_sober,
+        blood_pressure: data.blood_pressure,
+        vision_status: data.vision_status,
+        notes: data.notes
+      };
+
+      const { error, queued } = await performAction(
+        'health_cards',
+        'insert',
+        newCard,
+        () => supabase.from('health_cards').insert(newCard)
+      );
 
       if (error) throw error;
       
       if (profile?.email) {
-        await logActivity(
-          profile.email, 
-          isRenewal ? 'renew_card' : 'issue_card', 
-          `کارت هویت برای ${isTeacherMode ? 'معلم' : 'شاگرد'} ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
-          { driver_id: driver.id }
+        await performAction(
+          'activity_logs',
+          'insert',
+          {
+            email: profile.email,
+            action: isRenewal ? 'renew_card' : 'issue_card',
+            details: `کارت هویت برای ${isTeacherMode ? 'معلم' : 'شاگرد'} ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
+            metadata: { driver_id: driver.id }
+          },
+          () => logActivity(
+            profile.email!, 
+            isRenewal ? 'renew_card' : 'issue_card', 
+            `کارت هویت برای ${isTeacherMode ? 'معلم' : 'شاگرد'} ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
+            { driver_id: driver.id }
+          )
         );
       }
 

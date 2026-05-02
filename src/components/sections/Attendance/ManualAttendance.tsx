@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Trash2, Edit2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useSystem } from '../../../contexts/SystemContext';
+import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, getYear, getMonth, getDate, startOfMonth, endOfMonth, setYear, setMonth, setDate } from 'date-fns-jalali';
 
 export const ManualAttendance: React.FC = () => {
   const { isTeacherMode } = useSystem();
+  const { performAction, isOnline } = useSync();
   const [loading, setLoading] = useState(true);
   const [people, setPeople] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,9 +90,14 @@ export const ManualAttendance: React.FC = () => {
   const handleDeleteRecord = async (id: string) => {
     if (!window.confirm('آیا از حذف این رکورد اطمینان دارید؟')) return;
     try {
-      const { error } = await supabase.from('attendance').delete().eq('id', id);
+      const { error, queued } = await performAction(
+        'attendance',
+        'delete',
+        { id },
+        () => supabase.from('attendance').delete().eq('id', id)
+      );
       if (error) throw error;
-      setSuccess('رکورد با موفقیت حذف شد');
+      setSuccess(queued ? 'درخواست حذف در صف قرار گرفت' : 'رکورد با موفقیت حذف شد');
       setTimeout(() => setSuccess(null), 3000);
       fetchTodayRecords();
       fetchPeople(true);
@@ -310,18 +317,26 @@ export const ManualAttendance: React.FC = () => {
         timestamp = new Date().toISOString();
       }
 
-      const { error } = await supabase
-        .from('attendance')
-        .insert([{
-          student_id: selectedPerson.id,
-          type: actionType === 'present' ? 'entry' : actionType,
-          recorded_at: timestamp,
-          method: 'manual'
-        }]);
+      const record = {
+        student_id: selectedPerson.id,
+        type: actionType === 'present' ? 'entry' : actionType,
+        recorded_at: timestamp,
+        method: 'manual'
+      };
+
+      const { error, queued } = await performAction(
+        'attendance',
+        'insert',
+        record,
+        () => supabase.from('attendance').insert([record])
+      );
 
       if (error) throw error;
 
-      setSuccess(`حضور ${actionType === 'entry' ? 'ورود' : actionType === 'exit' ? 'خروج' : 'حاضری'} برای ${selectedPerson.name} ثبت شد.`);
+      setSuccess(queued 
+        ? `حضور در صف انتظار ذخیره شد. پس از اتصال همگام می‌شود.` 
+        : `حضور ${actionType === 'entry' ? 'ورود' : actionType === 'exit' ? 'خروج' : 'حاضری'} برای ${selectedPerson.name} ثبت شد.`);
+      
       setTimeout(() => setSuccess(null), 3000);
       setSelectedPerson(null);
       fetchPeople(true); // Refresh stats

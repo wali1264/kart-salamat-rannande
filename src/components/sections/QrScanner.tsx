@@ -3,15 +3,16 @@ import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, Us
 import { Html5Qrcode } from 'html5-qrcode';
 import { supabase } from '../../lib/supabase';
 import { useSystem } from '../../contexts/SystemContext';
+import { useSync } from '../../contexts/SyncContext';
 
 import { useScanner } from '../../hooks/useScanner';
 
 export const QrScanner: React.FC = () => {
   const { mode, isTeacherMode } = useSystem();
+  const { isOnline } = useSync();
   const [loading, setLoading] = useState(false);
   const [cardData, setCardData] = useState<{ card: any, student: any } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showScanner, setShowScanner] = useState(false);
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'expired' | 'fake'>('idle');
   const [fingerprintMode, setFingerprintMode] = useState(false);
@@ -34,15 +35,6 @@ export const QrScanner: React.FC = () => {
     return text.trim().replace(/ي/g, 'ی').replace(/ك/g, 'ک');
   };
 
-  useEffect(() => {
-    const handleStatusChange = () => setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleStatusChange);
-    window.addEventListener('offline', handleStatusChange);
-    return () => {
-      window.removeEventListener('online', handleStatusChange);
-      window.removeEventListener('offline', handleStatusChange);
-    };
-  }, []);
 
   // Live Suggestion Search Logic
   useEffect(() => {
@@ -132,8 +124,8 @@ export const QrScanner: React.FC = () => {
   }, [showScanner, cardData]);
 
   const verifyCard = async (query: string) => {
-    if (!navigator.onLine) {
-      setError('ارتباط با سرور قطع است');
+    if (!isOnline) {
+      setError('ارتباط با سرور قطع است. استعلام در حالت آفلاین فعلاً فعال نیست.');
       return;
     }
 
@@ -223,7 +215,7 @@ export const QrScanner: React.FC = () => {
   };
 
   const handleFingerprintSearch = async (fingerprintId: string) => {
-    if (!fingerprintId || !navigator.onLine) return;
+    if (!fingerprintId || !isOnline) return;
     
     setLoading(true);
     setScanStatus('idle');

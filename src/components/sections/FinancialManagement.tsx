@@ -7,6 +7,7 @@ import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
+import { useSync } from '../../contexts/SyncContext';
 import { logActivity } from '../../lib/logger';
 
 const AFGHAN_MONTHS = [
@@ -21,6 +22,7 @@ const YEARS = Array.from({ length: 11 }, (_, i) => (1402 + i).toString());
 export const FinancialManagement: React.FC = () => {
   const { user } = useAuth();
   const { mode, isTeacherMode } = useSystem();
+  const { performAction, isOnline } = useSync();
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -246,52 +248,71 @@ export const FinancialManagement: React.FC = () => {
     try {
       if (editingPayment) {
         // Update existing record
-        const { error } = await supabase
-          .from('fee_payments')
-          .update({
-            amount_paid: amount,
-            tax_amount: tax,
-            net_amount: netAmount,
-            for_month: selectedMonth,
-            balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
-          })
-          .eq('id', editingPayment.id);
+        const paymentUpdate = {
+          amount_paid: amount,
+          tax_amount: tax,
+          net_amount: netAmount,
+          for_month: selectedMonth,
+          balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
+        };
+
+        const { error, queued: isQueued } = await performAction(
+          'fee_payments',
+          'update',
+          { id: editingPayment.id, ...paymentUpdate },
+          () => supabase.from('fee_payments').update(paymentUpdate).eq('id', editingPayment.id)
+        );
 
         if (error) throw error;
 
         if (user?.email) {
-          await logActivity(
-            user.email, 
-            'payment', 
-            `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
-            { payment_id: editingPayment.id, student_id: selectedStudent.id }
+          await performAction(
+            'activity_logs',
+            'insert',
+            {
+              email: user.email,
+              action: 'payment',
+              details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
+              metadata: { payment_id: editingPayment.id, student_id: selectedStudent.id },
+              created_at: new Date().toISOString()
+            },
+            () => logActivity(user.email!, 'payment', `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`, { payment_id: editingPayment.id, student_id: selectedStudent.id })
           );
         }
       } else {
         // Insert new record
-        const { data: insertData, error } = await supabase
-          .from('fee_payments')
-          .insert([{
-            student_id: selectedStudent.id,
-            amount_paid: amount,
-            tax_amount: tax,
-            net_amount: netAmount,
-            for_month: selectedMonth,
-            payment_date: new Date().toISOString(),
-            payment_method: 'نقدی',
-            balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
-          }])
-          .select()
-          .single();
+        const newPayment = {
+          student_id: selectedStudent.id,
+          amount_paid: amount,
+          tax_amount: tax,
+          net_amount: netAmount,
+          for_month: selectedMonth,
+          payment_date: new Date().toISOString(),
+          payment_method: 'نقدی',
+          balance_remaining: Math.max(0, (selectedStudent.total_monthly_fee || 0) - amount)
+        };
+
+        const { data: insertData, error, queued: isQueued } = await performAction(
+          'fee_payments',
+          'insert',
+          newPayment,
+          () => supabase.from('fee_payments').insert([newPayment]).select().single()
+        );
 
         if (error) throw error;
 
         if (user?.email) {
-          await logActivity(
-            user.email, 
-            'payment', 
-            `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
-            { payment_id: insertData?.id, student_id: selectedStudent.id }
+          await performAction(
+            'activity_logs',
+            'insert',
+            {
+              email: user.email,
+              action: 'payment',
+              details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
+              metadata: { payment_id: insertData?.id, student_id: selectedStudent.id },
+              created_at: new Date().toISOString()
+            },
+            () => logActivity(user.email!, 'payment', `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`, { payment_id: insertData?.id || 'queued', student_id: selectedStudent.id })
           );
         }
       }
@@ -299,7 +320,7 @@ export const FinancialManagement: React.FC = () => {
       setPaymentAmount('');
       setSelectedStudent(null);
       setEditingPayment(null);
-      fetchFees();
+      if (isOnline) fetchFees();
     } catch (err) {
       console.error('Error processing payment:', err);
       alert('خطا در ثبت اطلاعات. لطفا دوباره تلاش کنید.');
@@ -323,20 +344,24 @@ export const FinancialManagement: React.FC = () => {
       const netAmount = amount - tax;
       const monthlyFee = historyStudent?.total_monthly_fee || 0;
 
-      const { error } = await supabase
-        .from('fee_payments')
-        .update({
-          amount_paid: amount,
-          tax_amount: tax,
-          net_amount: netAmount,
-          balance_remaining: Math.max(0, monthlyFee - amount)
-        })
-        .eq('id', p.id);
+      const payload = {
+        amount_paid: amount,
+        tax_amount: tax,
+        net_amount: netAmount,
+        balance_remaining: Math.max(0, monthlyFee - amount)
+      };
+
+      const { error } = await performAction(
+        'fee_payments',
+        'update',
+        { id: p.id, ...payload },
+        () => supabase.from('fee_payments').update(payload).eq('id', p.id)
+      );
 
       if (error) throw error;
       
       setInlineEditingId(null);
-      fetchFees();
+      if (isOnline) fetchFees();
     } catch (err) {
       console.error('Inline update failed:', err);
       alert('خطا در بروزرسانی مبلغ');
@@ -399,9 +424,14 @@ export const FinancialManagement: React.FC = () => {
   const deletePayment = async (paymentId: string) => {
     if (!window.confirm(`آیا از حذف این تراکنش مطمئن هستید؟ این عمل وضعیت ${isTeacherMode ? 'معاش استاد' : 'فیس شاگرد'} را تغییر می‌دهد.`)) return;
     try {
-      const { error } = await supabase.from('fee_payments').delete().eq('id', paymentId);
+      const { error } = await performAction(
+        'fee_payments',
+        'delete',
+        { id: paymentId },
+        () => supabase.from('fee_payments').delete().eq('id', paymentId)
+      );
       if (error) throw error;
-      fetchFees();
+      if (isOnline) fetchFees();
     } catch (err) {
       alert('خطا در حذف تراکنش');
     }

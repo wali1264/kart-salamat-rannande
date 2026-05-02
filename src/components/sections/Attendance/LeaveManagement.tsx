@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Search, User, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Plus, Trash2, Home, Map, Edit2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useSystem } from '../../../contexts/SystemContext';
+import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, getYear, getMonth, getDate, startOfMonth, endOfMonth, setYear, setMonth, setDate, addDays, isSameDay } from 'date-fns-jalali';
 
 export const LeaveManagement: React.FC = () => {
   const { isTeacherMode } = useSystem();
+  const { performAction, isOnline } = useSync();
   const [activeSubTab, setActiveSubTab] = useState<'register' | 'holidays' | 'history'>('register');
   const [loading, setLoading] = useState(true);
   const [people, setPeople] = useState<any[]>([]);
@@ -149,10 +151,15 @@ export const LeaveManagement: React.FC = () => {
   const handleDeleteLeave = async (id: string) => {
     if (!window.confirm('آیا از حذف این مرخصی اطمینان دارید؟')) return;
     try {
-      const { error } = await supabase.from('absences').delete().eq('id', id);
+      const { error, queued } = await performAction(
+        'absences',
+        'delete',
+        { id },
+        () => supabase.from('absences').delete().eq('id', id)
+      );
       if (error) throw error;
-      fetchLeaveHistory();
-      setSuccess('مرخصی با موفقیت حذف شد');
+      if (isOnline) fetchLeaveHistory();
+      setSuccess(queued ? 'درخواست حذف در صف قرار گرفت' : 'مرخصی با موفقیت حذف شد');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('Error deleting leave:', err);
@@ -239,27 +246,38 @@ export const LeaveManagement: React.FC = () => {
       const endDate = sortedDates[sortedDates.length - 1];
 
       if (editingLeave) {
-        const { error } = await supabase
-          .from('absences')
-          .update({
-            start_date: startDate.toISOString().split('T')[0],
-            end_date: endDate.toISOString().split('T')[0],
-            reason: reason
-          })
-          .eq('id', editingLeave.id);
+        const payload = {
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          reason: reason
+        };
+
+        const { error, queued } = await performAction(
+          'absences',
+          'update',
+          { id: editingLeave.id, ...payload },
+          () => supabase.from('absences').update(payload).eq('id', editingLeave.id)
+        );
+
         if (error) throw error;
-        setSuccess('مرخصی با موفقیت ویرایش شد.');
+        setSuccess(queued ? 'تغییرات مرخصی در صف قرار گرفت.' : 'مرخصی با موفقیت ویرایش شد.');
       } else {
-        const { error } = await supabase
-          .from('absences')
-          .insert([{
-            student_id: selectedPerson.id,
-            start_date: startDate.toISOString().split('T')[0],
-            end_date: endDate.toISOString().split('T')[0],
-            reason: reason
-          }]);
+        const payload = {
+          student_id: selectedPerson.id,
+          start_date: startDate.toISOString().split('T')[0],
+          end_date: endDate.toISOString().split('T')[0],
+          reason: reason
+        };
+
+        const { error, queued } = await performAction(
+          'absences',
+          'insert',
+          payload,
+          () => supabase.from('absences').insert([payload])
+        );
+
         if (error) throw error;
-        setSuccess(`مرخصی برای ${selectedPerson.name} با موفقیت ثبت شد.`);
+        setSuccess(queued ? 'ثبت مرخصی در صف انتظار قرار گرفت.' : `مرخصی برای ${selectedPerson.name} با موفقیت ثبت شد.`);
       }
 
       setTimeout(() => setSuccess(null), 3000);
@@ -267,7 +285,7 @@ export const LeaveManagement: React.FC = () => {
       setEditingLeave(null);
       setReason('');
       setSelectedDates([]);
-      fetchLeaveHistory();
+      if (isOnline) fetchLeaveHistory();
     } catch (err: any) {
       setErrorStatus(err.message || 'خطا در ثبت مرخصی');
       setTimeout(() => setErrorStatus(null), 3000);
@@ -282,18 +300,24 @@ export const LeaveManagement: React.FC = () => {
 
     try {
       if (existing) {
-        const { error } = await supabase
-          .from('holidays')
-          .delete()
-          .eq('id', existing.id);
+        const { error, queued } = await performAction(
+          'holidays',
+          'delete',
+          { id: existing.id },
+          () => supabase.from('holidays').delete().eq('id', existing.id)
+        );
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('holidays')
-          .insert([{ date: dateStr, title: 'تعطیل عمومی' }]);
+        const payload = { date: dateStr, title: 'تعطیل عمومی' };
+        const { error, queued } = await performAction(
+          'holidays',
+          'insert',
+          payload,
+          () => supabase.from('holidays').insert([payload])
+        );
         if (error) throw error;
       }
-      fetchHolidays();
+      if (isOnline) fetchHolidays();
     } catch (err) {
       console.error('Error toggling holiday:', err);
     }

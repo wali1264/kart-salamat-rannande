@@ -139,7 +139,6 @@ export const Landing: React.FC = () => {
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.id === 'registration' && !isOnline) return;
                     setActiveSection(item.id as Section);
                     setIsSidebarOpen(false);
                     setSearchQuery('');
@@ -150,16 +149,12 @@ export const Landing: React.FC = () => {
                     ${activeSection === item.id 
                       ? 'navy-gradient text-white shadow-xl shadow-blue-100' 
                       : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}
-                    ${item.id === 'registration' && !isOnline ? 'opacity-40 grayscale cursor-not-allowed' : ''}
                   `}
                 >
                   <div className="flex items-center gap-3">
                     <item.icon className={`w-4 h-4 ${activeSection === item.id ? 'opacity-100' : 'opacity-40'}`} />
                     {item.label}
                   </div>
-                  {item.id === 'registration' && !isOnline && (
-                    <WifiOff className="w-3 h-3 text-rose-500" />
-                  )}
                 </button>
               ))}
             </nav>

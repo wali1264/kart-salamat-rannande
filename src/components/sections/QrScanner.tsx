@@ -97,16 +97,16 @@ export const QrScanner: React.FC = () => {
     const fetchAnnouncements = async () => {
       try {
         if (isOnline) {
-          const { data } = await supabase.from('announcements').select('*').limit(1).single();
+          const { data } = await supabase.from('announcements').select('*').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle();
           if (data) setAnnouncement({
             text: data.content || '',
-            images: data.images || []
+            images: Array.isArray(data.images) ? data.images : []
           });
         } else {
           const cached = await offlineDb.cache.where('collection').equals('announcements').first();
           if (cached?.data) setAnnouncement({
             text: cached.data.content || '',
-            images: cached.data.images || []
+            images: Array.isArray(cached.data.images) ? cached.data.images : []
           });
         }
       } catch (err) {
@@ -115,7 +115,7 @@ export const QrScanner: React.FC = () => {
         const cached = await offlineDb.cache.where('collection').equals('announcements').first();
         if (cached?.data) setAnnouncement({
           text: cached.data.content || '',
-          images: cached.data.images || []
+          images: Array.isArray(cached.data.images) ? cached.data.images : []
         });
       }
     };

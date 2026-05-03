@@ -90,11 +90,11 @@ export const SettingsSection: React.FC = () => {
         }
 
         // Fetch announcements
-        const { data: annData } = await supabase.from('announcements').select('*').limit(1).single();
+        const { data: annData } = await supabase.from('announcements').select('*').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle();
         if (annData) {
           setAnnouncement({
             text: annData.content || '',
-            images: annData.images || []
+            images: Array.isArray(annData.images) ? annData.images : []
           });
         }
       }
@@ -743,15 +743,16 @@ export const SettingsSection: React.FC = () => {
                       onClick={async () => {
                         setIsSaving(true);
                         try {
+                          const cleanImages = announcement.images.filter(img => typeof img === 'string' && img.length > 0);
                           const { error } = await performAction('announcements', 'upsert', {
                             id: '00000000-0000-0000-0000-000000000000',
                             content: announcement.text,
-                            images: announcement.images,
+                            images: cleanImages,
                             updated_at: new Date().toISOString()
                           }, () => supabase.from('announcements').upsert({
                             id: '00000000-0000-0000-0000-000000000000',
                             content: announcement.text,
-                            images: announcement.images,
+                            images: cleanImages,
                             updated_at: new Date().toISOString()
                           }));
                           if (error) throw error;

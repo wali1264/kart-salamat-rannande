@@ -186,9 +186,11 @@ export const FinancialManagement: React.FC = () => {
     }
   };
 
-  const fetchFees = async (query: string = '') => {
+  const fetchFees = async (query: string = '', reset = false) => {
     setLoading(true);
     setError(null);
+    const newLimit = reset ? 5 : displayLimit;
+    if (reset) setDisplayLimit(5);
 
     if (!isOnline) {
       try {
@@ -204,14 +206,21 @@ export const FinancialManagement: React.FC = () => {
           );
         }
 
+        // Sort by created_at descending
+        filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+        const hasMoreData = filtered.length > newLimit;
+        const pageData = filtered.slice(0, newLimit);
+
         // Get payments from cache
-        const results = await Promise.all(filtered.map(async (s) => {
+        const results = await Promise.all(pageData.map(async (s) => {
           const payments = await offlineDb.cache.where('collection').equals('fee_payments').toArray();
           const studentPayments = payments.map(p => p.data).filter(p => p.student_id === s.id);
           return { ...s, fee_payments: studentPayments };
         }));
 
         setRecords(results);
+        setHasMore(hasMoreData);
         setLoading(false);
         return;
       } catch (err) {
@@ -241,12 +250,13 @@ export const FinancialManagement: React.FC = () => {
         supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%`);
       }
 
-      const { data, error } = await supabaseQuery
+      const { data, count, error } = await supabaseQuery
         .order('created_at', { ascending: false })
-        .range(0, displayLimit + 10);
+        .range(0, newLimit - 1);
       
       if (error) throw error;
       setRecords(data || []);
+      setHasMore(count ? count > newLimit : false);
       
       // Update history student if modal is open
       if (historyStudent) {

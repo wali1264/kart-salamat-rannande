@@ -42,7 +42,6 @@ const AppContent: React.FC = () => {
   // 4. Always show Landing (Landing will handle public vs private view internally)
   return (
     <>
-      <OfflineNotice />
       <Landing />
       <PWAReloadPrompt />
     </>

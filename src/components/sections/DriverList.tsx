@@ -49,9 +49,11 @@ export const DriverList: React.FC = () => {
     fetchDrivers();
   }, [mode]);
 
-  const fetchDrivers = async (query: string = '') => {
+  const fetchDrivers = async (query: string = '', reset = false) => {
     setLoading(true);
-    
+    const newLimit = reset ? 5 : limit;
+    if (reset) setLimit(5);
+
     if (!isOnline) {
       try {
         const cached = await offlineDb.cache.where('collection').equals('students').toArray();
@@ -66,14 +68,21 @@ export const DriverList: React.FC = () => {
           );
         }
 
-        // Get health cards from cache for these students
-        const results = await Promise.all(filtered.map(async (s) => {
+        // Sort by created_at descending (last registered first)
+        filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+        const hasMoreData = filtered.length > newLimit;
+        const pageData = filtered.slice(0, newLimit);
+
+        // Get health cards from cache
+        const results = await Promise.all(pageData.map(async (s) => {
           const cards = await offlineDb.cache.where('collection').equals('health_cards').toArray();
           const studentCards = cards.map(c => c.data).filter(c => c.student_id === s.id);
           return { ...s, health_cards: studentCards };
         }));
 
         setDrivers(results);
+        setHasMore(hasMoreData);
         setLoading(false);
         return;
       } catch (err) {
@@ -83,7 +92,7 @@ export const DriverList: React.FC = () => {
 
     let supabaseQuery = supabase
       .from('students')
-      .select('*, health_cards(*)')
+      .select('*, health_cards(*)', { count: 'exact' })
       .eq('type', mode);
 
     if (query) {

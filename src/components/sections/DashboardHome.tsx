@@ -13,6 +13,8 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
+import { offlineDb } from '../../lib/db';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { 
   BarChart, 
   Bar, 
@@ -37,6 +39,7 @@ const data = [
 export const DashboardHome: React.FC = () => {
   const { profile } = useAuth();
   const { mode, isTeacherMode } = useSystem();
+  const { isOnline } = useOnlineStatus();
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeCards: 0,
@@ -48,37 +51,70 @@ export const DashboardHome: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
   const fetchStats = async () => {
-    const { count: studentsCount } = await supabase
-      .from('students')
-      .select('*', { count: 'exact', head: true })
-      .eq('type', mode);
-      
-    const { count: cardsCount } = await supabase
-      .from('health_cards')
-      .select('*, students!inner(id)')
-      .eq('status', 'active')
-      .eq('students.type', mode);
-    
-    const oneMonthFromNow = new Date();
-    oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-    
-    const { data: expiring } = await supabase
-      .from('health_cards')
-      .select('*, students!inner(*)')
-      .eq('status', 'active')
-      .eq('students.type', mode)
-      .lt('expiry_date', oneMonthFromNow.toISOString())
-      .limit(3);
+    if (!isOnline) {
+      try {
+        const studentCache = await offlineDb.cache.where('collection').equals('students').toArray();
+        const filteredStudents = studentCache.map(c => c.data).filter(s => s.type === mode);
+        
+        const cardCache = await offlineDb.cache.where('collection').equals('health_cards').toArray();
+        const activeCards = cardCache.map(c => c.data).filter(c => c.status === 'active');
 
-    setStats({
-      totalStudents: studentsCount || 0,
-      activeCards: cardsCount || 0,
-      expiringSoon: expiring || []
-    });
+        setStats({
+          totalStudents: filteredStudents.length,
+          activeCards: activeCards.length,
+          expiringSoon: []
+        });
+        return;
+      } catch (err) {
+        console.warn('Offline stats failed:', err);
+      }
+    }
+
+    try {
+      const { count: studentsCount } = await supabase
+        .from('students')
+        .select('*', { count: 'exact', head: true })
+        .eq('type', mode);
+      
+      const { count: cardsCount } = await supabase
+        .from('health_cards')
+        .select('*, students!inner(id)')
+        .eq('status', 'active')
+        .eq('students.type', mode);
+      
+      const oneMonthFromNow = new Date();
+      oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+      
+      const { data: expiring } = await supabase
+        .from('health_cards')
+        .select('*, students!inner(*)')
+        .eq('status', 'active')
+        .eq('students.type', mode)
+        .lt('expiry_date', oneMonthFromNow.toISOString())
+        .limit(3);
+
+      setStats({
+        totalStudents: studentsCount || 0,
+        activeCards: cardsCount || 0,
+        expiringSoon: expiring || []
+      });
+    } catch (err) {
+      console.error('Stats fetch error:', err);
+    }
   };
 
   const fetchActivities = async () => {
     setLoadingActivities(true);
+    if (!isOnline) {
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('activity_logs').toArray();
+        setActivities(cached.map(c => c.data).sort((a,b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 50));
+        setLoadingActivities(false);
+        return;
+      } catch (err) {
+        console.warn('Offline activities failed:', err);
+      }
+    }
     try {
       let query = supabase
         .from('activity_logs')

@@ -149,7 +149,13 @@ export const ManualAttendance: React.FC = () => {
           filtered = filtered.filter(s => s.name?.toLowerCase().includes(val) || s.id_number?.toLowerCase().includes(val));
         }
 
-        const results = await Promise.all(filtered.slice(0, currentLimit).map(async (p) => {
+        // Sort by created_at descending
+        filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+        const hasMoreData = filtered.length > currentLimit;
+        const pageData = filtered.slice(0, currentLimit);
+
+        const results = await Promise.all(pageData.map(async (p) => {
           // Approximate stats from cache for offline
           const attendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
           const studentAttendance = attendance.map(a => a.data).filter(a => a.student_id === p.id);
@@ -157,12 +163,13 @@ export const ManualAttendance: React.FC = () => {
           return {
             ...p,
             attendanceCount: studentAttendance.length,
-            totalHours: 0, // Hard to calculate complex stats offline without full data
+            totalHours: 0,
             isPresentToday: studentAttendance.some(a => new Date(a.recorded_at) >= new Date(new Date().setHours(0,0,0,0)))
           };
         }));
 
         setPeople(results);
+        setHasMore(hasMoreData);
         setLoading(false);
         return;
       } catch (err) {

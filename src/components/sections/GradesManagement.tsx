@@ -37,16 +37,16 @@ interface Student {
 interface Subject {
   id: string;
   name: string;
-  type: string;
-  grade_level: string;
+  type?: string; 
+  level: string;
 }
 
 interface Grade {
   id: string;
   student_id: string;
   subject_id: string;
-  midterm_grade: number | null;
-  final_grade: number | null;
+  midterm_score: number | null;
+  final_score: number | null;
   academic_year: string;
   subject?: Subject;
 }
@@ -55,8 +55,8 @@ interface Recommendation {
   id: string;
   student_id: string;
   content: string;
-  reason: string;
-  date: string;
+  recommendation_type: string;
+  issue_date: string;
 }
 
 export const GradesManagement: React.FC = () => {
@@ -79,12 +79,12 @@ export const GradesManagement: React.FC = () => {
   const [showRecForm, setShowRecForm] = useState(false);
 
   // Subject Management State
-  const [newSubject, setNewSubject] = useState({ name: '', type: 'school', grade_level: '1' });
+  const [newSubject, setNewSubject] = useState({ name: '', level: '1' });
 
   useEffect(() => {
     fetchStudents();
     fetchSubjects();
-  }, [searchTerm]);
+  }, [searchTerm, displayCount]);
 
   const fetchStudents = async () => {
     setLoading(true);
@@ -109,7 +109,7 @@ export const GradesManagement: React.FC = () => {
 
   const fetchSubjects = async () => {
     try {
-      const { data, error } = await supabase.from('grade_subjects').select('*').order('name');
+      const { data, error } = await supabase.from('subjects').select('*').order('name');
       if (error) throw error;
       setSubjects(data || []);
     } catch (err) {
@@ -120,17 +120,17 @@ export const GradesManagement: React.FC = () => {
   const fetchStudentData = async (studentId: string) => {
     try {
       const { data: grades, error: gError } = await supabase
-        .from('student_grades')
-        .select('*, subject:grade_subjects(*)')
+        .from('grades')
+        .select('*, subject:subjects(*)')
         .eq('student_id', studentId);
       if (gError) throw gError;
       setStudentGrades(grades || []);
 
       const { data: recs, error: rError } = await supabase
-        .from('student_recommendations')
+        .from('recommendations')
         .select('*')
         .eq('student_id', studentId)
-        .order('date', { ascending: false });
+        .order('issue_date', { ascending: false });
       if (rError) throw rError;
       setRecommendations(recs || []);
     } catch (err) {
@@ -140,8 +140,8 @@ export const GradesManagement: React.FC = () => {
 
   const saveGrade = async (grade: Partial<Grade>) => {
     try {
-      const { error } = await performAction('student_grades', grade.id ? 'update' : 'insert', grade, 
-        () => supabase.from('student_grades').upsert({
+      const { error } = await performAction('grades', grade.id ? 'update' : 'insert', grade, 
+        () => supabase.from('grades').upsert({
           ...grade,
           student_id: selectedStudent?.id,
           academic_year: selectedYear
@@ -157,8 +157,8 @@ export const GradesManagement: React.FC = () => {
   const deleteGrade = async (id: string) => {
     if (!confirm('آیا مطمئن هستید؟')) return;
     try {
-      const { error } = await performAction('student_grades', 'delete', { id }, 
-        () => supabase.from('student_grades').delete().eq('id', id)
+      const { error } = await performAction('grades', 'delete', { id }, 
+        () => supabase.from('grades').delete().eq('id', id)
       );
       if (error) throw error;
       if (selectedStudent) fetchStudentData(selectedStudent.id);
@@ -170,11 +170,14 @@ export const GradesManagement: React.FC = () => {
   const saveRecommendation = async () => {
     if (!newRecommendation.content || !newRecommendation.reason) return;
     try {
-      const { error } = await performAction('student_recommendations', 'insert', newRecommendation, 
-        () => supabase.from('student_recommendations').insert({
-          ...newRecommendation,
-          student_id: selectedStudent?.id
-        })
+      const payload = {
+        content: newRecommendation.content,
+        recommendation_type: newRecommendation.reason,
+        issue_date: newRecommendation.date,
+        student_id: selectedStudent?.id
+      };
+      const { error } = await performAction('recommendations', 'insert', payload, 
+        () => supabase.from('recommendations').insert(payload)
       );
       if (error) throw error;
       setNewRecommendation({ content: '', reason: '', date: new Date().toISOString().split('T')[0] });
@@ -188,8 +191,8 @@ export const GradesManagement: React.FC = () => {
   const deleteRecommendation = async (id: string) => {
     if (!confirm('آیا مطمئن هستید؟')) return;
     try {
-      const { error } = await performAction('student_recommendations', 'delete', { id }, 
-        () => supabase.from('student_recommendations').delete().eq('id', id)
+      const { error } = await performAction('recommendations', 'delete', { id }, 
+        () => supabase.from('recommendations').delete().eq('id', id)
       );
       if (error) throw error;
       if (selectedStudent) fetchStudentData(selectedStudent.id);
@@ -201,11 +204,11 @@ export const GradesManagement: React.FC = () => {
   const addSubject = async () => {
     if (!newSubject.name) return;
     try {
-      const { error } = await performAction('grade_subjects', 'insert', newSubject, 
-        () => supabase.from('grade_subjects').insert(newSubject)
+      const { error } = await performAction('subjects', 'insert', newSubject, 
+        () => supabase.from('subjects').insert(newSubject)
       );
       if (error) throw error;
-      setNewSubject({ name: '', type: 'school', grade_level: '1' });
+      setNewSubject({ name: '', level: '1' });
       fetchSubjects();
     } catch (err) {
       alert('خطا در ثبت صنف/موضوع');
@@ -215,8 +218,8 @@ export const GradesManagement: React.FC = () => {
   const deleteSubject = async (id: string) => {
     if (!confirm('آیا مطمئن هستید؟ این موضوع از تمام نمرات حذف خواهد شد.')) return;
     try {
-      const { error } = await performAction('grade_subjects', 'delete', { id }, 
-        () => supabase.from('grade_subjects').delete().eq('id', id)
+      const { error } = await performAction('subjects', 'delete', { id }, 
+        () => supabase.from('subjects').delete().eq('id', id)
       );
       if (error) throw error;
       fetchSubjects();
@@ -325,7 +328,7 @@ export const GradesManagement: React.FC = () => {
             <h3 className="text-lg font-black text-slate-800">تعریف مضامین و صنوف</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 pr-2">نام مضمون/صنف</label>
               <input 
@@ -336,21 +339,10 @@ export const GradesManagement: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 pr-2">نوعیت</label>
-              <select 
-                value={newSubject.type}
-                onChange={(e) => setNewSubject({...newSubject, type: e.target.value})}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500"
-              >
-                <option value="school">مکتب / مدرسه</option>
-                <option value="university">پوهنتون / دانشگاه</option>
-              </select>
-            </div>
-            <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 pr-2">درجه/صنف</label>
               <input 
-                value={newSubject.grade_level}
-                onChange={(e) => setNewSubject({...newSubject, grade_level: e.target.value})}
+                value={newSubject.level}
+                onChange={(e) => setNewSubject({...newSubject, level: e.target.value})}
                 placeholder="مثلاً: صنف اول، ترم اول..."
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500"
               />
@@ -370,7 +362,6 @@ export const GradesManagement: React.FC = () => {
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400">نام مضمون</th>
-                  <th className="px-6 py-4 text-[10px] font-black text-slate-400">نوعیت</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400">صنف/درجه</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 text-left">عملیات</th>
                 </tr>
@@ -379,8 +370,7 @@ export const GradesManagement: React.FC = () => {
                 {subjects.map((sub) => (
                   <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-bold text-slate-700">{sub.name}</td>
-                    <td className="px-6 py-4 text-xs text-slate-500">{sub.type === 'school' ? 'مکتب' : 'پوهنتون'}</td>
-                    <td className="px-6 py-4 text-xs font-mono text-slate-500">{sub.grade_level}</td>
+                    <td className="px-6 py-4 text-xs font-mono text-slate-500">{sub.level}</td>
                     <td className="px-6 py-4 text-left">
                       <button onClick={() => deleteSubject(sub.id)} className="p-2 text-rose-400 hover:text-rose-600 transition-colors">
                         <Trash2 className="w-4 h-4" />
@@ -464,14 +454,14 @@ export const GradesManagement: React.FC = () => {
                           const existing = studentGrades.find(g => g.subject_id === sub.id && g.academic_year === selectedYear);
                           return (
                             <tr key={sub.id} className="group">
-                              <td className="py-4 px-2 font-bold text-slate-700 text-sm">{sub.name} <span className="text-[9px] text-slate-400">({sub.grade_level})</span></td>
+                              <td className="py-4 px-2 font-bold text-slate-700 text-sm">{sub.name} <span className="text-[9px] text-slate-400">({sub.level})</span></td>
                               <td className="py-4 px-2">
                                 <input 
                                   type="number"
-                                  defaultValue={existing?.midterm_grade || ''}
+                                  defaultValue={existing?.midterm_score || ''}
                                   onBlur={(e) => {
                                     const val = parseFloat(e.target.value);
-                                    if (!isNaN(val)) saveGrade({ id: existing?.id, subject_id: sub.id, midterm_grade: val });
+                                    if (!isNaN(val)) saveGrade({ id: existing?.id, subject_id: sub.id, midterm_score: val });
                                   }}
                                   className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-center text-xs font-mono outline-none focus:border-blue-500"
                                 />
@@ -479,10 +469,10 @@ export const GradesManagement: React.FC = () => {
                               <td className="py-4 px-2">
                                 <input 
                                   type="number"
-                                  defaultValue={existing?.final_grade || ''}
+                                  defaultValue={existing?.final_score || ''}
                                   onBlur={(e) => {
                                     const val = parseFloat(e.target.value);
-                                    if (!isNaN(val)) saveGrade({ id: existing?.id, subject_id: sub.id, final_grade: val });
+                                    if (!isNaN(val)) saveGrade({ id: existing?.id, subject_id: sub.id, final_score: val });
                                   }}
                                   className="w-16 bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-center text-xs font-mono outline-none focus:border-blue-500"
                                 />

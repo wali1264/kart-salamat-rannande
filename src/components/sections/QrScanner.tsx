@@ -308,16 +308,16 @@ export const QrScanner: React.FC = () => {
 
       // 2. Fetch grades and recommendations
       const { data: grades } = await supabase
-        .from('student_grades')
-        .select('*, subject:grade_subjects(*)')
+        .from('grades')
+        .select('*, subject:subjects(*)')
         .eq('student_id', student.id)
         .eq('academic_year', selectedYear);
 
       const { data: recs } = await supabase
-        .from('student_recommendations')
+        .from('recommendations')
         .select('*')
         .eq('student_id', student.id)
-        .order('date', { ascending: false });
+        .order('issue_date', { ascending: false });
 
       setGradeData({
         student,
@@ -812,13 +812,13 @@ export const QrScanner: React.FC = () => {
                               <tr key={idx} className="hover:bg-white transition-colors">
                                 <td className="px-6 py-4 font-black text-slate-800">{g.subject?.name}</td>
                                 <td className="px-6 py-4 text-center">
-                                  <span className={`px-3 py-1.5 rounded-xl font-mono text-xs ${g.midterm_grade >= 50 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                    {g.midterm_grade || '--'}
+                                  <span className={`px-3 py-1.5 rounded-xl font-mono text-xs ${g.midterm_score >= 50 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                    {g.midterm_score || '--'}
                                   </span>
                                 </td>
                                 <td className="px-6 py-4 text-center">
-                                  <span className={`px-3 py-1.5 rounded-xl font-mono text-xs ${g.final_grade >= 50 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                                    {g.final_grade || '--'}
+                                  <span className={`px-3 py-1.5 rounded-xl font-mono text-xs ${g.final_score >= 50 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                                    {g.final_score || '--'}
                                   </span>
                                 </td>
                               </tr>
@@ -841,8 +841,8 @@ export const QrScanner: React.FC = () => {
                         {gradeData.recommendations.length > 0 ? gradeData.recommendations.map((re, idx) => (
                           <div key={idx} className="bg-orange-50/50 border border-orange-100 p-5 rounded-3xl relative">
                             <div className="flex justify-between items-center mb-2">
-                               <span className="text-[10px] font-black text-orange-600 bg-white px-3 py-1 rounded-full border border-orange-100">{re.reason}</span>
-                               <span className="text-[9px] font-bold text-slate-400">{new Date(re.date).toLocaleDateString('fa-AF')}</span>
+                               <span className="text-[10px] font-black text-orange-600 bg-white px-3 py-1 rounded-full border border-orange-100">{re.recommendation_type}</span>
+                               <span className="text-[9px] font-bold text-slate-400">{new Date(re.issue_date).toLocaleDateString('fa-AF')}</span>
                             </div>
                             <p className="text-[11px] text-slate-700 leading-relaxed font-medium">{re.content}</p>
                           </div>

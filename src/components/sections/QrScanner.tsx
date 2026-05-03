@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint, Bell, QrCode } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import { offlineDb } from '../../lib/db';
 import { useSystem } from '../../contexts/SystemContext';
 import { useSync } from '../../contexts/SyncContext';
 
@@ -15,6 +17,8 @@ export const QrScanner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'expired' | 'fake'>('idle');
+  const [activeTab, setActiveTab] = useState<'scan' | 'announcements'>('scan');
+  const [announcement, setAnnouncement] = useState<{ text: string, images: string[] } | null>(null);
   const [fingerprintMode, setFingerprintMode] = useState(false);
   const [isScannerConnected, setIsScannerConnected] = useState(true); // Default to true since HID is passive
   const [lastMatchedFinger, setLastMatchedFinger] = useState<number | null>(null);
@@ -88,6 +92,26 @@ export const QrScanner: React.FC = () => {
     const timeoutId = setTimeout(fetchSuggestions, 300);
     return () => clearTimeout(timeoutId);
   }, [searchInput]);
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        if (isOnline) {
+          const { data } = await supabase.from('announcements').select('*').limit(1).single();
+          if (data) setAnnouncement(data);
+        } else {
+          const cached = await offlineDb.cache.where('collection').equals('announcements').first();
+          if (cached?.data) setAnnouncement(cached.data);
+        }
+      } catch (err) {
+        console.error("Fetch announcements error:", err);
+        // Fallback to cache even if online fetch failed
+        const cached = await offlineDb.cache.where('collection').equals('announcements').first();
+        if (cached?.data) setAnnouncement(cached.data);
+      }
+    };
+    fetchAnnouncements();
+  }, [isOnline]);
 
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
@@ -253,7 +277,34 @@ export const QrScanner: React.FC = () => {
 
   return (
     <div className="max-w-xl mx-auto px-2">
-      {/* 1. Global Loading Overlay during Verification */}
+      {/* 0. Section Tabs */}
+      <div className="flex bg-slate-100 p-1.5 rounded-3xl mb-6 border border-slate-200">
+        <button 
+          onClick={() => setActiveTab('scan')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'scan' ? 'bg-white text-blue-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <QrCode className="w-4 h-4" />
+          اسکنر و استعلام
+        </button>
+        <button 
+          onClick={() => setActiveTab('announcements')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'announcements' ? 'bg-white text-orange-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <Bell className="w-4 h-4" />
+          اعلانات مکتب
+        </button>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'scan' ? (
+          <motion.div
+            key="scan"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            {/* 1. Global Loading Overlay during Verification */}
       {loading && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex flex-col items-center justify-center animate-in fade-in duration-300">
           <div className="bg-white p-10 rounded-[3rem] shadow-2xl flex flex-col items-center gap-6">
@@ -504,6 +555,70 @@ export const QrScanner: React.FC = () => {
       )}
 
       {/* Edit modal removed from here for security - only accessible via list views */}
+
+          </motion.div>
+        ) : (
+          <motion.div
+            key="announcements"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
+          >
+            {announcement ? (
+              <div className="bg-white border border-slate-100 rounded-[3rem] shadow-xl overflow-hidden animate-in fade-in slide-in-from-bottom duration-500">
+                <div className="p-6 bg-orange-600 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Bell className="w-6 h-6" />
+                    <h3 className="text-xl font-black">اعلانات و خبرهای جدید</h3>
+                  </div>
+                  <span className="text-[10px] font-bold bg-white/20 px-3 py-1 rounded-full border border-white/30 backdrop-blur-sm">بروزرسانی شده</span>
+                </div>
+
+                <div className="p-8">
+                  <div className="prose prose-slate max-w-none mb-8">
+                    <p className="text-slate-700 leading-loose text-lg font-medium text-right whitespace-pre-wrap">
+                      {announcement.text || 'در حال حاضر اعلانی برای نمایش وجود ندارد.'}
+                    </p>
+                  </div>
+
+                  {announcement.images && announcement.images.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-1 h-3 bg-orange-600 rounded-full" />
+                        <h4 className="text-xs font-black text-slate-800 uppercase">تصاویر پیوست</h4>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        {announcement.images.map((img, idx) => (
+                          <motion.div 
+                            key={idx}
+                            whileHover={{ scale: 1.02 }}
+                            className="rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-lg cursor-pointer transition-all"
+                            onClick={() => window.open(img, '_blank')}
+                          >
+                            <img src={img} alt={`Announcement ${idx + 1}`} className="w-full h-auto object-cover" />
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-10 pt-8 border-t border-slate-50 flex items-center justify-center gap-2 text-slate-400 text-[10px] font-bold">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>سامانه اطلاع‌رسانی هوشمند مکاتب</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-dashed border-slate-200 rounded-[3rem] p-20 text-center">
+                <Bell className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                <p className="text-slate-400 font-bold">در حال حاضر اعلانی موجود نیست</p>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         @keyframes scan {

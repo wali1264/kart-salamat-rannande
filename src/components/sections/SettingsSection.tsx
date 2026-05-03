@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X, Clock } from 'lucide-react';
+import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X, Clock, Loader2, Trash2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useSync } from '../../contexts/SyncContext';
@@ -9,9 +9,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
   const { performAction, isOnline } = useSync();
-  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup' | 'support' | 'items'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup' | 'support' | 'items' | 'announcements'>('general');
   const [logoLoading, setLogoLoading] = useState(false);
   const [logos, setLogos] = useState({ main: '', mini: '' });
+  const [announcement, setAnnouncement] = useState({ text: '', images: [] as string[] });
   const [customization, setCustomization] = useState<any>({
     title_primary_dr: 'د افغانستان اسلامی امارت',
     title_primary_ps: 'امارت اسلامی افغانستان',
@@ -86,6 +87,15 @@ export const SettingsSection: React.FC = () => {
 
         if (data.student_categories) {
           setCategories(data.student_categories);
+        }
+
+        // Fetch announcements
+        const { data: annData } = await supabase.from('announcements').select('*').limit(1).single();
+        if (annData) {
+          setAnnouncement({
+            text: annData.text || '',
+            images: annData.images || []
+          });
         }
       }
     } catch (err) {
@@ -176,6 +186,7 @@ export const SettingsSection: React.FC = () => {
     { id: 'items', label: 'دسته‌بندی‌ها', icon: Layers },
     { id: 'card', label: 'شخصی‌سازی کارت', icon: CreditCard },
     { id: 'tax', label: 'تنظیمات مالیات', icon: DollarSign },
+    { id: 'announcements', label: 'اعلانات', icon: Bell },
     { id: 'backup', label: 'پشتیبان‌گیری', icon: Shield },
     { id: 'support', label: 'پشتیبانی', icon: LifeBuoy },
   ];
@@ -621,6 +632,144 @@ export const SettingsSection: React.FC = () => {
                         <li>مالیات ({taxSettings.rate}%): {((1000 - taxSettings.threshold) * taxSettings.rate / 100).toFixed(0)} افغانی</li>
                       </ul>
                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'announcements' && (
+              <motion.div 
+                key="announcements"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6"
+              >
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6 text-right">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-3 text-lg text-orange-600">
+                    <Bell className="w-6 h-6" />
+                    مدیریت اعلانات مکتب
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-relaxed bg-orange-50/50 p-5 rounded-2xl border border-orange-100/50">
+                    متن و تصاویری که در این بخش وارد می‌کنید در بخش اسکنر (عمومی) برای تمام کاربران و شاگردان نمایش داده خواهد شد.
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">متن اعلان</label>
+                    <textarea 
+                      value={announcement.text}
+                      onChange={(e) => setAnnouncement(prev => ({ ...prev, text: e.target.value }))}
+                      rows={6}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-4 px-6 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-orange-100 outline-none transition-all placeholder:text-slate-300"
+                      placeholder="متن اعلان را اینجا بنویسید..."
+                    />
+                  </div>
+
+                  <div className="space-y-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block px-2">تصاویر اعلان (حداکثر ۳ تصویر)</label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {[0, 1, 2].map((idx) => (
+                        <div key={idx} className="space-y-2">
+                          <label className="relative block h-32 bg-slate-50 border border-dashed border-slate-200 rounded-2xl cursor-pointer hover:border-orange-300 transition-all overflow-hidden group">
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const compressed = await compressImage(file, 800);
+                                  const newImages = [...announcement.images];
+                                  newImages[idx] = compressed;
+                                  setAnnouncement(prev => ({ ...prev, images: newImages }));
+                                }
+                              }} 
+                            />
+                            {announcement.images[idx] ? (
+                              <div className="absolute inset-0 flex items-center justify-center bg-white">
+                                <img src={announcement.images[idx]} alt="" className="w-full h-full object-contain" />
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    const newImages = [...announcement.images];
+                                    newImages.splice(idx, 1);
+                                    setAnnouncement(prev => ({ ...prev, images: newImages }));
+                                  }}
+                                  className="absolute top-2 left-2 p-1.5 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                <ImageIcon className="w-6 h-6 text-slate-200 group-hover:text-orange-500 transition-colors" />
+                                <span className="text-[10px] font-bold text-slate-400">تصویر {idx + 1}</span>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-slate-100 flex justify-between items-center">
+                    <button 
+                      onClick={async () => {
+                        if (!confirm('آیا مطمئن هستید که می‌خواهید این اعلان را کاملاً پاک کنید؟')) return;
+                        setIsSaving(true);
+                        try {
+                          const { error } = await performAction('announcements', 'delete', { id: 1 }, 
+                            () => supabase.from('announcements').delete().eq('id', 1)
+                          );
+                          if (error) throw error;
+                          setAnnouncement({ text: '', images: [] });
+                          setSaveStatus('success');
+                          setTimeout(() => setSaveStatus(null), 3000);
+                        } catch (err) {
+                          console.error('Delete announcement error:', err);
+                          setSaveStatus('error');
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="bg-slate-100 text-slate-500 px-6 py-4 rounded-2xl text-xs font-black transition-all hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      حذف کل اعلان
+                    </button>
+
+                    <button 
+                      onClick={async () => {
+                        setIsSaving(true);
+                        try {
+                          const { error } = await performAction('announcements', 'upsert', {
+                            id: 1,
+                            text: announcement.text,
+                            images: announcement.images,
+                            updated_at: new Date().toISOString()
+                          }, () => supabase.from('announcements').upsert({
+                            id: 1,
+                            text: announcement.text,
+                            images: announcement.images,
+                            updated_at: new Date().toISOString()
+                          }));
+                          if (error) throw error;
+                          setSaveStatus('success');
+                          setTimeout(() => setSaveStatus(null), 3000);
+                        } catch (err) {
+                          console.error('Save announcement error:', err);
+                          setSaveStatus('error');
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }}
+                      disabled={isSaving}
+                      className="bg-orange-600 text-white px-10 py-4 rounded-2xl text-sm font-black transition-all hover:bg-orange-700 shadow-xl shadow-orange-100 disabled:opacity-50 flex items-center gap-3"
+                    >
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin text-white" /> : <Check className="w-5 h-5 text-white" />}
+                      ذخیره و انتشار اعلان
+                    </button>
                   </div>
                 </div>
               </motion.div>

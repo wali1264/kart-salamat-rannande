@@ -82,6 +82,19 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // Pre-cache announcements
+      const { data: annData } = await supabase.from('announcements').select('*');
+      if (annData) {
+        for (const ann of annData) {
+          await offlineDb.cache.put({
+            id: ann.id.toString(),
+            collection: 'announcements',
+            data: ann,
+            updatedAt: Date.now()
+          });
+        }
+      }
+
       console.log(`Pre-cached data completed`);
       }
 

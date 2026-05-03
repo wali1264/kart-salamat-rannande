@@ -93,7 +93,7 @@ export const SettingsSection: React.FC = () => {
         const { data: annData } = await supabase.from('announcements').select('*').limit(1).single();
         if (annData) {
           setAnnouncement({
-            text: annData.text || '',
+            text: annData.content || '',
             images: annData.images || []
           });
         }
@@ -718,8 +718,8 @@ export const SettingsSection: React.FC = () => {
                         if (!confirm('آیا مطمئن هستید که می‌خواهید این اعلان را کاملاً پاک کنید؟')) return;
                         setIsSaving(true);
                         try {
-                          const { error } = await performAction('announcements', 'delete', { id: 1 }, 
-                            () => supabase.from('announcements').delete().eq('id', 1)
+                          const { error } = await performAction('announcements', 'delete', { id: '00000000-0000-0000-0000-000000000000' }, 
+                            () => supabase.from('announcements').delete().eq('id', '00000000-0000-0000-0000-000000000000')
                           );
                           if (error) throw error;
                           setAnnouncement({ text: '', images: [] });
@@ -744,13 +744,13 @@ export const SettingsSection: React.FC = () => {
                         setIsSaving(true);
                         try {
                           const { error } = await performAction('announcements', 'upsert', {
-                            id: 1,
-                            text: announcement.text,
+                            id: '00000000-0000-0000-0000-000000000000',
+                            content: announcement.text,
                             images: announcement.images,
                             updated_at: new Date().toISOString()
                           }, () => supabase.from('announcements').upsert({
-                            id: 1,
-                            text: announcement.text,
+                            id: '00000000-0000-0000-0000-000000000000',
+                            content: announcement.text,
                             images: announcement.images,
                             updated_at: new Date().toISOString()
                           }));

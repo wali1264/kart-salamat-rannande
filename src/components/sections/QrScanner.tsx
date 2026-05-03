@@ -98,16 +98,25 @@ export const QrScanner: React.FC = () => {
       try {
         if (isOnline) {
           const { data } = await supabase.from('announcements').select('*').limit(1).single();
-          if (data) setAnnouncement(data);
+          if (data) setAnnouncement({
+            text: data.content || '',
+            images: data.images || []
+          });
         } else {
           const cached = await offlineDb.cache.where('collection').equals('announcements').first();
-          if (cached?.data) setAnnouncement(cached.data);
+          if (cached?.data) setAnnouncement({
+            text: cached.data.content || '',
+            images: cached.data.images || []
+          });
         }
       } catch (err) {
         console.error("Fetch announcements error:", err);
         // Fallback to cache even if online fetch failed
         const cached = await offlineDb.cache.where('collection').equals('announcements').first();
-        if (cached?.data) setAnnouncement(cached.data);
+        if (cached?.data) setAnnouncement({
+          text: cached.data.content || '',
+          images: cached.data.images || []
+        });
       }
     };
     fetchAnnouncements();

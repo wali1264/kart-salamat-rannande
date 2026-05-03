@@ -22,7 +22,8 @@ export const QrScanner: React.FC = () => {
   const [gradeSearchInput, setGradeSearchInput] = useState('');
   const [gradeData, setGradeData] = useState<{ student: any, grades: any[], recommendations: any[] } | null>(null);
   const [gradeLoading, setGradeLoading] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const jalaliYears = ['۱۴۰۵', '۱۴۰۶', '۱۴۰۷', '۱۴۰۸', '۱۴۰۹', '۱۴۱۰'];
+  const [selectedYear, setSelectedYear] = useState(jalaliYears[0]);
   const [fingerprintMode, setFingerprintMode] = useState(false);
   const [isScannerConnected, setIsScannerConnected] = useState(true); // Default to true since HID is passive
   const [lastMatchedFinger, setLastMatchedFinger] = useState<number | null>(null);
@@ -786,10 +787,9 @@ export const QrScanner: React.FC = () => {
                         onChange={(e) => setSelectedYear(e.target.value)}
                         className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-black outline-none focus:border-emerald-500"
                       >
-                        {[0, 1, 2, 3].map(n => {
-                          const yr = (new Date().getFullYear() - n).toString();
-                          return <option key={yr} value={yr}>{yr}</option>;
-                        })}
+                        {jalaliYears.map(yr => (
+                          <option key={yr} value={yr}>{yr}</option>
+                        ))}
                       </select>
                    </div>
 

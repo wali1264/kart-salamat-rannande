@@ -73,7 +73,10 @@ export const GradesManagement: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [studentGrades, setStudentGrades] = useState<Grade[]>([]);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const classes = ['آمادگی', 'اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم'];
+  const jalaliYears = ['۱۴۰۵', '۱۴۰۶', '۱۴۰۷', '۱۴۰۸', '۱۴۰۹', '۱۴۱۰'];
+
+  const [selectedYear, setSelectedYear] = useState(jalaliYears[0]);
   
   const [newRecommendation, setNewRecommendation] = useState({ content: '', reason: '', date: new Date().toISOString().split('T')[0] });
   const [showRecForm, setShowRecForm] = useState(false);
@@ -119,13 +122,6 @@ export const GradesManagement: React.FC = () => {
 
   const fetchStudentData = async (studentId: string) => {
     try {
-      const { data: grades, error: gError } = await supabase
-        .from('grades')
-        .select('*, subject:subjects(*)')
-        .eq('student_id', studentId);
-      if (gError) throw gError;
-      setStudentGrades(grades || []);
-
       const { data: recs, error: rError } = await supabase
         .from('recommendations')
         .select('*')
@@ -133,6 +129,22 @@ export const GradesManagement: React.FC = () => {
         .order('issue_date', { ascending: false });
       if (rError) throw rError;
       setRecommendations(recs || []);
+
+      const { data: subjectsData, error: sError } = await supabase
+        .from('subjects')
+        .select('*')
+        .eq('level', selectedStudent?.class_name || students.find(s => s.id === studentId)?.class_name || '')
+        .order('name');
+      if (sError) throw sError;
+      
+      const { data: grades, error: gError } = await supabase
+        .from('grades')
+        .select('*, subject:subjects(*)')
+        .eq('student_id', studentId)
+        .eq('academic_year', selectedYear);
+      if (gError) throw gError;
+      
+      setStudentGrades(grades || []);
     } catch (err) {
       console.error('Fetch student data error:', err);
     }
@@ -339,13 +351,16 @@ export const GradesManagement: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 pr-2">درجه/صنف</label>
-              <input 
+              <label className="text-[10px] font-black text-slate-400 pr-2">صنف / درجه</label>
+              <select 
                 value={newSubject.level}
                 onChange={(e) => setNewSubject({...newSubject, level: e.target.value})}
-                placeholder="مثلاً: صنف اول، ترم اول..."
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500"
-              />
+              >
+                {classes.map(cls => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
+              </select>
             </div>
             <div className="flex items-end">
               <button 
@@ -430,10 +445,9 @@ export const GradesManagement: React.FC = () => {
                       onChange={(e) => setSelectedYear(e.target.value)}
                       className="bg-transparent text-xs font-black p-2 outline-none"
                     >
-                      {[0, 1, 2].map(n => {
-                        const yr = (new Date().getFullYear() - n).toString();
-                        return <option key={yr} value={yr}>{yr}</option>;
-                      })}
+                      {jalaliYears.map(yr => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -450,7 +464,7 @@ export const GradesManagement: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {subjects.map(sub => {
+                        {subjects.filter(s => s.level === selectedStudent.class_name).map(sub => {
                           const existing = studentGrades.find(g => g.subject_id === sub.id && g.academic_year === selectedYear);
                           return (
                             <tr key={sub.id} className="group">

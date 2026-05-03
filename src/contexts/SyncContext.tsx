@@ -54,6 +54,78 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     refreshQueueStatus();
   };
 
+  const preloadData = useCallback(async () => {
+    if (!isOnline) return;
+
+    try {
+      // Pre-cache students/teachers
+      const { data: students } = await supabase.from('students').select('*').limit(1000);
+      if (students) {
+        for (const student of students) {
+          await offlineDb.cache.put({
+            id: student.id,
+            collection: 'students',
+            data: student,
+            updatedAt: Date.now()
+          });
+        }
+        console.log(`Pre-cached ${students.length} students/teachers`);
+      }
+
+      // Pre-cache health cards
+      const { data: cards } = await supabase.from('health_cards').select('*').limit(1000);
+      if (cards) {
+        for (const card of cards) {
+          await offlineDb.cache.put({
+            id: card.id,
+            collection: 'health_cards',
+            data: card,
+            updatedAt: Date.now()
+          });
+        }
+      }
+
+      // Pre-cache fee payments
+      const { data: payments } = await supabase.from('fee_payments').select('*').limit(2000);
+      if (payments) {
+        for (const payment of payments) {
+          await offlineDb.cache.put({
+            id: payment.id,
+            collection: 'fee_payments',
+            data: payment,
+            updatedAt: Date.now()
+          });
+        }
+      }
+
+      // Pre-cache today's attendance
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { data: attendance } = await supabase
+        .from('attendance')
+        .select('*')
+        .gte('recorded_at', today.toISOString());
+      if (attendance) {
+        for (const record of attendance) {
+          await offlineDb.cache.put({
+            id: record.id,
+            collection: 'attendance',
+            data: record,
+            updatedAt: Date.now()
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Preload failed:', err);
+    }
+  }, [isOnline]);
+
+  useEffect(() => {
+    if (isOnline) {
+      preloadData();
+    }
+  }, [isOnline, preloadData]);
+
   const syncNow = useCallback(async () => {
     if (!isOnline || isSyncing) return;
     

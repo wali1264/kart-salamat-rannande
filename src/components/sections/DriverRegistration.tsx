@@ -126,11 +126,10 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
           {
             user_email: user.email,
             action: 'create_student',
-            details: `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} ثبت گردید.`,
-            metadata: { student_id_no: formData.license_number },
+            details: `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} با نمبر تذکره ${formData.license_number} ثبت گردید.`,
             created_at: new Date().toISOString()
           },
-          () => logActivity(user.email!, 'create_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} ثبت گردید.`, { student_id_no: formData.license_number })
+          () => logActivity(user.email!, 'create_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} ثبت گردید.`)
         );
       }
 

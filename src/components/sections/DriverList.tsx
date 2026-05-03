@@ -51,6 +51,36 @@ export const DriverList: React.FC = () => {
 
   const fetchDrivers = async (query: string = '') => {
     setLoading(true);
+    
+    if (!isOnline) {
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        let filtered = cached.map(c => c.data).filter(s => s.type === mode);
+        
+        if (query) {
+          const q = query.toLowerCase();
+          filtered = filtered.filter(s => 
+            s.name?.toLowerCase().includes(q) || 
+            s.license_number?.toLowerCase().includes(q) ||
+            s.id_number?.toLowerCase().includes(q)
+          );
+        }
+
+        // Get health cards from cache for these students
+        const results = await Promise.all(filtered.map(async (s) => {
+          const cards = await offlineDb.cache.where('collection').equals('health_cards').toArray();
+          const studentCards = cards.map(c => c.data).filter(c => c.student_id === s.id);
+          return { ...s, health_cards: studentCards };
+        }));
+
+        setDrivers(results);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.warn('Offline fetch failed:', err);
+      }
+    }
+
     let supabaseQuery = supabase
       .from('students')
       .select('*, health_cards(*)')

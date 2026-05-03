@@ -189,6 +189,36 @@ export const FinancialManagement: React.FC = () => {
   const fetchFees = async (query: string = '') => {
     setLoading(true);
     setError(null);
+
+    if (!isOnline) {
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        let filtered = cached.map(c => c.data).filter(s => s.type === mode);
+        
+        if (query) {
+          const q = query.toLowerCase();
+          filtered = filtered.filter(s => 
+            s.name?.toLowerCase().includes(q) || 
+            s.license_number?.toLowerCase().includes(q) ||
+            s.id_number?.toLowerCase().includes(q)
+          );
+        }
+
+        // Get payments from cache
+        const results = await Promise.all(filtered.map(async (s) => {
+          const payments = await offlineDb.cache.where('collection').equals('fee_payments').toArray();
+          const studentPayments = payments.map(p => p.data).filter(p => p.student_id === s.id);
+          return { ...s, fee_payments: studentPayments };
+        }));
+
+        setRecords(results);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.warn('Offline fee fetch failed:', err);
+      }
+    }
+
     try {
       let supabaseQuery = supabase
         .from('students')
@@ -272,11 +302,10 @@ export const FinancialManagement: React.FC = () => {
             {
               user_email: user.email,
               action: 'payment',
-              details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
-              metadata: { payment_id: editingPayment.id, student_id: selectedStudent.id },
+              details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید. شناسه پرداخت: ${editingPayment.id}`,
               created_at: new Date().toISOString()
             },
-            () => logActivity(user.email!, 'payment', `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`, { payment_id: editingPayment.id, student_id: selectedStudent.id })
+            () => logActivity(user.email!, 'payment', `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`)
           );
         }
       } else {
@@ -309,10 +338,9 @@ export const FinancialManagement: React.FC = () => {
               user_email: user.email,
               action: 'payment',
               details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
-              metadata: { payment_id: insertData?.id, student_id: selectedStudent.id },
               created_at: new Date().toISOString()
             },
-            () => logActivity(user.email!, 'payment', `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`, { payment_id: insertData?.id || 'queued', student_id: selectedStudent.id })
+            () => logActivity(user.email!, 'payment', `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`)
           );
         }
       }

@@ -63,6 +63,33 @@ export const ManualAttendance: React.FC = () => {
   const fetchTodayRecords = async () => {
     if (!selectedPerson) return;
     setFetchingToday(true);
+
+    if (!isOnline) {
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('attendance').toArray();
+        const targetDate = getTargetDateGregorian();
+        const start = new Date(targetDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(targetDate);
+        end.setHours(23, 59, 59, 999);
+
+        const filtered = cached
+          .map(c => c.data)
+          .filter(a => 
+            a.student_id === selectedPerson.id && 
+            new Date(a.recorded_at) >= start && 
+            new Date(a.recorded_at) <= end
+          )
+          .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+
+        setTodayRecords(filtered);
+        setFetchingToday(false);
+        return;
+      } catch (err) {
+        console.warn('Offline today records fetch failed:', err);
+      }
+    }
+
     try {
       const targetDate = getTargetDateGregorian();
       const start = new Date(targetDate);
@@ -111,6 +138,37 @@ export const ManualAttendance: React.FC = () => {
     const currentLimit = reset ? 5 : limit + 5;
     if (reset) setLimit(5);
     else setLimit(currentLimit);
+
+    if (!isOnline) {
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        let filtered = cached.map(c => c.data).filter(s => s.type === (isTeacherMode ? 'teacher' : 'student'));
+        
+        if (searchQuery.trim()) {
+          const val = searchQuery.trim().toLowerCase();
+          filtered = filtered.filter(s => s.name?.toLowerCase().includes(val) || s.id_number?.toLowerCase().includes(val));
+        }
+
+        const results = await Promise.all(filtered.slice(0, currentLimit).map(async (p) => {
+          // Approximate stats from cache for offline
+          const attendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
+          const studentAttendance = attendance.map(a => a.data).filter(a => a.student_id === p.id);
+          
+          return {
+            ...p,
+            attendanceCount: studentAttendance.length,
+            totalHours: 0, // Hard to calculate complex stats offline without full data
+            isPresentToday: studentAttendance.some(a => new Date(a.recorded_at) >= new Date(new Date().setHours(0,0,0,0)))
+          };
+        }));
+
+        setPeople(results);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.warn('Offline fetch failed:', err);
+      }
+    }
 
     try {
       let query = supabase

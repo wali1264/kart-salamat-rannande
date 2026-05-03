@@ -22,6 +22,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const fetchProfile = async (userId: string, retries = 2) => {
     // 1. Try to load from local cache first for instant UI response
     try {
+      // First try localStorage for synchronous/instant access
+      const local = localStorage.getItem(`profile_${userId}`);
+      if (local && !profile) {
+        setProfile(JSON.parse(local));
+      }
+
+      // Then IndexedDB for full data
       const cached = await offlineDb.cache.get(['profiles', userId]);
       if (cached && !profile) {
         console.log('Loaded profile from offline cache');
@@ -52,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (data) {
         setProfile(data);
+        // Persist to local storage for quick access even if IndexedDB is slow or blocked
+        localStorage.setItem(`profile_${userId}`, JSON.stringify(data));
         // Update local cache
         await offlineDb.cache.put({
           id: userId,

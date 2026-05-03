@@ -26,13 +26,14 @@ import { QrScanner } from './sections/QrScanner';
 import { AttendanceManagement } from './sections/Attendance/AttendanceManagement';
 import { SettingsSection } from './sections/SettingsSection';
 import { FinancialManagement } from './sections/FinancialManagement';
+import { GradesManagement } from './sections/GradesManagement';
 import { Auth } from './Auth';
 
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
 import { InlineSyncStatus } from './InlineSyncStatus';
 
-type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'attendance' | 'scanner' | 'settings' | 'auth';
+type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'attendance' | 'grades' | 'scanner' | 'settings' | 'auth';
 
 const SectionWrapper: React.FC<{ 
   activeSection: Section; 
@@ -48,6 +49,7 @@ const SectionWrapper: React.FC<{
     case 'drivers': return <DriverList />;
     case 'finance': return <FinancialManagement />;
     case 'attendance': return <AttendanceManagement />;
+    case 'grades': return <GradesManagement />;
     case 'scanner': return <QrScanner searchQuery={searchQuery} />;
     case 'settings': return <SettingsSection />;
     case 'auth': return <Auth />;
@@ -99,6 +101,7 @@ export const Landing: React.FC = () => {
     { id: 'drivers', label: isTeacherMode ? 'لیست معلمین' : 'لیست شاگردان', icon: Users, protected: true },
     { id: 'registration', label: isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید', icon: PlusCircle, protected: true },
     { id: 'attendance', label: 'مدیریت حضور و غیاب', icon: ListChecks, protected: true },
+    { id: 'grades', label: 'مدیریت نمرات و توصیه‌ها', icon: Bell, protected: true },
     { id: 'finance', label: isTeacherMode ? 'حقوق و دستمزد' : 'مدیریت مالی', icon: FinanceIcon, protected: true },
     { id: 'scanner', label: 'اسکنر QR', icon: QrCode, protected: false },
     { id: 'settings', label: 'تنظیمات', icon: Settings, protected: true },

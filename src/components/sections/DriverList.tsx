@@ -20,6 +20,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { offlineDb } from '../../lib/db';
 import { Driver, HealthCard } from '../../types';
 import { HealthCardModal } from '../HealthCardModal';
 import { ViewHealthCard } from '../ViewHealthCard';
@@ -37,6 +38,7 @@ export const DriverList: React.FC = () => {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [displayLimit, setDisplayLimit] = useState(5);
+  const [hasMore, setHasMore] = useState(false);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [selectedCard, setSelectedCard] = useState<HealthCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,8 +53,8 @@ export const DriverList: React.FC = () => {
 
   const fetchDrivers = async (query: string = '', reset = false) => {
     setLoading(true);
-    const newLimit = reset ? 5 : limit;
-    if (reset) setLimit(5);
+    const newLimit = reset ? 5 : displayLimit;
+    if (reset) setDisplayLimit(5);
 
     if (!isOnline) {
       try {
@@ -99,12 +101,15 @@ export const DriverList: React.FC = () => {
       supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%`);
     }
 
-    const { data, error } = await supabaseQuery
+    const { data, count, error } = await supabaseQuery
       .order('created_at', { ascending: false })
-      .range(0, displayLimit + 20); // Fetch a bit more than limit to show "Load More"
+      .range(0, newLimit - 1);
 
     if (error) console.error(error);
-    else setDrivers(data || []);
+    else {
+      setDrivers(data || []);
+      setHasMore(count ? count > newLimit : false);
+    }
     setLoading(false);
   };
 
@@ -309,14 +314,14 @@ export const DriverList: React.FC = () => {
       </div>
 
       {/* Pagination / Load More */}
-      {!loading && displayLimit < filteredDrivers.length && (
+      {!loading && hasMore && (
         <div className="flex justify-center pt-4">
           <button 
             onClick={() => setDisplayLimit(prev => prev + 5)}
             className="px-8 py-3 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 shadow-sm flex items-center gap-3 active:scale-95"
           >
             <ChevronDown className="w-4 h-4" />
-            مشاهده {isTeacherMode ? 'اساتید' : 'شاگردان'} بیشتر ({filteredDrivers.length - displayLimit} مورد باقی‌مانده)
+            مشاهده {isTeacherMode ? 'اساتید' : 'شاگردان'} بیشتر +
           </button>
         </div>
       )}

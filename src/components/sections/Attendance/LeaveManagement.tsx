@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, User, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Plus, Trash2, Home, Map, Edit2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { offlineDb } from '../../../lib/db';
 import { useSystem } from '../../../contexts/SystemContext';
 import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -103,15 +104,45 @@ export const LeaveManagement: React.FC = () => {
     }
   };
 
-  const fetchPeople = async () => {
+  const fetchPeople = async (reset = false) => {
     setLoading(true);
+    const newLimit = reset ? 5 : limit;
+    if (reset) setLimit(5);
+
+    if (!isOnline) {
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        let filtered = cached.map(c => c.data).filter(s => s.type === (isTeacherMode ? 'teacher' : 'student'));
+        
+        if (searchQuery.trim()) {
+          const val = searchQuery.trim().toLowerCase();
+          filtered = filtered.filter(s => 
+            s.name?.toLowerCase().includes(val) || 
+            s.id_number?.toLowerCase().includes(val) ||
+            s.father_name?.toLowerCase().includes(val)
+          );
+        }
+
+        // Sort by created_at descending
+        filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+
+        const hasMoreData = filtered.length > newLimit;
+        setPeople(filtered.slice(0, newLimit));
+        setHasMore(hasMoreData);
+        setLoading(false);
+        return;
+      } catch (err) {
+        console.warn('Offline fetch failed in LeaveManagement:', err);
+      }
+    }
+
     try {
       let query = supabase
         .from('students')
         .select('*', { count: 'exact' })
         .eq('type', isTeacherMode ? 'teacher' : 'student')
-        .order('name', { ascending: true })
-        .limit(limit);
+        .order('created_at', { ascending: false })
+        .range(0, newLimit - 1);
 
       if (searchQuery.trim()) {
         const val = `%${searchQuery.trim()}%`;
@@ -121,12 +152,17 @@ export const LeaveManagement: React.FC = () => {
       const { data, error, count } = await query;
       if (error) throw error;
       setPeople(data || []);
-      setHasMore(count ? count > limit : false);
+      setHasMore(count ? count > newLimit : false);
     } catch (err) {
       console.error('Error fetching people:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadMore = () => {
+    const newLimit = limit + 5;
+    setLimit(newLimit);
   };
 
   const fetchLeaveHistory = async () => {
@@ -354,12 +390,12 @@ export const LeaveManagement: React.FC = () => {
               placeholder={`جستجوی ${isTeacherMode ? 'معلم' : 'شاگرد'}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchPeople()}
+              onKeyDown={(e) => e.key === 'Enter' && fetchPeople(true)}
               className="w-full bg-slate-50 border-none rounded-2xl py-3.5 pr-11 pl-4 text-sm focus:ring-2 focus:ring-orange-500/10 outline-none transition-all"
             />
           </div>
           <button 
-            onClick={() => fetchPeople()} 
+            onClick={() => fetchPeople(true)} 
             className="px-6 bg-orange-600 text-white rounded-2xl text-xs font-black shadow-lg shadow-orange-100 hover:bg-orange-700 transition-all"
           >
             جستجو
@@ -395,7 +431,7 @@ export const LeaveManagement: React.FC = () => {
           ))}
           {hasMore && (
             <button 
-              onClick={() => setLimit(prev => prev + 10)}
+              onClick={loadMore}
               className="w-full py-4 text-xs font-black text-slate-400 hover:text-orange-600 transition-colors"
             >
               بارگذاری بیشتر...

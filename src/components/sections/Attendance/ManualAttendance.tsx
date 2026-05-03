@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Trash2, Edit2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { offlineDb } from '../../../lib/db';
 import { useSystem } from '../../../contexts/SystemContext';
 import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';

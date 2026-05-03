@@ -18,19 +18,17 @@ export const logActivity = async (
   details: any = {}
 ) => {
   try {
-    const { error } = await supabase.from('activity_logs').insert([
+    const { data, error } = await supabase.from('activity_logs').insert([
       {
         user_email: userEmail,
         action,
-        details: description // Storing the main description in the details column as seen in screenshot
+        details: description
       }
-    ]);
+    ]).select();
 
-    if (error) {
-      // If table doesn't exist, this will fail gracefully but log to console for dev
-      console.warn('Logging failed. Check if activity_logs table exists:', error);
-    }
-  } catch (err) {
+    return { data, error };
+  } catch (err: any) {
     console.error('Logger error:', err);
+    return { data: null, error: err };
   }
 };

@@ -56,24 +56,42 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
 
   React.useEffect(() => {
     const fetchCats = async () => {
-      const { data } = await supabase
-        .from('system_settings')
-        .select('student_categories')
-        .eq('id', '00000000-0000-0000-0000-000000000000')
-        .single();
-      
-      const cats = data?.student_categories || [
+      let cats = [
         'آمادگی', 'صنف اول', 'صنف دوم', 'صنف سوم', 'صنف چهارم', 
         'صنف پنجم', 'صنف ششم', 'صنف هفتم', 'صنف هشتم', 
         'صنف نهم', 'صنف دهم', 'صنف یازدهم', 'صنف دوازدهم'
       ];
+
+      try {
+        if (isOnline) {
+          const { data } = await supabase
+            .from('system_settings')
+            .select('student_categories')
+            .eq('id', '00000000-0000-0000-0000-000000000000')
+            .single();
+          
+          if (data?.student_categories) {
+            cats = data.student_categories;
+          }
+        } else {
+          // Try to get from cache
+          const { offlineDb } = await import('../../lib/db');
+          const cached = await offlineDb.cache.where('collection').equals('system_settings').first();
+          if (cached?.data?.student_categories) {
+            cats = cached.data.student_categories;
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch categories, using defaults:', err);
+      }
+      
       setCategories(cats);
       if (cats.length > 0) {
         setFormData(prev => ({ ...prev, vehicle_type: cats[0] }));
       }
     };
     fetchCats();
-  }, []);
+  }, [isOnline]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -108,11 +126,11 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         license_number: formData.license_number // Maintain legacy field compatibility
       };
 
-      const { error: insertError, queued: isQueued } = await performAction(
+      const { data: insertedData, error: insertError, queued: isQueued } = await performAction(
         'students',
         'insert',
         studentData,
-        () => supabase.from('students').insert([studentData])
+        () => supabase.from('students').insert([studentData]).select().single()
       );
 
       if (insertError) throw insertError;
@@ -120,15 +138,17 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
 
       // Log activity
       if (user?.email) {
+        const logData = {
+          user_email: user.email,
+          action: 'create_student',
+          details: `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} با نمبر تذکره ${formData.license_number} ثبت گردید.`,
+          created_at: new Date().toISOString()
+        };
+
         await performAction(
           'activity_logs',
           'insert',
-          {
-            user_email: user.email,
-            action: 'create_student',
-            details: `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} با نمبر تذکره ${formData.license_number} ثبت گردید.`,
-            created_at: new Date().toISOString()
-          },
+          logData,
           () => logActivity(user.email!, 'create_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} ثبت گردید.`)
         );
       }

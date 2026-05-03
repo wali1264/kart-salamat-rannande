@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { offlineDb } from '../../lib/db';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import * as XLSX from 'xlsx';
@@ -27,6 +28,7 @@ export const FinancialManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [displayLimit, setDisplayLimit] = useState(5);
+  const [hasMore, setHasMore] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [historyStudent, setHistoryStudent] = useState<any | null>(null);
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
@@ -243,7 +245,7 @@ export const FinancialManagement: React.FC = () => {
             balance_remaining,
             notes
           )
-        `)
+        `, { count: 'exact' })
         .eq('type', mode);
 
       if (query) {
@@ -659,14 +661,14 @@ export const FinancialManagement: React.FC = () => {
             </div>
 
             {/* Pagination / Load More */}
-            {displayLimit < filteredStudents.length && (
+            {hasMore && (
               <div className="p-6 border-t border-slate-50 text-center print:hidden">
                 <button 
                   onClick={() => setDisplayLimit(prev => prev + 5)}
                   className="px-8 py-3 bg-slate-50 hover:bg-white text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 hover:shadow-md active:scale-95 flex items-center gap-2 mx-auto"
                 >
                   <ChevronDown className="w-4 h-4" />
-                  نمایش موارد بیشتر ({filteredStudents.length - displayLimit})
+                  نمایش موارد بیشتر +
                 </button>
               </div>
             )}

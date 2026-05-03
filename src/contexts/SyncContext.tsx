@@ -69,7 +69,20 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updatedAt: Date.now()
           });
         }
-        console.log(`Pre-cached ${students.length} students/teachers`);
+        // Pre-cache activity logs
+      const { data: logs } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100);
+      if (logs) {
+        for (const log of logs) {
+          await offlineDb.cache.put({
+            id: log.id,
+            collection: 'activity_logs',
+            data: log,
+            updatedAt: Date.now()
+          });
+        }
+      }
+
+      console.log(`Pre-cached data completed`);
       }
 
       // Pre-cache health cards
@@ -209,6 +222,22 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       status: 'pending',
       timestamp: Date.now()
     });
+
+    // ALSO update local cache so it appears in lists immediately
+    if (action === 'insert' || action === 'upsert' || action === 'update') {
+      const id = payload.id || payload.student_id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await offlineDb.cache.put({
+        id: id.toString(),
+        collection: table,
+        data: payload,
+        updatedAt: Date.now()
+      });
+    } else if (action === 'delete') {
+      const id = payload.id;
+      if (id) {
+        await offlineDb.cache.delete([table, id.toString()]);
+      }
+    }
     
     refreshQueueStatus();
     return { data: payload as T, error: null, queued: true } as any;

@@ -26,11 +26,13 @@ import { ViewHealthCard } from '../ViewHealthCard';
 import { EditDriverModal } from '../EditDriverModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
+import { useSync } from '../../contexts/SyncContext';
 import { logActivity } from '../../lib/logger';
 
 export const DriverList: React.FC = () => {
   const { user } = useAuth();
   const { mode, isTeacherMode } = useSystem();
+  const { performAction, isOnline } = useSync();
   const [drivers, setDrivers] = useState<(Driver & { health_cards: HealthCard[] })[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -76,18 +78,37 @@ export const DriverList: React.FC = () => {
     if (!window.confirm(`آیا از حذف این ${isTeacherMode ? 'معلم' : 'شاگرد'} اطمینان دارید؟`)) return;
     
     try {
-      const { error } = await supabase
-        .from('students')
-        .delete()
-        .eq('id', id);
+      const { error } = await performAction(
+        'students',
+        'delete',
+        { id },
+        () => supabase
+          .from('students')
+          .delete()
+          .eq('id', id)
+      );
       
       if (error) throw error;
 
       if (user?.email && driverToDelete) {
-        await logActivity(user.email, 'delete_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`);
+        await performAction(
+          'activity_logs',
+          'insert',
+          {
+            user_email: user.email,
+            action: 'delete_student',
+            details: `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`,
+            created_at: new Date().toISOString()
+          },
+          () => logActivity(user.email!, 'delete_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`)
+        );
       }
 
-      fetchDrivers(search);
+      if (isOnline) fetchDrivers(search);
+      else {
+        // Optimistic delete
+        setDrivers(prev => prev.filter(d => d.id !== id));
+      }
     } catch (err: any) {
       alert('خطا در حذف شاگرد: ' + err.message);
     }

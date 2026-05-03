@@ -270,7 +270,7 @@ export const FinancialManagement: React.FC = () => {
             'activity_logs',
             'insert',
             {
-              email: user.email,
+              user_email: user.email,
               action: 'payment',
               details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی (ویرایش شده) ثبت گردید.`,
               metadata: { payment_id: editingPayment.id, student_id: selectedStudent.id },
@@ -306,7 +306,7 @@ export const FinancialManagement: React.FC = () => {
             'activity_logs',
             'insert',
             {
-              email: user.email,
+              user_email: user.email,
               action: 'payment',
               details: `${isTeacherMode ? 'پرداخت حقوق معلم' : 'پرداخت فیس شاگرد'} ${selectedStudent.name} بابت ماه ${selectedMonth} به مبلغ ${amount} افغانی ثبت گردید.`,
               metadata: { payment_id: insertData?.id, student_id: selectedStudent.id },

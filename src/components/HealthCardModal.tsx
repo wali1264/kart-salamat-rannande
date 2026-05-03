@@ -78,7 +78,7 @@ export const HealthCardModal: React.FC<Props> = ({ isOpen, onClose, driver, isRe
           'activity_logs',
           'insert',
           {
-            email: profile.email,
+            user_email: profile.email,
             action: isRenewal ? 'renew_card' : 'issue_card',
             details: `کارت هویت برای ${isTeacherMode ? 'معلم' : 'شاگرد'} ${driver.name} ${isRenewal ? 'تمدید' : 'صادر'} گردید.`,
             metadata: { driver_id: driver.id }

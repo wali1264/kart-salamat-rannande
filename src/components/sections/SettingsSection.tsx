@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { useSync } from '../../contexts/SyncContext';
 import { compressImage } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
+  const { performAction, isOnline } = useSync();
   const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup' | 'support' | 'items'>('general');
   const [logoLoading, setLogoLoading] = useState(false);
   const [logos, setLogos] = useState({ main: '', mini: '' });
@@ -128,13 +130,18 @@ export const SettingsSection: React.FC = () => {
         updates.student_categories = categories;
       }
 
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert(updates);
+      const { error, queued } = await performAction(
+        'system_settings',
+        'upsert',
+        updates,
+        () => supabase
+          .from('system_settings')
+          .upsert(updates)
+      );
 
       if (error) throw error;
       
-      setSaveStatus('success');
+      setSaveStatus(queued ? 'queued' : 'success');
       setTimeout(() => setSaveStatus(null), 4000);
     } catch (err) {
       console.error('Error saving settings to Supabase:', err);
@@ -190,6 +197,18 @@ export const SettingsSection: React.FC = () => {
               <Check className="w-4 h-4" />
             </div>
             تغییرات با موفقیت در دیتابیس ثبت گردید
+          </motion.div>
+        )}
+        {saveStatus === 'queued' && (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-amber-50 text-amber-600 px-6 py-3 rounded-2xl flex items-center gap-3 font-black text-xs border-2 border-amber-100 shadow-sm"
+          >
+            <div className="w-6 h-6 bg-amber-500 text-white rounded-full flex items-center justify-center">
+              <Clock className="w-4 h-4" />
+            </div>
+            تغییرات در صف قرار گرفت و پس از اتصال ذخیره می‌شود
           </motion.div>
         )}
         {saveStatus === 'error' && (

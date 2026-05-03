@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Fingerprint, Lock, ShieldCheck, LogOut, Clock, User as UserIcon, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { useScanner } from '../../../hooks/useScanner';
 import { useSystem } from '../../../contexts/SystemContext';
+import { useSync } from '../../../contexts/SyncContext';
 import { supabase } from '../../../lib/supabase';
 
 interface Props {
@@ -15,6 +16,7 @@ type ScanStatus = 'ready' | 'identifying' | 'success' | 'error';
 
 export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) => {
   const { isTeacherMode } = useSystem();
+  const { performAction, isOnline } = useSync();
   const [status, setStatus] = useState<ScanStatus>('ready');
   const [matchedPerson, setMatchedPerson] = useState<any | null>(null);
   const [attendanceType, setAttendanceType] = useState<'entry' | 'exit' | 'present'>('entry');
@@ -143,22 +145,29 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
       }
 
       setMatchedPerson(person);
+      const actionLabel = finalType === 'entry' ? 'ورود' : finalType === 'exit' ? 'خروج' : 'حضور';
 
       // Record attendance
-      const { error: attError } = await supabase
-        .from('attendance')
-        .insert([{
-          student_id: person.id,
-          type: finalType === 'present' ? 'entry' : finalType,
-          recorded_at: new Date().toISOString(),
-          method: 'scanner'
-        }]);
+      const record = {
+        student_id: person.id,
+        type: finalType === 'present' ? 'entry' : finalType,
+        recorded_at: new Date().toISOString(),
+        method: 'scanner'
+      };
+
+      const { error: attError, queued } = await performAction(
+        'attendance',
+        'insert',
+        record,
+        () => supabase.from('attendance').insert([record])
+      );
 
       if (attError) throw attError;
 
       setStatus('success');
-      const actionLabel = finalType === 'entry' ? 'ورود' : finalType === 'exit' ? 'خروج' : 'حضور';
-      setMessage(`${actionLabel} شما با موفقیت ثبت شد.`);
+      setMessage(queued 
+        ? `${actionLabel} در صف انتظار ذخیره شد. پس از اتصال همگام می‌شود.` 
+        : `${actionLabel} شما با موفقیت ثبت شد.`);
       
       setTimeout(() => {
         setStatus('ready');

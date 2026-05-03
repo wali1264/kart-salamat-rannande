@@ -30,6 +30,8 @@ import { Auth } from './Auth';
 
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 
+import { InlineSyncStatus } from './InlineSyncStatus';
+
 type Section = 'home' | 'registration' | 'drivers' | 'finance' | 'attendance' | 'scanner' | 'settings' | 'auth';
 
 const SectionWrapper: React.FC<{ 
@@ -214,25 +216,8 @@ export const Landing: React.FC = () => {
               <Menu className="w-5 h-5 text-slate-600" />
             </button>
 
-            <div className="flex-1 max-w-xl mx-6 hidden md:block">
-              <form onSubmit={handleSearch} className="flex items-center gap-2 group">
-                <div className="relative flex-1">
-                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
-                  <input 
-                    type="text" 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={isTeacherMode ? "جستجوی سریع معلم (نمبر تذکره، نام...)" : "جستجوی سریع شاگرد (نمبر تذکره، نام...)"}
-                    className="w-full bg-white border border-slate-200 rounded-2xl py-3 pr-11 pl-4 text-xs focus:ring-2 focus:ring-blue-500/10 outline-none transition-all"
-                  />
-                </div>
-                <button 
-                  type="submit"
-                  className="bg-blue-600 text-white px-5 py-3 rounded-2xl font-bold text-xs hover:bg-blue-700 transition-all shadow-sm active:scale-95 cursor-pointer whitespace-nowrap"
-                >
-                  جستجو
-                </button>
-              </form>
+            <div className="flex-1 max-w-xl mx-6 hidden md:flex items-center justify-start">
+              <InlineSyncStatus />
             </div>
 
             <div className="flex items-center gap-4">

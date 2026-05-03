@@ -124,7 +124,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
           'activity_logs',
           'insert',
           {
-            email: user.email,
+            user_email: user.email,
             action: 'create_student',
             details: `${isTeacherMode ? 'معلم' : 'شاگرد'} جدید به نام ${formData.name} ثبت گردید.`,
             metadata: { student_id_no: formData.license_number },

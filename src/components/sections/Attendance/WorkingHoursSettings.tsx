@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Settings, Save, Clock, Info, CheckCircle2, AlertCircle, Search } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useSystem } from '../../../contexts/SystemContext';
+import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const WorkingHoursSettings: React.FC = () => {
   const { isTeacherMode } = useSystem();
+  const { performAction, isOnline } = useSync();
   const [loading, setLoading] = useState(true);
   const [people, setPeople] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,15 +77,20 @@ export const WorkingHoursSettings: React.FC = () => {
   const handleSaveHours = async (id: string, hours: number) => {
     setSaving(id);
     try {
-      const { error: err } = await supabase
-        .from('students')
-        .update({ standard_working_hours: hours })
-        .eq('id', id);
+      const { error: err, queued } = await performAction(
+        'students',
+        'update',
+        { id, standard_working_hours: hours },
+        () => supabase
+          .from('students')
+          .update({ standard_working_hours: hours })
+          .eq('id', id)
+      );
 
       if (err) throw err;
       
       setPeople(prev => prev.map(p => p.id === id ? { ...p, standard_working_hours: hours } : p));
-      setSuccess('تغییرات با موفقیت ذخیره شد');
+      setSuccess(queued ? 'تغییرات در صف قرار گرفت' : 'تغییرات با موفقیت ذخیره شد');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       setError(err.message || 'خطا در ذخیره‌سازی');

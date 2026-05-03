@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { Profile } from '../types';
+import { offlineDb } from '../lib/db';
 
 interface AuthContextType {
   user: User | null;
@@ -19,6 +20,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string, retries = 2) => {
+    // 1. Try to load from local cache first for instant UI response
+    try {
+      const cached = await offlineDb.cache.get(['profiles', userId]);
+      if (cached && !profile) {
+        console.log('Loaded profile from offline cache');
+        setProfile(cached.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load profile from cache:', err);
+    }
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -33,12 +45,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return fetchProfile(userId, retries - 1);
         }
         console.error('Error fetching profile:', error);
+        // We stay with cached profile if online fetch fails
         setLoading(false);
         return;
       }
       
       if (data) {
         setProfile(data);
+        // Update local cache
+        await offlineDb.cache.put({
+          id: userId,
+          collection: 'profiles',
+          data,
+          updatedAt: Date.now()
+        });
       }
     } catch (err) {
       console.error('Profile fetch failed:', err);

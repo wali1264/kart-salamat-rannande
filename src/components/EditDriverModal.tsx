@@ -6,6 +6,7 @@ import { compressImage } from '../lib/utils';
 import { Driver } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystem } from '../contexts/SystemContext';
+import { useSync } from '../contexts/SyncContext';
 import { logActivity } from '../lib/logger';
 import { useScanner } from '../hooks/useScanner';
 
@@ -19,6 +20,7 @@ interface Props {
 export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUpdate }) => {
   const { user } = useAuth();
   const { isTeacherMode } = useSystem();
+  const { performAction } = useSync();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,15 +101,30 @@ export const EditDriverModal: React.FC<Props> = ({ isOpen, onClose, driver, onUp
         license_number: formData.license_number
       };
 
-      const { error: updateError } = await supabase
-        .from('students')
-        .update(updateData)
-        .eq('id', driver.id);
+      const { error: updateError, queued } = await performAction(
+        'students',
+        'update',
+        { id: driver.id, ...updateData },
+        () => supabase
+          .from('students')
+          .update(updateData)
+          .eq('id', driver.id)
+      );
 
       if (updateError) throw updateError;
 
       if (user?.email) {
-        await logActivity(user.email, 'update_student', `مشخصات ${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${formData.name} بروزرسانی گردید.`);
+        await performAction(
+          'activity_logs',
+          'insert',
+          {
+            user_email: user.email,
+            action: 'update_student',
+            details: `مشخصات ${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${formData.name} بروزرسانی گردید.`,
+            created_at: new Date().toISOString()
+          },
+          () => logActivity(user.email!, 'update_student', `مشخصات ${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${formData.name} بروزرسانی گردید.`)
+        );
       }
 
       setSuccess(true);

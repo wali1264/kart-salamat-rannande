@@ -221,7 +221,7 @@ export const GradesManagement: React.FC = () => {
         () => supabase.from('subjects').insert(newSubject)
       );
       if (error) throw error;
-      setNewSubject({ name: '', level: '1' });
+      setNewSubject({ name: '', level: classes[0] });
       fetchSubjects();
     } catch (err) {
       alert('خطا در ثبت صنف/موضوع');
@@ -586,7 +586,7 @@ export const GradesManagement: React.FC = () => {
                         <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-50">
                            <div className="flex items-center gap-2">
                               <History className="w-3 h-3 text-slate-300" />
-                              <span className="text-[10px] font-black text-slate-400">{new Date(re.date).toLocaleDateString('fa-AF')}</span>
+                              <span className="text-[10px] font-black text-slate-400">{new Date(re.issue_date).toLocaleDateString('fa-AF')}</span>
                            </div>
                            <button onClick={() => deleteRecommendation(re.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-300 hover:text-rose-500 transition-all">
                               <Trash2 className="w-3 h-3" />

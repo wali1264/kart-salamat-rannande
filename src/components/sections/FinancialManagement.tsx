@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table, ChevronDown } from 'lucide-react';
+import { CreditCard, Search, DollarSign, Calendar, TrendingUp, User, Users, X, Info, CheckCircle2, History, TrendingDown, ShieldCheck, PlusCircle, Calculator, AlertCircle, Edit3, Trash2, Filter, ChevronLeft, ChevronRight, Download, Printer, FileText, Table, ChevronDown, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { offlineDb } from '../../lib/db';
 import { jsPDF } from 'jspdf';
@@ -204,7 +204,8 @@ export const FinancialManagement: React.FC = () => {
           filtered = filtered.filter(s => 
             s.name?.toLowerCase().includes(q) || 
             s.license_number?.toLowerCase().includes(q) ||
-            s.id_number?.toLowerCase().includes(q)
+            s.id_number?.toLowerCase().includes(q) ||
+            s.phone?.toLowerCase().includes(q)
           );
         }
 
@@ -249,7 +250,7 @@ export const FinancialManagement: React.FC = () => {
         .eq('type', mode);
 
       if (query) {
-        supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%`);
+        supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%,phone.ilike.%${query}%`);
       }
 
       const { data, count, error } = await supabaseQuery
@@ -665,9 +666,10 @@ export const FinancialManagement: React.FC = () => {
               <div className="p-6 border-t border-slate-50 text-center print:hidden">
                 <button 
                   onClick={() => setDisplayLimit(prev => prev + 5)}
-                  className="px-8 py-3 bg-slate-50 hover:bg-white text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 hover:shadow-md active:scale-95 flex items-center gap-2 mx-auto"
+                  disabled={loading}
+                  className="px-8 py-3 bg-slate-50 hover:bg-white text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 hover:shadow-md active:scale-95 flex items-center gap-2 mx-auto disabled:opacity-50"
                 >
-                  <ChevronDown className="w-4 h-4" />
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
                   نمایش موارد بیشتر +
                 </button>
               </div>

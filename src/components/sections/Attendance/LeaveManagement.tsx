@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, User, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Plus, Trash2, Home, Map, Edit2 } from 'lucide-react';
+import { Search, User, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Plus, Trash2, Home, Map, Edit2, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { offlineDb } from '../../../lib/db';
 import { useSystem } from '../../../contexts/SystemContext';
@@ -67,12 +67,18 @@ export const LeaveManagement: React.FC = () => {
 
   const fetchExistingHolidays = async () => {
     try {
-      const { data, error } = await supabase
-        .from('holidays')
-        .select('date');
-      if (error) throw error;
+      let holidaysData;
+      if (isOnline) {
+        const { data, error } = await supabase.from('holidays').select('date');
+        if (error) throw error;
+        holidaysData = data || [];
+      } else {
+        const cached = await offlineDb.cache.where('collection').equals('holidays').toArray();
+        holidaysData = cached.map(c => c.data);
+      }
+      
       const days = new Set<string>();
-      (data || []).forEach(h => days.add(h.date));
+      holidaysData.forEach((h: any) => days.add(h.date));
       setExistingHolidays(days);
     } catch (err) {
       console.error('Error fetching existing holidays:', err);
@@ -82,15 +88,21 @@ export const LeaveManagement: React.FC = () => {
   const fetchExistingLeaveDays = async () => {
     if (!selectedPerson) return;
     try {
-      const { data, error } = await supabase
-        .from('absences')
-        .select('start_date, end_date')
-        .eq('student_id', selectedPerson.id);
-      
-      if (error) throw error;
+      let leaveData;
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('absences')
+          .select('start_date, end_date')
+          .eq('student_id', selectedPerson.id);
+        if (error) throw error;
+        leaveData = data || [];
+      } else {
+        const cached = await offlineDb.cache.where('collection').equals('absences').toArray();
+        leaveData = cached.map(c => c.data).filter(a => a.student_id === selectedPerson.id);
+      }
       
       const days = new Set<string>();
-      (data || []).forEach(leave => {
+      leaveData.forEach((leave: any) => {
         let curr = new Date(leave.start_date);
         const end = new Date(leave.end_date);
         while (curr <= end) {
@@ -169,14 +181,22 @@ export const LeaveManagement: React.FC = () => {
     if (!selectedPerson) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('absences')
-        .select('*')
-        .eq('student_id', selectedPerson.id)
-        .order('start_date', { ascending: false });
-
-      if (error) throw error;
-      setHistory(data || []);
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('absences')
+          .select('*')
+          .eq('student_id', selectedPerson.id)
+          .order('start_date', { ascending: false });
+        if (error) throw error;
+        setHistory(data || []);
+      } else {
+        const cached = await offlineDb.cache.where('collection').equals('absences').toArray();
+        const filtered = cached
+          .map(c => c.data)
+          .filter(a => a.student_id === selectedPerson.id)
+          .sort((a, b) => new Date(b.start_date).getTime() - new Date(a.start_date).getTime());
+        setHistory(filtered);
+      }
     } catch (err) {
       console.error('Error fetching history:', err);
     } finally {
@@ -210,15 +230,24 @@ export const LeaveManagement: React.FC = () => {
       statsDate = setMonth(statsDate, viewMonth);
       const start = startOfMonth(statsDate);
       const end = endOfMonth(statsDate);
+      const startStr = start.toISOString().split('T')[0];
+      const endStr = end.toISOString().split('T')[0];
 
-      const { data, error } = await supabase
-        .from('holidays')
-        .select('*')
-        .gte('date', start.toISOString().split('T')[0])
-        .lte('date', end.toISOString().split('T')[0]);
-
-      if (error) throw error;
-      setHolidays(data || []);
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('holidays')
+          .select('*')
+          .gte('date', startStr)
+          .lte('date', endStr);
+        if (error) throw error;
+        setHolidays(data || []);
+      } else {
+        const cached = await offlineDb.cache.where('collection').equals('holidays').toArray();
+        const filtered = cached
+          .map(c => c.data)
+          .filter(h => h.date >= startStr && h.date <= endStr);
+        setHolidays(filtered);
+      }
     } catch (err) {
       console.error('Error fetching holidays:', err);
     } finally {
@@ -432,9 +461,11 @@ export const LeaveManagement: React.FC = () => {
           {hasMore && (
             <button 
               onClick={loadMore}
-              className="w-full py-4 text-xs font-black text-slate-400 hover:text-orange-600 transition-colors"
+              disabled={loading}
+              className="w-full py-4 text-xs font-black text-slate-400 hover:text-orange-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              بارگذاری بیشتر...
+              {loading && <Loader2 className="w-3 h-3 animate-spin" />}
+              {loading ? 'در حال بارگذاری...' : 'بارگذاری بیشتر...'}
             </button>
           )}
         </div>

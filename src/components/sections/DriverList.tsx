@@ -66,7 +66,8 @@ export const DriverList: React.FC = () => {
           filtered = filtered.filter(s => 
             s.name?.toLowerCase().includes(q) || 
             s.license_number?.toLowerCase().includes(q) ||
-            s.id_number?.toLowerCase().includes(q)
+            s.id_number?.toLowerCase().includes(q) ||
+            s.phone?.toLowerCase().includes(q)
           );
         }
 
@@ -98,7 +99,7 @@ export const DriverList: React.FC = () => {
       .eq('type', mode);
 
     if (query) {
-      supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%`);
+      supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%,phone.ilike.%${query}%`);
     }
 
     const { data, count, error } = await supabaseQuery
@@ -318,9 +319,10 @@ export const DriverList: React.FC = () => {
         <div className="flex justify-center pt-4">
           <button 
             onClick={() => setDisplayLimit(prev => prev + 5)}
-            className="px-8 py-3 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 shadow-sm flex items-center gap-3 active:scale-95"
+            disabled={loading}
+            className="px-8 py-3 bg-white hover:bg-slate-50 text-slate-500 font-bold text-xs rounded-2xl transition-all border border-slate-100 shadow-sm flex items-center gap-3 active:scale-95 disabled:opacity-50"
           >
-            <ChevronDown className="w-4 h-4" />
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
             مشاهده {isTeacherMode ? 'اساتید' : 'شاگردان'} بیشتر +
           </button>
         </div>

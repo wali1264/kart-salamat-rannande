@@ -95,8 +95,8 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Pre-cache subjects, grades and recommendations for offline query
-      const tables = ['subjects', 'grades', 'recommendations'];
+      // Pre-cache subjects, grades, recommendations, absences, and holidays for offline query
+      const tables = ['subjects', 'grades', 'recommendations', 'absences', 'holidays'];
       for (const table of tables) {
         const { data } = await supabase.from(table).select('*');
         if (data) {

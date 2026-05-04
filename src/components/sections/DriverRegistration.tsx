@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign, Fingerprint, WifiOff } from 'lucide-react';
+import { User, CreditCard, Hash, Phone, Upload, CheckCircle, AlertCircle, DollarSign, Fingerprint, WifiOff, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/utils';
 import { logActivity } from '../../lib/logger';
@@ -22,6 +22,8 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState(false);
+  const [idError, setIdError] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -34,6 +36,61 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     blood_type: 'نامعلوم',
     total_monthly_fee: '1500', // Default fee
   });
+
+  // Handle sequential ID generation on mount
+  React.useEffect(() => {
+    generateID();
+  }, [mode]);
+
+  const generateID = async () => {
+    setIsGenerating(true);
+    try {
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('students')
+          .select('license_number')
+          .eq('type', mode)
+          .order('license_number', { ascending: false })
+          .limit(1);
+        
+        if (error) throw error;
+
+        let nextId = 1000000; // Start from 1,000,000 for 7 digits
+        if (data && data.length > 0) {
+          const lastIdRaw = data[0].license_number;
+          const lastId = parseInt(lastIdRaw.replace(/\D/g, ''));
+          if (!isNaN(lastId)) {
+            nextId = Math.max(nextId, lastId + 1);
+          }
+        }
+        setFormData(prev => ({ ...prev, license_number: nextId.toString() }));
+      }
+    } catch (err) {
+      console.error('ID generation failed:', err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const checkDuplicateID = async (id: string) => {
+    if (!id || !isOnline) return;
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id')
+        .eq('license_number', id.trim())
+        .eq('type', mode)
+        .maybeSingle();
+      
+      if (data) {
+        setIdError('اين كد شناسایی قبلاً ثبت شده است و قابل استفاده مجدد نیست.');
+      } else {
+        setIdError(null);
+      }
+    } catch (err) {
+      console.error('Duplicate check failed:', err);
+    }
+  };
   const [photo, setPhoto] = useState<string | null>(null);
   const [fingerprints, setFingerprints] = useState<string[]>([]);
   const [activeFingerIndex, setActiveFingerIndex] = useState<number | null>(null);
@@ -364,18 +421,34 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                </div>
 
                <div className="space-y-2 text-right">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'کد شناسایی (Employee ID)' : 'نمبر اساس (Roll Number)'}</label>
+                  <div className="flex justify-between items-center mr-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isTeacherMode ? 'کد شناسایی (Employee ID)' : 'نمبر اساس (Roll Number)'}</label>
+                    {isGenerating && <Loader2 className="w-3 h-3 text-blue-500 animate-spin" />}
+                  </div>
                   <div className="relative">
-                    <CreditCard className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <CreditCard className={`absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 ${idError ? 'text-rose-500' : 'text-slate-400'}`} />
                     <input 
                       type="text" 
                       required
                       value={formData.license_number}
-                      onChange={(e) => setFormData({...formData, license_number: e.target.value})}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, ''); // Numbers only
+                        setFormData({...formData, license_number: val});
+                        checkDuplicateID(val);
+                      }}
                       placeholder={isTeacherMode ? "T-XXXX" : "SN-XXXX"}
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
+                      className={`w-full bg-slate-50 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 outline-none border transition-all text-right font-bold ${idError ? 'border-rose-500 ring-2 ring-rose-500/10 focus:ring-rose-500/20' : 'border-slate-100 focus:ring-blue-500/20 focus:border-blue-500 shadow-inner'}`}
                     />
                   </div>
+                  {idError && (
+                    <motion.p 
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[10px] text-rose-500 font-bold mr-1"
+                    >
+                      {idError}
+                    </motion.p>
+                  )}
                </div>
 
                <div className="space-y-2 text-right">
@@ -446,9 +519,10 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                )}
                <button 
                   type="submit" 
-                  disabled={loading}
+                  disabled={loading || !!idError}
                   className="bg-blue-900 hover:bg-blue-950 text-white font-bold py-4 px-12 rounded-xl shadow-xl shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 mr-auto"
                 >
+                  {loading && <Loader2 className="w-5 h-5 animate-spin" />}
                   {loading ? 'در حال ثبت...' : isTeacherMode ? 'ثبت معلم جدید +' : 'ثبت شاگرد جدید +'}
                 </button>
             </div>

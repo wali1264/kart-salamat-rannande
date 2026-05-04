@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   X,
   PlusCircle,
-  User as UserIcon
+  User as UserIcon,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -92,17 +93,37 @@ export const GradesManagement: React.FC = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('students').select('*').eq('type', 'student');
-      
-      if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,father_name.ilike.%${searchTerm}%,student_id_no.ilike.%${searchTerm}%`);
-      } else {
-        query = query.order('created_at', { ascending: false });
-      }
+      if (isOnline) {
+        let query = supabase.from('students').select('*').eq('type', 'student');
+        
+        if (searchTerm) {
+          query = query.or(`name.ilike.%${searchTerm}%,father_name.ilike.%${searchTerm}%,student_id_no.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`);
+        } else {
+          query = query.order('created_at', { ascending: false });
+        }
 
-      const { data, error } = await query.limit(displayCount);
-      if (error) throw error;
-      setStudents(data || []);
+        const { data, error } = await query.limit(displayCount);
+        if (error) throw error;
+        setStudents(data || []);
+      } else {
+        // Offline fetch from cache
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        let filtered = cached.map(c => c.data).filter(s => s.type === 'student');
+        
+        if (searchTerm) {
+          const q = searchTerm.toLowerCase();
+          filtered = filtered.filter(s => 
+            s.name?.toLowerCase().includes(q) || 
+            s.father_name?.toLowerCase().includes(q) || 
+            s.student_id_no?.toLowerCase().includes(q) ||
+            s.phone?.includes(q)
+          );
+        } else {
+          filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        }
+        
+        setStudents(filtered.slice(0, displayCount));
+      }
     } catch (err) {
       console.error('Fetch students error:', err);
     } finally {
@@ -112,9 +133,14 @@ export const GradesManagement: React.FC = () => {
 
   const fetchSubjects = async () => {
     try {
-      const { data, error } = await supabase.from('subjects').select('*').order('name');
-      if (error) throw error;
-      setSubjects(data || []);
+      if (isOnline) {
+        const { data, error } = await supabase.from('subjects').select('*').order('name');
+        if (error) throw error;
+        setSubjects(data || []);
+      } else {
+        const cached = await offlineDb.cache.where('collection').equals('subjects').toArray();
+        setSubjects(cached.map(c => c.data).sort((a, b) => a.name.localeCompare(b.name, 'fa')));
+      }
     } catch (err) {
       console.error('Fetch subjects error:', err);
     }
@@ -122,30 +148,55 @@ export const GradesManagement: React.FC = () => {
 
   const fetchStudentData = async (studentId: string) => {
     try {
-      const { data: recs, error: rError } = await supabase
-        .from('recommendations')
-        .select('*')
-        .eq('student_id', studentId)
-        .order('issue_date', { ascending: false });
-      if (rError) throw rError;
-      setRecommendations(recs || []);
+      if (isOnline) {
+        const { data: recs, error: rError } = await supabase
+          .from('recommendations')
+          .select('*')
+          .eq('student_id', studentId)
+          .order('issue_date', { ascending: false });
+        if (rError) throw rError;
+        setRecommendations(recs || []);
 
-      const { data: subjectsData, error: sError } = await supabase
-        .from('subjects')
-        .select('*')
-        .eq('level', selectedStudent?.class_name || students.find(s => s.id === studentId)?.class_name || '')
-        .order('name');
-      if (sError) throw sError;
-      setSubjects(subjectsData || []);
-      
-      const { data: grades, error: gError } = await supabase
-        .from('grades')
-        .select('*, subject:subjects(*)')
-        .eq('student_id', studentId)
-        .eq('academic_year', selectedYear);
-      if (gError) throw gError;
-      
-      setStudentGrades(grades || []);
+        const student = selectedStudent || students.find(s => s.id === studentId);
+        const { data: subjectsData, error: sError } = await supabase
+          .from('subjects')
+          .select('*')
+          .eq('level', student?.class_name || '')
+          .order('name');
+        if (sError) throw sError;
+        setSubjects(subjectsData || []);
+        
+        const { data: grades, error: gError } = await supabase
+          .from('grades')
+          .select('*, subject:subjects(*)')
+          .eq('student_id', studentId)
+          .eq('academic_year', selectedYear);
+        if (gError) throw gError;
+        
+        setStudentGrades(grades || []);
+      } else {
+        // Offline: Fetch from cache
+        const cachedRecs = await offlineDb.cache.where('collection').equals('recommendations').toArray();
+        setRecommendations(cachedRecs
+          .map(c => c.data)
+          .filter(r => r.student_id === studentId)
+          .sort((a, b) => new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime())
+        );
+
+        const cachedSubjects = await offlineDb.cache.where('collection').equals('subjects').toArray();
+        const student = selectedStudent || students.find(s => s.id === studentId);
+        const filteredSubjects = cachedSubjects.map(c => c.data).filter(s => s.level === student?.class_name);
+        setSubjects(filteredSubjects);
+
+        const cachedGrades = await offlineDb.cache.where('collection').equals('grades').toArray();
+        const filteredGrades = cachedGrades.map(c => c.data).filter(g => g.student_id === studentId && g.academic_year === selectedYear);
+        
+        // Map subjects to grades
+        setStudentGrades(filteredGrades.map(g => ({
+          ...g,
+          subject: cachedSubjects.map(c => c.data).find(s => s.id === g.subject_id)
+        })));
+      }
     } catch (err) {
       console.error('Fetch student data error:', err);
     }
@@ -326,8 +377,10 @@ export const GradesManagement: React.FC = () => {
           {!searchTerm && students.length >= displayCount && (
             <button 
               onClick={() => setDisplayCount(prev => prev + 5)}
-              className="w-full py-4 bg-white border border-slate-100 rounded-2xl text-slate-500 font-bold text-xs hover:bg-slate-50 transition-all"
+              disabled={loading}
+              className="w-full py-4 bg-white border border-slate-100 rounded-2xl text-slate-500 font-bold text-xs hover:bg-slate-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
             >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronDown className="w-4 h-4" />}
               مشاهده موارد بیشتر
             </button>
           )}

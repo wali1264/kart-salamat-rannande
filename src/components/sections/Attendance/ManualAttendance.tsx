@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Trash2, Edit2 } from 'lucide-react';
+import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { offlineDb } from '../../../lib/db';
 import { useSystem } from '../../../contexts/SystemContext';
@@ -147,7 +147,13 @@ export const ManualAttendance: React.FC = () => {
         
         if (searchQuery.trim()) {
           const val = searchQuery.trim().toLowerCase();
-          filtered = filtered.filter(s => s.name?.toLowerCase().includes(val) || s.id_number?.toLowerCase().includes(val));
+          filtered = filtered.filter(s => 
+            s.name?.toLowerCase().includes(val) || 
+            s.id_number?.toLowerCase().includes(val) ||
+            s.student_id_no?.toLowerCase().includes(val) ||
+            s.license_number?.toLowerCase().includes(val) ||
+            s.phone?.toLowerCase().includes(val)
+          );
         }
 
         // Sort by created_at descending
@@ -188,7 +194,7 @@ export const ManualAttendance: React.FC = () => {
 
       if (searchQuery.trim()) {
         const val = `%${searchQuery.trim()}%`;
-        query = query.or(`name.ilike.${val},id_number.ilike.${val}`);
+        query = query.or(`name.ilike.${val},id_number.ilike.${val},student_id_no.ilike.${val},license_number.ilike.${val},phone.ilike.${val}`);
       }
 
       const { data, error, count } = await query;
@@ -197,38 +203,63 @@ export const ManualAttendance: React.FC = () => {
       
       // Fetch stats for each person (unique presence days, working/attendance hours, absences and holidays this month)
       const peopleWithStats = await Promise.all((data || []).map(async (p) => {
-        let statsDate = new Date();
-        statsDate = setYear(statsDate, statsYear);
-        statsDate = setMonth(statsDate, statsMonth);
-        
-        const start = startOfMonth(statsDate);
-        const end = endOfMonth(statsDate);
+      let statsDate = new Date();
+      statsDate = setYear(statsDate, statsYear);
+      statsDate = setMonth(statsDate, statsMonth);
+      
+      const start = startOfMonth(statsDate);
+      const end = endOfMonth(statsDate);
 
+      let monthRecords, absenceRecords, holidayRecords;
+
+      if (isOnline) {
         // Fetch Attendance
-        const { data: monthRecords } = await supabase
+        const { data: mData } = await supabase
           .from('attendance')
           .select('recorded_at, type')
           .eq('student_id', p.id)
           .gte('recorded_at', start.toISOString())
           .lte('recorded_at', end.toISOString());
+        monthRecords = mData || [];
 
         // Fetch Absences (Leave)
-        const { data: absenceRecords } = await supabase
+        const { data: aData } = await supabase
           .from('absences')
           .select('start_date, end_date')
           .eq('student_id', p.id)
           .or(`start_date.lte.${end.toISOString().split('T')[0]},end_date.gte.${start.toISOString().split('T')[0]}`);
+        absenceRecords = aData || [];
 
         // Fetch Holidays
-        const { data: holidayRecords } = await supabase
+        const { data: hData } = await supabase
           .from('holidays')
           .select('date')
           .gte('date', start.toISOString().split('T')[0])
           .lte('date', end.toISOString().split('T')[0]);
+        holidayRecords = hData || [];
+      } else {
+        // Offline: Fetch from local cache
+        const cachedAttendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
+        monthRecords = cachedAttendance
+          .map(c => c.data)
+          .filter(a => a.student_id === p.id && new Date(a.recorded_at) >= start && new Date(a.recorded_at) <= end);
 
-        // Process Attendance records for statistics
-        const dailyRecords: Record<string, { entry?: Date; exit?: Date }> = {};
-        (monthRecords || []).forEach(r => {
+        const cachedAbsences = await offlineDb.cache.where('collection').equals('absences').toArray();
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+        absenceRecords = cachedAbsences
+          .map(c => c.data)
+          .filter(a => a.student_id === p.id && (a.start_date <= endStr && a.end_date >= startStr));
+
+        const cachedHolidays = await offlineDb.cache.where('collection').equals('holidays').toArray();
+        holidayRecords = cachedHolidays
+          .map(c => c.data)
+          .filter(h => h.date >= startStr && h.date <= endStr);
+      }
+
+      // Process Attendance records for statistics
+      const dailyRecords: Record<string, { entry?: Date; exit?: Date }> = {};
+      monthRecords.forEach((r: any) => {
           const d = new Date(r.recorded_at);
           const dateStr = format(d, 'yyyy-MM-dd');
           if (!dailyRecords[dateStr]) dailyRecords[dateStr] = {};
@@ -306,11 +337,19 @@ export const ManualAttendance: React.FC = () => {
         // Also check if they are present today
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
-        const { count: todayCount } = await supabase
-          .from('attendance')
-          .select('*', { count: 'exact', head: true })
-          .eq('student_id', p.id)
-          .gte('recorded_at', todayStart.toISOString());
+        
+        let todayCount = 0;
+        if (isOnline) {
+          const { count } = await supabase
+            .from('attendance')
+            .select('*', { count: 'exact', head: true })
+            .eq('student_id', p.id)
+            .gte('recorded_at', todayStart.toISOString());
+          todayCount = count || 0;
+        } else {
+          const cachedAttendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
+          todayCount = cachedAttendance.filter(c => c.data.student_id === p.id && new Date(c.data.recorded_at) >= todayStart).length;
+        }
         
         return { 
           ...p, 
@@ -320,7 +359,7 @@ export const ManualAttendance: React.FC = () => {
           absenceCount: totalAbsenceCount,
           totalHours: Math.round(totalHours * 10) / 10,
           netBalance: Math.round(netBalanceHours * 10) / 10,
-          isPresentToday: (todayCount || 0) > 0
+          isPresentToday: todayCount > 0
         };
       }));
 
@@ -571,8 +610,9 @@ export const ManualAttendance: React.FC = () => {
                 <button 
                   onClick={loadMore}
                   disabled={loading}
-                  className="w-full py-4 text-[10px] font-black text-blue-600 hover:bg-blue-50 rounded-2xl transition-all uppercase tracking-widest"
+                  className="w-full py-4 text-[10px] font-black text-blue-600 hover:bg-blue-50 rounded-2xl transition-all uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
                 >
+                  {loading && <Loader2 className="w-3 h-3 animate-spin" />}
                   {loading ? 'در حال بارگذاری...' : 'نمایش بیشتر +'}
                 </button>
               )}

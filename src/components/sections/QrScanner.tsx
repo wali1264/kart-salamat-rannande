@@ -30,15 +30,27 @@ export const QrScanner: React.FC = () => {
   const fetchAttendance = async (id: string, isMore = false) => {
     setAttendanceLoading(true);
     try {
-      // Find person first
-      const { data: people, error: pError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('type', isTeacherMode ? 'teacher' : 'student');
+      let person = null;
       
-      if (pError) throw pError;
-
-      const person = people?.find(p => p.student_id_no === id || p.id === id || p.id_number === id);
+      if (isOnline) {
+        // Find person - STRICT ID-only search for attendance tab to maintain privacy
+        const { data: people, error: pError } = await supabase
+          .from('students')
+          .select('*')
+          .eq('type', isTeacherMode ? 'teacher' : 'student')
+          .or(`student_id_no.eq.${id},license_number.eq.${id}`);
+        
+        if (pError) throw pError;
+        person = people?.[0];
+      } else {
+        // Offline: Check cache
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        person = cached.map(c => c.data).find(s => 
+          s.type === (isTeacherMode ? 'teacher' : 'student') && 
+          (s.student_id_no === id || s.license_number === id)
+        );
+      }
+      
       if (!person) {
         setAttendanceData(null);
         alert('شخصی با این کد شناسایی یافت نشد.');
@@ -52,16 +64,27 @@ export const QrScanner: React.FC = () => {
       startDate.setDate(startDate.getDate() - daysCount + 1);
       startDate.setHours(0, 0, 0, 0);
 
-      const { data: logs, error: lError } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('student_id', person.id)
-        .gte('recorded_at', startDate.toISOString())
-        .order('recorded_at', { ascending: false });
+      let logs = [];
+      if (isOnline) {
+        const { data, error: lError } = await supabase
+          .from('attendance')
+          .select('*')
+          .eq('student_id', person.id)
+          .gte('recorded_at', startDate.toISOString())
+          .order('recorded_at', { ascending: false });
 
-      if (lError) throw lError;
+        if (lError) throw lError;
+        logs = data || [];
+      } else {
+        // Offline: Fetch logs from cache
+        const cachedLogs = await offlineDb.cache.where('collection').equals('attendance').toArray();
+        logs = cachedLogs
+          .map(c => c.data)
+          .filter(l => l.student_id === person.id && new Date(l.recorded_at) >= startDate)
+          .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+      }
 
-      setAttendanceData({ person, logs: logs || [] });
+      setAttendanceData({ person, logs });
     } catch (err) {
       console.error('Fetch attendance error:', err);
     } finally {
@@ -116,37 +139,56 @@ export const QrScanner: React.FC = () => {
 
       setIsSearching(true);
       try {
-        // Advanced Search: Look up students by Name, ID, Phone, Father Name, Class
-        const { data: students, error: dError } = await supabase
-          .from('students')
-          .select(`*, health_cards(id, expiry_date)`)
-          .eq('type', mode)
-          .or(`name.ilike.%${q}%,student_id_no.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%,father_name.ilike.%${q}%,vehicle_type.ilike.%${q}%`)
-          .limit(5);
+        if (isOnline) {
+          // Advanced Search: Look up students by Name, ID, Phone, Father Name, Class
+          const { data: students, error: dError } = await supabase
+            .from('students')
+            .select(`*, health_cards(id, expiry_date)`)
+            .eq('type', mode)
+            .or(`name.ilike.%${q}%,student_id_no.ilike.%${q}%,license_number.ilike.%${q}%,license_plate.ilike.%${q}%,id_number.ilike.%${q}%,phone.ilike.%${q}%,father_name.ilike.%${q}%,vehicle_type.ilike.%${q}%`)
+            .limit(5);
 
-        // Also search by S/N directly in health_cards if query is short/alphanumeric
-        let snResults: any[] = [];
-        if (q.length >= 4 && /^[a-zA-Z0-9]+$/.test(q)) {
-          const { data: cards } = await supabase
-            .from('health_cards')
-            .select('*, students!inner(*)')
-            .ilike('id', `${q}%`)
-            .eq('students.type', mode)
-            .limit(3);
-          
-          if (cards) {
-            snResults = cards.map(c => ({
-              ...c.students,
-              health_cards: [{ id: c.id, expiry_date: c.expiry_date }]
-            }));
+          // Also search by S/N directly in health_cards if query is short/alphanumeric
+          let snResults: any[] = [];
+          if (q.length >= 4 && /^[a-zA-Z0-9]+$/.test(q)) {
+            const { data: cards } = await supabase
+              .from('health_cards')
+              .select('*, students!inner(*)')
+              .ilike('id', `${q}%`)
+              .eq('students.type', mode)
+              .limit(3);
+            
+            if (cards) {
+              snResults = cards.map(c => ({
+                ...c.students,
+                health_cards: [{ id: c.id, expiry_date: c.expiry_date }]
+              }));
+            }
           }
+
+          const combined = [...students || [], ...snResults];
+          // Remove duplicates by ID
+          const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+          setSuggestions(unique.slice(0, 6));
+        } else {
+          // Offline search in cache
+          const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+          const qLower = q.toLowerCase();
+          const filtered = cached
+            .map(c => c.data)
+            .filter(s => 
+              s.type === mode && 
+              (
+                normalize(s.name).includes(q) || 
+                s.student_id_no?.toLowerCase().includes(qLower) || 
+                s.license_number?.toLowerCase().includes(qLower) ||
+                s.phone?.includes(q) ||
+                normalize(s.father_name).includes(q)
+              )
+            )
+            .slice(0, 6);
+          setSuggestions(filtered);
         }
-
-        const combined = [...students || [], ...snResults];
-        // Remove duplicates by ID
-        const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-        setSuggestions(unique.slice(0, 6));
-
       } catch (err) {
         console.error("Search error:", err);
       } finally {
@@ -156,7 +198,7 @@ export const QrScanner: React.FC = () => {
 
     const timeoutId = setTimeout(fetchSuggestions, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchInput]);
+  }, [searchInput, isOnline, mode]);
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
@@ -222,11 +264,6 @@ export const QrScanner: React.FC = () => {
   }, [showScanner, cardData]);
 
   const verifyCard = async (query: string) => {
-    if (!isOnline) {
-      setError('ارتباط با سرور قطع است. استعلام در حالت آفلاین فعلاً فعال نیست.');
-      return;
-    }
-
     setLoading(true);
     setError(null);
     setScanStatus('idle');
@@ -242,52 +279,77 @@ export const QrScanner: React.FC = () => {
     }
     
     // Clean S/N patterns (e.g., 'A513345B-233' -> 'A513345B')
-    // We keep the prefix to match the start of the UUID
     const qClean = q.includes('-') ? q.split('-')[0].trim() : q.trim();
 
     try {
       let card = null;
 
-      // STEP 1: Search by all student fields
-      const { data: students, error: dError } = await supabase
-        .from('students')
-        .select('id, name')
-        .eq('type', mode)
-        .or(`name.ilike.%${qClean}%,student_id_no.ilike.%${qClean}%,license_number.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%,father_name.ilike.%${qClean}%,vehicle_type.ilike.%${qClean}%`);
+      if (isOnline) {
+        // STEP 1: Search by all student fields
+        const { data: students, error: dError } = await supabase
+          .from('students')
+          .select('id, name')
+          .eq('type', mode)
+          .or(`name.ilike.%${qClean}%,student_id_no.ilike.%${qClean}%,license_number.ilike.%${qClean}%,license_plate.ilike.%${qClean}%,id_number.ilike.%${qClean}%,phone.ilike.%${qClean}%,father_name.ilike.%${qClean}%,vehicle_type.ilike.%${qClean}%`);
 
-      if (dError) throw dError;
+        if (dError) throw dError;
 
-      let targetStudentId = null;
+        let targetStudentId = null;
 
-      if (students && students.length > 0) {
-        targetStudentId = students[0].id;
+        if (students && students.length > 0) {
+          targetStudentId = students[0].id;
+        } else {
+          const { data: allStudents } = await supabase.from('students').select('id').limit(100);
+          const match = allStudents?.find(d => d.id.toLowerCase().startsWith(qClean.toLowerCase()));
+          if (match) targetStudentId = match.id;
+        }
+
+        if (targetStudentId) {
+          const { data: cData } = await supabase
+            .from('health_cards')
+            .select('*, students!inner(*)')
+            .eq('student_id', targetStudentId)
+            .eq('students.type', mode)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          
+          if (cData && cData.length > 0) card = cData[0];
+        }
+
+        if (!card) {
+          const { data: directCard } = await supabase.from('health_cards').select('*, students!inner(*)').eq('students.type', mode).limit(100);
+          const cardMatch = directCard?.find(c => c.id.toLowerCase().startsWith(qClean.toLowerCase()));
+          if (cardMatch) card = cardMatch;
+        }
       } else {
-        const { data: allStudents } = await supabase.from('students').select('id').limit(100);
-        const match = allStudents?.find(d => d.id.toLowerCase().startsWith(qClean.toLowerCase()));
-        if (match) targetStudentId = match.id;
-      }
+        // OFFLINE VERIFICATION
+        const cachedStudents = await offlineDb.cache.where('collection').equals('students').toArray();
+        const student = cachedStudents.map(c => c.data).find(s => 
+          s.type === mode && 
+          (
+            normalize(s.name).includes(qClean) || 
+            s.student_id_no === qClean || 
+            s.license_number === qClean ||
+            s.id.startsWith(qClean)
+          )
+        );
 
-      if (targetStudentId) {
-        const { data: cData } = await supabase
-          .from('health_cards')
-          .select('*, students!inner(*)')
-          .eq('driver_id', targetStudentId)
-          .eq('students.type', mode)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        
-        if (cData && cData.length > 0) card = cData[0];
-      }
-
-      if (!card) {
-        const { data: directCard } = await supabase.from('health_cards').select('*, students!inner(*)').eq('students.type', mode).limit(100);
-        const cardMatch = directCard?.find(c => c.id.toLowerCase().startsWith(qClean.toLowerCase()));
-        if (cardMatch) card = cardMatch;
+        if (student) {
+          const cachedCards = await offlineDb.cache.where('collection').equals('health_cards').toArray();
+          const studentCard = cachedCards
+            .map(c => c.data)
+            .filter(c => c.student_id === student.id)
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+          
+          if (studentCard) {
+            card = { ...studentCard, students: student };
+          }
+        }
       }
 
       if (!card) {
         setScanStatus('fake');
-        throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است یا با این مشخصات شاگردی وجود ندارد.');
+        throw new Error('کارت در سیستم یافت نشد. این کارت جعلی است یا اطلاعات آن ثبت نشده است.');
       }
 
       const isExpired = new Date(card.expiry_date) < new Date();
@@ -350,38 +412,71 @@ export const QrScanner: React.FC = () => {
   };
 
   const fetchGradeData = async (studentIdNo: string) => {
-    if (!studentIdNo || !isOnline) return;
+    if (!studentIdNo) return;
     setGradeLoading(true);
     setGradeData(null);
     try {
-      // 1. Find student by ID No
-      const { data: student, error: sError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('student_id_no', studentIdNo.trim())
-        .eq('type', 'student')
-        .maybeSingle();
+      let student = null;
+      if (isOnline) {
+        // 1. Find student by ID No
+        const { data, error: sError } = await supabase
+          .from('students')
+          .select('*')
+          .eq('student_id_no', studentIdNo.trim())
+          .eq('type', 'student')
+          .maybeSingle();
 
-      if (sError) throw sError;
+        if (sError) throw sError;
+        student = data;
+      } else {
+        // Check offline cache
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        student = cached.map(c => c.data).find(s => s.student_id_no === studentIdNo.trim() && s.type === 'student');
+      }
+
       if (!student) throw new Error('شاگردی با این کد شناسایی یافت نشد.');
 
       // 2. Fetch grades and recommendations
-      const { data: grades } = await supabase
-        .from('grades')
-        .select('*, subject:subjects(*)')
-        .eq('student_id', student.id)
-        .eq('academic_year', selectedYear);
+      let grades = [];
+      let recs = [];
 
-      const { data: recs } = await supabase
-        .from('recommendations')
-        .select('*')
-        .eq('student_id', student.id)
-        .order('issue_date', { ascending: false });
+      if (isOnline) {
+        const { data: gData } = await supabase
+          .from('grades')
+          .select('*, subject:subjects(*)')
+          .eq('student_id', student.id)
+          .eq('academic_year', selectedYear);
+        grades = gData || [];
+
+        const { data: rData } = await supabase
+          .from('recommendations')
+          .select('*')
+          .eq('student_id', student.id)
+          .order('issue_date', { ascending: false });
+        recs = rData || [];
+      } else {
+        // Fetch from cache
+        const cachedGrades = await offlineDb.cache.where('collection').equals('grades').toArray();
+        grades = cachedGrades.map(c => c.data).filter(g => g.student_id === student.id && g.academic_year === selectedYear);
+        
+        // Match with subjects from cache for display
+        const cachedSubjects = await offlineDb.cache.where('collection').equals('subjects').toArray();
+        grades = grades.map(g => ({
+          ...g,
+          subject: cachedSubjects.map(c => c.data).find(s => s.id === g.subject_id)
+        }));
+
+        const cachedRecs = await offlineDb.cache.where('collection').equals('recommendations').toArray();
+        recs = cachedRecs
+          .map(c => c.data)
+          .filter(r => r.student_id === student.id)
+          .sort((a, b) => new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime());
+      }
 
       setGradeData({
         student,
-        grades: grades || [],
-        recommendations: recs || []
+        grades,
+        recommendations: recs
       });
     } catch (err: any) {
       alert(err.message);
@@ -903,9 +998,10 @@ export const QrScanner: React.FC = () => {
 
                    <button 
                     onClick={() => fetchAttendance(attendanceInput, true)}
-                    className="w-full mt-6 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-all font-black text-xs flex items-center justify-center gap-2"
+                    disabled={attendanceLoading}
+                    className="w-full mt-6 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-all font-black text-xs flex items-center justify-center gap-2 disabled:opacity-50"
                    >
-                     <Clock className="w-4 h-4" />
+                     {attendanceLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
                      نمایش رکوردهای بیشتر (هفته قبل)
                    </button>
                 </div>

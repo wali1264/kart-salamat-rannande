@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Clock, Info, CheckCircle2, AlertCircle, Search } from 'lucide-react';
+import { Settings, Save, Clock, Info, CheckCircle2, AlertCircle, Search, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useSystem } from '../../../contexts/SystemContext';
 import { useSync } from '../../../contexts/SyncContext';
@@ -197,8 +197,10 @@ export const WorkingHoursSettings: React.FC = () => {
             {hasMore && (
               <button 
                 onClick={() => setLimit(prev => prev + 10)}
-                className="w-full py-4 mt-4 bg-slate-50 text-slate-500 rounded-2xl text-xs font-black hover:bg-slate-100 transition-all"
+                disabled={loading}
+                className="w-full py-4 mt-4 bg-slate-50 text-slate-500 rounded-2xl text-xs font-black hover:bg-slate-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
+                {loading && <Loader2 className="w-3 h-3 animate-spin" />}
                 بارگذاری موارد بیشتر...
               </button>
             )}

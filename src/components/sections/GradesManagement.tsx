@@ -82,7 +82,7 @@ export const GradesManagement: React.FC = () => {
   const [showRecForm, setShowRecForm] = useState(false);
 
   // Subject Management State
-  const [newSubject, setNewSubject] = useState({ name: '', level: '1' });
+  const [newSubject, setNewSubject] = useState({ name: '', level: classes[0] });
 
   useEffect(() => {
     fetchStudents();
@@ -136,6 +136,7 @@ export const GradesManagement: React.FC = () => {
         .eq('level', selectedStudent?.class_name || students.find(s => s.id === studentId)?.class_name || '')
         .order('name');
       if (sError) throw sError;
+      setSubjects(subjectsData || []);
       
       const { data: grades, error: gError } = await supabase
         .from('grades')

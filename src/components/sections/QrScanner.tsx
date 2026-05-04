@@ -17,11 +17,69 @@ export const QrScanner: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showScanner, setShowScanner] = useState(false);
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'expired' | 'fake'>('idle');
-  const [activeTab, setActiveTab] = useState<'scan' | 'announcements' | 'grades'>('scan');
+  const [activeTab, setActiveTab] = useState<'scan' | 'announcements' | 'grades' | 'attendance'>('scan');
   const [announcement, setAnnouncement] = useState<{ text: string, images: string[] } | null>(null);
   const [gradeSearchInput, setGradeSearchInput] = useState('');
   const [gradeData, setGradeData] = useState<{ student: any, grades: any[], recommendations: any[] } | null>(null);
+  const [attendanceInput, setAttendanceInput] = useState('');
+  const [attendanceData, setAttendanceData] = useState<{ person: any, logs: any[] } | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [weeksToShow, setWeeksToShow] = useState(1);
   const [gradeLoading, setGradeLoading] = useState(false);
+
+  const fetchAttendance = async (id: string, isMore = false) => {
+    setAttendanceLoading(true);
+    try {
+      // Find person first
+      const { data: people, error: pError } = await supabase
+        .from('students')
+        .select('*')
+        .eq('type', isTeacherMode ? 'teacher' : 'student');
+      
+      if (pError) throw pError;
+
+      const person = people?.find(p => p.student_id_no === id || p.id === id || p.id_number === id);
+      if (!person) {
+        setAttendanceData(null);
+        alert('شخصی با این کد شناسایی یافت نشد.');
+        return;
+      }
+
+      const daysCount = (isMore ? weeksToShow + 1 : 1) * 7;
+      if (isMore) setWeeksToShow(weeksToShow + 1);
+
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - daysCount + 1);
+      startDate.setHours(0, 0, 0, 0);
+
+      const { data: logs, error: lError } = await supabase
+        .from('attendance')
+        .select('*')
+        .eq('student_id', person.id)
+        .gte('recorded_at', startDate.toISOString())
+        .order('recorded_at', { ascending: false });
+
+      if (lError) throw lError;
+
+      setAttendanceData({ person, logs: logs || [] });
+    } catch (err) {
+      console.error('Fetch attendance error:', err);
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const getAttendanceForDay = (date: Date) => {
+    if (!attendanceData) return null;
+    const dateStr = date.toISOString().split('T')[0];
+    const dayLogs = attendanceData.logs.filter(l => l.recorded_at.startsWith(dateStr));
+    
+    return {
+      entry: dayLogs.find(l => l.type === 'entry')?.recorded_at,
+      exit: dayLogs.find(l => l.type === 'exit')?.recorded_at,
+      present: dayLogs.find(l => l.type === 'present')?.recorded_at
+    };
+  };
   const jalaliYears = ['۱۴۰۵', '۱۴۰۶', '۱۴۰۷', '۱۴۰۸', '۱۴۰۹', '۱۴۱۰'];
   const [selectedYear, setSelectedYear] = useState(jalaliYears[0]);
   const [fingerprintMode, setFingerprintMode] = useState(false);
@@ -355,6 +413,13 @@ export const QrScanner: React.FC = () => {
         >
           <Bell className="w-4 h-4" />
           اعلانات مکتب
+        </button>
+        <button 
+          onClick={() => setActiveTab('attendance')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'attendance' ? 'bg-white text-blue-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
+        >
+          <Calendar className="w-4 h-4" />
+          استعلام حضور
         </button>
         {!isTeacherMode && (
           <button 
@@ -707,6 +772,144 @@ export const QrScanner: React.FC = () => {
                 <Bell className="w-16 h-16 text-slate-100 mx-auto mb-4" />
                 <p className="text-slate-400 font-bold">در حال حاضر اعلانی موجود نیست</p>
               </div>
+            )}
+          </motion.div>
+        ) : activeTab === 'attendance' ? (
+          <motion.div
+            key="attendance"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="space-y-6 pb-20"
+          >
+            <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-xl">
+              <div className="flex flex-col items-center gap-4 text-center mb-8">
+                <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center">
+                  <Calendar className="w-8 h-8 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-slate-800">استعلام حضور و غیاب</h3>
+                  <p className="text-xs font-bold text-slate-400 mt-1">مشاهده زمان ورود و خروج هفتگی</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input 
+                    type="text"
+                    value={attendanceInput}
+                    onChange={(e) => setAttendanceInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && fetchAttendance(attendanceInput)}
+                    placeholder={isTeacherMode ? "کد شناسایی استاد را وارد کنید..." : "نمبر اساس شاگرد را وارد کنید..."}
+                    className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 pr-14 pl-6 text-sm outline-none focus:border-blue-500 shadow-inner text-right font-black"
+                  />
+                </div>
+                <button 
+                  onClick={() => fetchAttendance(attendanceInput)}
+                  disabled={attendanceLoading}
+                  className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-blue-100 active:scale-95 transition-all flex items-center justify-center gap-3"
+                >
+                  {attendanceLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'نمایش گزارش حضور'}
+                </button>
+              </div>
+            </div>
+
+            {attendanceData && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="space-y-6"
+              >
+                <div className="bg-white p-8 rounded-[3rem] border border-slate-100 shadow-2xl relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16" />
+                   
+                   <div className="flex items-center gap-6 mb-8 relative z-10">
+                      <div className="w-20 h-28 bg-slate-100 rounded-2xl overflow-hidden border-2 border-white shadow-xl">
+                        {attendanceData.person.photo_url ? (
+                          <img src={attendanceData.person.photo_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <UserIcon className="w-10 h-10 text-slate-300 mx-auto mt-8" />
+                        )}
+                      </div>
+                      <div className="text-right flex-1">
+                        <h4 className="text-2xl font-black text-slate-800 leading-tight">{attendanceData.person.name}</h4>
+                        <p className="text-sm font-bold text-slate-400">فرزند: {attendanceData.person.father_name}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                           <span className="bg-slate-100 text-slate-600 text-[10px] font-black px-3 py-1 rounded-lg uppercase">{attendanceData.person.class_name || attendanceData.person.vehicle_type}</span>
+                           <span className="bg-blue-50 text-blue-600 text-[10px] font-black px-3 py-1 rounded-lg border border-blue-100 uppercase">S/N: {attendanceData.person.student_id_no || attendanceData.person.license_number}</span>
+                        </div>
+                      </div>
+                   </div>
+
+                   <div className="overflow-hidden rounded-3xl border border-slate-100">
+                      <table className="w-full text-right">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase">روز و تاریخ</th>
+                            <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase text-center">{isTeacherMode ? 'ورود استاد' : 'ورود شاگرد'}</th>
+                            <th className="px-4 py-4 text-[10px] font-black text-slate-400 uppercase text-center">{isTeacherMode ? 'خروج استاد' : 'خروج شاگرد'}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {Array.from({ length: 7 * weeksToShow }).map((_, i) => {
+                            const date = new Date();
+                            date.setDate(date.getDate() - i);
+                            const records = getAttendanceForDay(date);
+                            const isToday = i === 0;
+                            const dayName = date.toLocaleDateString('fa-AF', { weekday: 'long' });
+                            const dateStr = date.toLocaleDateString('fa-AF', { day: 'numeric', month: 'long' });
+
+                            return (
+                              <tr key={i} className={`group transition-colors ${isToday ? 'bg-orange-50/50' : 'hover:bg-slate-50'}`}>
+                                <td className="px-4 py-4">
+                                  <div className="flex flex-col">
+                                    <span className={`text-sm font-black ${isToday ? 'text-orange-600' : 'text-slate-700'}`}>
+                                      {dayName} {isToday && '(امروز)'}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-bold">{dateStr}</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-4 text-center">
+                                  {records?.entry || records?.present ? (
+                                    <div className="flex flex-col items-center">
+                                       <span className="bg-emerald-100 text-emerald-700 text-[11px] font-black px-3 py-1 rounded-full border border-emerald-200">
+                                          {new Date(records.entry || records.present!).toLocaleTimeString('fa-AF', { hour: '2-digit', minute: '2-digit' })}
+                                       </span>
+                                       <span className="text-[9px] text-emerald-500 font-bold mt-1">تایید شد</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-300 font-bold italic">ثبت نشده</span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-4 text-center">
+                                  {records?.exit ? (
+                                    <div className="flex flex-col items-center">
+                                       <span className="bg-rose-100 text-rose-700 text-[11px] font-black px-3 py-1 rounded-full border border-rose-200">
+                                          {new Date(records.exit).toLocaleTimeString('fa-AF', { hour: '2-digit', minute: '2-digit' })}
+                                       </span>
+                                       <span className="text-[9px] text-rose-500 font-bold mt-1">خروج ثبت شد</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-300 font-bold italic">ثبت نشده</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                   </div>
+
+                   <button 
+                    onClick={() => fetchAttendance(attendanceInput, true)}
+                    className="w-full mt-6 py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-all font-black text-xs flex items-center justify-center gap-2"
+                   >
+                     <Clock className="w-4 h-4" />
+                     نمایش رکوردهای بیشتر (هفته قبل)
+                   </button>
+                </div>
+              </motion.div>
             )}
           </motion.div>
         ) : (

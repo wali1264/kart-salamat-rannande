@@ -45,26 +45,37 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const generateID = async () => {
     setIsGenerating(true);
     try {
+      let maxId = 1000000;
+
+      // 1. Check Offline Cache first
+      const { offlineDb } = await import('../../lib/db');
+      const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+      const cachedMax = cached.reduce((max, item) => {
+        const idRaw = item.data.license_number || item.data.student_id_no || '';
+        const idNum = parseInt(idRaw.replace(/\D/g, ''));
+        return !isNaN(idNum) ? Math.max(max, idNum) : max;
+      }, 0);
+      
+      maxId = Math.max(maxId, cachedMax);
+
+      // 2. Check Online if available
       if (isOnline) {
         const { data, error } = await supabase
           .from('students')
           .select('license_number')
-          .eq('type', mode)
           .order('license_number', { ascending: false })
           .limit(1);
         
-        if (error) throw error;
-
-        let nextId = 1000000; // Start from 1,000,000 for 7 digits
-        if (data && data.length > 0) {
+        if (!error && data && data.length > 0) {
           const lastIdRaw = data[0].license_number;
           const lastId = parseInt(lastIdRaw.replace(/\D/g, ''));
           if (!isNaN(lastId)) {
-            nextId = Math.max(nextId, lastId + 1);
+            maxId = Math.max(maxId, lastId);
           }
         }
-        setFormData(prev => ({ ...prev, license_number: nextId.toString() }));
       }
+
+      setFormData(prev => ({ ...prev, license_number: (maxId + 1).toString() }));
     } catch (err) {
       console.error('ID generation failed:', err);
     } finally {
@@ -73,17 +84,35 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   };
 
   const checkDuplicateID = async (id: string) => {
-    if (!id || !isOnline) return;
+    if (!id) return;
+    const cleanId = id.trim();
+    
     try {
-      const { data, error } = await supabase
-        .from('students')
-        .select('id')
-        .eq('license_number', id.trim())
-        .eq('type', mode)
-        .maybeSingle();
-      
-      if (data) {
-        setIdError('اين كد شناسایی قبلاً ثبت شده است و قابل استفاده مجدد نیست.');
+      // 1. Check Offline Cache
+      const { offlineDb } = await import('../../lib/db');
+      const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+      const isDuplicateOffline = cached.some(item => 
+        (item.data.license_number === cleanId || item.data.student_id_no === cleanId)
+      );
+
+      if (isDuplicateOffline) {
+        setIdError('اين كد شناسایی در حافظه محلی (آفلاین) ثبت شده است.');
+        return;
+      }
+
+      // 2. Check Online
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('students')
+          .select('id')
+          .eq('license_number', cleanId)
+          .maybeSingle();
+        
+        if (data) {
+          setIdError('اين كد شناسایی قبلاً در پایگاه داده ثبت شده است.');
+        } else {
+          setIdError(null);
+        }
       } else {
         setIdError(null);
       }

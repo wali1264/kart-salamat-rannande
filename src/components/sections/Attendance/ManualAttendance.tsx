@@ -140,33 +140,30 @@ export const ManualAttendance: React.FC = () => {
     if (reset) setLimit(5);
     else setLimit(currentLimit);
 
-    if (!isOnline) {
-      try {
-        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
-        let filtered = cached.map(c => c.data).filter(s => s.type === (isTeacherMode ? 'teacher' : 'student'));
-        
-        if (searchQuery.trim()) {
-          const val = searchQuery.trim().toLowerCase();
-          filtered = filtered.filter(s => 
-            s.name?.toLowerCase().includes(val) || 
-            s.id_number?.toLowerCase().includes(val) ||
-            s.student_id_no?.toLowerCase().includes(val) ||
-            s.license_number?.toLowerCase().includes(val) ||
-            s.phone?.toLowerCase().includes(val)
-          );
-        }
+    // ALWAYS try to get initial data from cache for immediate display (Offline-First)
+    let cachedData: any[] = [];
+    try {
+      const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+      cachedData = cached.map(c => c.data).filter(s => s.type === (isTeacherMode ? 'teacher' : 'student'));
+      
+      if (searchQuery.trim()) {
+        const val = searchQuery.trim().toLowerCase();
+        cachedData = cachedData.filter(s => 
+          s.name?.toLowerCase().includes(val) || 
+          s.id_number?.toLowerCase().includes(val) ||
+          s.student_id_no?.toLowerCase().includes(val) ||
+          s.license_number?.toLowerCase().includes(val) ||
+          s.phone?.toLowerCase().includes(val)
+        );
+      }
 
-        // Sort by created_at descending
-        filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
-        const hasMoreData = filtered.length > currentLimit;
-        const pageData = filtered.slice(0, currentLimit);
-
-        const results = await Promise.all(pageData.map(async (p) => {
-          // Approximate stats from cache for offline
+      cachedData.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      
+      // If offline, set this immediately
+      if (!isOnline) {
+        const results = await Promise.all(cachedData.slice(0, currentLimit).map(async (p) => {
           const attendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
           const studentAttendance = attendance.map(a => a.data).filter(a => a.student_id === p.id);
-          
           return {
             ...p,
             attendanceCount: studentAttendance.length,
@@ -174,15 +171,16 @@ export const ManualAttendance: React.FC = () => {
             isPresentToday: studentAttendance.some(a => new Date(a.recorded_at) >= new Date(new Date().setHours(0,0,0,0)))
           };
         }));
-
         setPeople(results);
-        setHasMore(hasMoreData);
+        setHasMore(cachedData.length > currentLimit);
         setLoading(false);
-        return;
-      } catch (err) {
-        console.warn('Offline fetch failed:', err);
+        if (!reset) return; // Only stop if it's a "load more" and we are offline
       }
+    } catch (err) {
+      console.warn('Cache fetch failed:', err);
     }
+
+    if (!isOnline) return;
 
     try {
       let query = supabase
@@ -198,64 +196,68 @@ export const ManualAttendance: React.FC = () => {
       }
 
       const { data, error, count } = await query;
-
       if (error) throw error;
       
-      // Fetch stats for each person (unique presence days, working/attendance hours, absences and holidays this month)
       const peopleWithStats = await Promise.all((data || []).map(async (p) => {
-      let statsDate = new Date();
-      statsDate = setYear(statsDate, statsYear);
-      statsDate = setMonth(statsDate, statsMonth);
-      
-      const start = startOfMonth(statsDate);
-      const end = endOfMonth(statsDate);
+        // Update local cache for this person
+        await offlineDb.cache.put({
+          id: p.id,
+          collection: 'students',
+          data: p,
+          updatedAt: Date.now()
+        });
 
-      let monthRecords, absenceRecords, holidayRecords;
+        let statsDate = new Date();
+        statsDate = setYear(statsDate, statsYear);
+        statsDate = setMonth(statsDate, statsMonth);
+        
+        const start = startOfMonth(statsDate);
+        const end = endOfMonth(statsDate);
 
-      if (isOnline) {
-        // Fetch Attendance
-        const { data: mData } = await supabase
-          .from('attendance')
-          .select('recorded_at, type')
-          .eq('student_id', p.id)
-          .gte('recorded_at', start.toISOString())
-          .lte('recorded_at', end.toISOString());
-        monthRecords = mData || [];
+        // Try online fetch for stats, but fallback to cache if needed
+        let monthRecords, absenceRecords, holidayRecords;
+        
+        try {
+          const { data: mData } = await supabase
+            .from('attendance')
+            .select('recorded_at, type')
+            .eq('student_id', p.id)
+            .gte('recorded_at', start.toISOString())
+            .lte('recorded_at', end.toISOString());
+          monthRecords = mData || [];
 
-        // Fetch Absences (Leave)
-        const { data: aData } = await supabase
-          .from('absences')
-          .select('start_date, end_date')
-          .eq('student_id', p.id)
-          .or(`start_date.lte.${end.toISOString().split('T')[0]},end_date.gte.${start.toISOString().split('T')[0]}`);
-        absenceRecords = aData || [];
+          const { data: aData } = await supabase
+            .from('absences')
+            .select('start_date, end_date')
+            .eq('student_id', p.id)
+            .or(`start_date.lte.${end.toISOString().split('T')[0]},end_date.gte.${start.toISOString().split('T')[0]}`);
+          absenceRecords = aData || [];
 
-        // Fetch Holidays
-        const { data: hData } = await supabase
-          .from('holidays')
-          .select('date')
-          .gte('date', start.toISOString().split('T')[0])
-          .lte('date', end.toISOString().split('T')[0]);
-        holidayRecords = hData || [];
-      } else {
-        // Offline: Fetch from local cache
-        const cachedAttendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
-        monthRecords = cachedAttendance
-          .map(c => c.data)
-          .filter(a => a.student_id === p.id && new Date(a.recorded_at) >= start && new Date(a.recorded_at) <= end);
+          const { data: hData } = await supabase
+            .from('holidays')
+            .select('date')
+            .gte('date', start.toISOString().split('T')[0])
+            .lte('date', end.toISOString().split('T')[0]);
+          holidayRecords = hData || [];
+        } catch (sErr) {
+          console.warn('Stats fetch failed, using cache:', sErr);
+          const cachedAttendance = await offlineDb.cache.where('collection').equals('attendance').toArray();
+          monthRecords = cachedAttendance
+            .map(c => c.data)
+            .filter(a => a.student_id === p.id && new Date(a.recorded_at) >= start && new Date(a.recorded_at) <= end);
 
-        const cachedAbsences = await offlineDb.cache.where('collection').equals('absences').toArray();
-        const startStr = start.toISOString().split('T')[0];
-        const endStr = end.toISOString().split('T')[0];
-        absenceRecords = cachedAbsences
-          .map(c => c.data)
-          .filter(a => a.student_id === p.id && (a.start_date <= endStr && a.end_date >= startStr));
+          const cachedAbsences = await offlineDb.cache.where('collection').equals('absences').toArray();
+          const startStr = start.toISOString().split('T')[0];
+          const endStr = end.toISOString().split('T')[0];
+          absenceRecords = cachedAbsences
+            .map(c => c.data)
+            .filter(a => a.student_id === p.id && (a.start_date <= endStr && a.end_date >= startStr));
 
-        const cachedHolidays = await offlineDb.cache.where('collection').equals('holidays').toArray();
-        holidayRecords = cachedHolidays
-          .map(c => c.data)
-          .filter(h => h.date >= startStr && h.date <= endStr);
-      }
+          const cachedHolidays = await offlineDb.cache.where('collection').equals('holidays').toArray();
+          holidayRecords = cachedHolidays
+            .map(c => c.data)
+            .filter(h => h.date >= startStr && h.date <= endStr);
+        }
 
       // Process Attendance records for statistics
       const dailyRecords: Record<string, { entry?: Date; exit?: Date }> = {};

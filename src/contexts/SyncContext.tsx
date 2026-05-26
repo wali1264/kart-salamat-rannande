@@ -58,107 +58,81 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isOnline) return;
 
     try {
-      // Pre-cache students/teachers
-      const { data: students } = await supabase.from('students').select('*').limit(1000);
-      if (students) {
-        for (const student of students) {
-          await offlineDb.cache.put({
-            id: student.id,
-            collection: 'students',
-            data: student,
-            updatedAt: Date.now()
-          });
-        }
-        // Pre-cache activity logs
-      const { data: logs } = await supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100);
-      if (logs) {
-        for (const log of logs) {
-          await offlineDb.cache.put({
-            id: log.id,
-            collection: 'activity_logs',
-            data: log,
-            updatedAt: Date.now()
-          });
+      // Pre-cache primary entities
+      console.log('Starting data pre-caching...');
+      
+      const tablesToPreload = [
+        { name: 'students', limit: 2000 },
+        { name: 'subjects', limit: 500 },
+        { name: 'grades', limit: 5000 },
+        { name: 'recommendations', limit: 1000 },
+        { name: 'absences', limit: 1000 },
+        { name: 'holidays', limit: 500 },
+        { name: 'announcements', limit: 50 },
+        { name: 'activity_logs', limit: 200, order: { col: 'created_at', asc: false } },
+        { name: 'health_cards', limit: 2000 },
+        { name: 'fee_payments', limit: 2000 }
+      ];
+
+      for (const table of tablesToPreload) {
+        try {
+          let query = supabase.from(table.name).select('*');
+          if (table.order) {
+            query = query.order(table.order.col, { ascending: table.order.asc });
+          }
+          if (table.limit) {
+            query = query.limit(table.limit);
+          }
+
+          const { data, error } = await query;
+          if (error) {
+            console.warn(`Failed to preload table ${table.name}:`, error);
+            continue;
+          }
+
+          if (data) {
+            for (const item of data) {
+              await offlineDb.cache.put({
+                id: item.id.toString(),
+                collection: table.name,
+                data: item,
+                updatedAt: Date.now()
+              });
+            }
+            console.log(`Pre-cached ${data.length} records for ${table.name}`);
+          }
+        } catch (err) {
+          console.warn(`Unexpected error preloading ${table.name}:`, err);
         }
       }
 
-      // Pre-cache announcements
-      const { data: annData } = await supabase.from('announcements').select('*');
-      if (annData) {
-        for (const ann of annData) {
-          await offlineDb.cache.put({
-            id: ann.id.toString(),
-            collection: 'announcements',
-            data: ann,
-            updatedAt: Date.now()
-          });
-        }
-      }
-
-      // Pre-cache subjects, grades, recommendations, absences, and holidays for offline query
-      const tables = ['subjects', 'grades', 'recommendations', 'absences', 'holidays'];
-      for (const table of tables) {
-        const { data } = await supabase.from(table).select('*');
-        if (data) {
-          for (const item of data) {
+      // Special case: Today's attendance
+      try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const { data: attendance, error: attError } = await supabase
+          .from('attendance')
+          .select('*')
+          .gte('recorded_at', today.toISOString());
+        
+        if (!attError && attendance) {
+          for (const record of attendance) {
             await offlineDb.cache.put({
-              id: item.id.toString(),
-              collection: table,
-              data: item,
+              id: record.id.toString(),
+              collection: 'attendance',
+              data: record,
               updatedAt: Date.now()
             });
           }
+          console.log(`Pre-cached ${attendance.length} records for today's attendance`);
         }
+      } catch (err) {
+        console.warn('Attendance preload failed:', err);
       }
 
-      console.log(`Pre-cached data completed`);
-      }
-
-      // Pre-cache health cards
-      const { data: cards } = await supabase.from('health_cards').select('*').limit(1000);
-      if (cards) {
-        for (const card of cards) {
-          await offlineDb.cache.put({
-            id: card.id,
-            collection: 'health_cards',
-            data: card,
-            updatedAt: Date.now()
-          });
-        }
-      }
-
-      // Pre-cache fee payments
-      const { data: payments } = await supabase.from('fee_payments').select('*').limit(2000);
-      if (payments) {
-        for (const payment of payments) {
-          await offlineDb.cache.put({
-            id: payment.id,
-            collection: 'fee_payments',
-            data: payment,
-            updatedAt: Date.now()
-          });
-        }
-      }
-
-      // Pre-cache today's attendance
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const { data: attendance } = await supabase
-        .from('attendance')
-        .select('*')
-        .gte('recorded_at', today.toISOString());
-      if (attendance) {
-        for (const record of attendance) {
-          await offlineDb.cache.put({
-            id: record.id,
-            collection: 'attendance',
-            data: record,
-            updatedAt: Date.now()
-          });
-        }
-      }
+      console.log('Pre-caching complete.');
     } catch (err) {
-      console.warn('Preload failed:', err);
+      console.warn('Preload process failed:', err);
     }
   }, [isOnline]);
 

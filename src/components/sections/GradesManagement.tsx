@@ -35,6 +35,9 @@ interface Student {
   student_id_no: string;
   photo_url: string | null;
   class_name: string;
+  phone?: string;
+  created_at?: string;
+  type?: string;
 }
 
 interface Subject {
@@ -95,6 +98,36 @@ export const GradesManagement: React.FC = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
+      // 1. ALWAYS Try to get data from Local Cache first (Offline-First)
+      let cachedFiltered: Student[] = [];
+      try {
+        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+        cachedFiltered = cached.map(c => c.data).filter(s => s.type === 'student');
+        
+        if (searchTerm) {
+          const q = searchTerm.toLowerCase();
+          cachedFiltered = cachedFiltered.filter(s => 
+            s.name?.toLowerCase().includes(q) || 
+            s.father_name?.toLowerCase().includes(q) || 
+            s.student_id_no?.toLowerCase().includes(q) ||
+            s.phone?.includes(q)
+          );
+        } else {
+          cachedFiltered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        }
+
+        if (!isOnline || students.length === 0) {
+          setStudents(cachedFiltered.slice(0, displayCount));
+          if (!isOnline) {
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('Offline cache fetch failed:', err);
+      }
+
+      // 2. Fetch from Online Supabase and update cache
       if (isOnline) {
         let query = supabase.from('students').select('*').eq('type', 'student');
         
@@ -106,25 +139,18 @@ export const GradesManagement: React.FC = () => {
 
         const { data, error } = await query.limit(displayCount);
         if (error) throw error;
-        setStudents(data || []);
-      } else {
-        // Offline fetch from cache
-        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
-        let filtered = cached.map(c => c.data).filter(s => s.type === 'student');
         
-        if (searchTerm) {
-          const q = searchTerm.toLowerCase();
-          filtered = filtered.filter(s => 
-            s.name?.toLowerCase().includes(q) || 
-            s.father_name?.toLowerCase().includes(q) || 
-            s.student_id_no?.toLowerCase().includes(q) ||
-            s.phone?.includes(q)
-          );
-        } else {
-          filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+        if (data) {
+          for (const s of data) {
+            await offlineDb.cache.put({
+              id: s.id,
+              collection: 'students',
+              data: s,
+              updatedAt: Date.now()
+            });
+          }
+          setStudents(data);
         }
-        
-        setStudents(filtered.slice(0, displayCount));
       }
     } catch (err) {
       console.error('Fetch students error:', err);

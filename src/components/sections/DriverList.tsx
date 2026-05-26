@@ -56,62 +56,88 @@ export const DriverList: React.FC = () => {
     const newLimit = reset ? 5 : displayLimit;
     if (reset) setDisplayLimit(5);
 
-    if (!isOnline) {
-      try {
-        const cached = await offlineDb.cache.where('collection').equals('students').toArray();
-        let filtered = cached.map(c => c.data).filter(s => s.type === mode);
-        
-        if (query) {
-          const q = query.toLowerCase();
-          filtered = filtered.filter(s => 
-            s.name?.toLowerCase().includes(q) || 
-            s.license_number?.toLowerCase().includes(q) ||
-            s.id_number?.toLowerCase().includes(q) ||
-            s.phone?.toLowerCase().includes(q)
-          );
-        }
-
-        // Sort by created_at descending (last registered first)
-        filtered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
-
-        const hasMoreData = filtered.length > newLimit;
-        const pageData = filtered.slice(0, newLimit);
-
-        // Get health cards from cache
-        const results = await Promise.all(pageData.map(async (s) => {
-          const cards = await offlineDb.cache.where('collection').equals('health_cards').toArray();
-          const studentCards = cards.map(c => c.data).filter(c => c.student_id === s.id);
-          return { ...s, health_cards: studentCards };
-        }));
-
-        setDrivers(results);
-        setHasMore(hasMoreData);
-        setLoading(false);
-        return;
-      } catch (err) {
-        console.warn('Offline fetch failed:', err);
+    // 1. ALWAYS Try to get data from Local Cache first (Offline-First)
+    try {
+      const cached = await offlineDb.cache.where('collection').equals('students').toArray();
+      let cachedFiltered = cached.map(c => c.data).filter(s => s.type === mode);
+      
+      if (query) {
+        const q = query.toLowerCase();
+        cachedFiltered = cachedFiltered.filter(s => 
+          s.name?.toLowerCase().includes(q) || 
+          s.license_number?.toLowerCase().includes(q) ||
+          s.id_number?.toLowerCase().includes(q) ||
+          s.phone?.toLowerCase().includes(q)
+        );
       }
+
+      cachedFiltered.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      
+      const cachedPage = cachedFiltered.slice(0, newLimit);
+      const cachedResults = await Promise.all(cachedPage.map(async (s) => {
+        const cardsRaw = await offlineDb.cache.where('collection').equals('health_cards').toArray();
+        const studentCards = cardsRaw.map(c => c.data).filter(c => c.student_id === s.id);
+        return { ...s, health_cards: studentCards };
+      }));
+
+      // If we are offline, or if we want immediate UI feedback, set state from cache
+      if (!isOnline || drivers.length === 0 || reset) {
+        setDrivers(cachedResults);
+        setHasMore(cachedFiltered.length > newLimit);
+        if (!isOnline) {
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Offline cache fetch failed:', err);
     }
 
-    let supabaseQuery = supabase
-      .from('students')
-      .select('*, health_cards(*)', { count: 'exact' })
-      .eq('type', mode);
+    // 2. Fetch from Online Supabase and update cache
+    try {
+      let supabaseQuery = supabase
+        .from('students')
+        .select('*, health_cards(*)', { count: 'exact' })
+        .eq('type', mode);
 
-    if (query) {
-      supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%,phone.ilike.%${query}%`);
+      if (query) {
+        supabaseQuery = supabaseQuery.or(`name.ilike.%${query}%,license_number.ilike.%${query}%,id_number.ilike.%${query}%,phone.ilike.%${query}%`);
+      }
+
+      const { data, count, error } = await supabaseQuery
+        .order('created_at', { ascending: false })
+        .range(0, newLimit - 1);
+
+      if (error) throw error;
+
+      if (data) {
+        // Update local cache with fresh data
+        for (const student of data) {
+          await offlineDb.cache.put({
+            id: student.id,
+            collection: 'students',
+            data: { ...student, health_cards: undefined }, // Don't store cards in the student record cache if they are separate
+            updatedAt: Date.now()
+          });
+          if (student.health_cards) {
+            for (const card of student.health_cards) {
+              await offlineDb.cache.put({
+                id: card.id,
+                collection: 'health_cards',
+                data: card,
+                updatedAt: Date.now()
+              });
+            }
+          }
+        }
+        setDrivers(data || []);
+        setHasMore(count ? count > newLimit : false);
+      }
+    } catch (err) {
+      console.error('Online fetch failed:', err);
+    } finally {
+      setLoading(false);
     }
-
-    const { data, count, error } = await supabaseQuery
-      .order('created_at', { ascending: false })
-      .range(0, newLimit - 1);
-
-    if (error) console.error(error);
-    else {
-      setDrivers(data || []);
-      setHasMore(count ? count > newLimit : false);
-    }
-    setLoading(false);
   };
 
   useEffect(() => {

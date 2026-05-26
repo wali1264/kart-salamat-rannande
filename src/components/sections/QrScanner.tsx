@@ -308,7 +308,7 @@ export const QrScanner: React.FC = () => {
           const { data: cData } = await supabase
             .from('health_cards')
             .select('*, students!inner(*)')
-            .eq('student_id', targetStudentId)
+            .eq('driver_id', targetStudentId)
             .eq('students.type', mode)
             .order('created_at', { ascending: false })
             .limit(1);
@@ -338,7 +338,7 @@ export const QrScanner: React.FC = () => {
           const cachedCards = await offlineDb.cache.where('collection').equals('health_cards').toArray();
           const studentCard = cachedCards
             .map(c => c.data)
-            .filter(c => c.student_id === student.id)
+            .filter(c => c.driver_id === student.id)
             .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
           
           if (studentCard) {

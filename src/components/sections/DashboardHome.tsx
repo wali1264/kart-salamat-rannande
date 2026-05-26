@@ -39,7 +39,7 @@ const data = [
 export const DashboardHome: React.FC = () => {
   const { profile } = useAuth();
   const { mode, isTeacherMode } = useSystem();
-  const { isOnline } = useOnlineStatus();
+  const isOnline = useOnlineStatus();
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeCards: 0,
@@ -55,14 +55,26 @@ export const DashboardHome: React.FC = () => {
       try {
         const studentCache = await offlineDb.cache.where('collection').equals('students').toArray();
         const filteredStudents = studentCache.map(c => c.data).filter(s => s.type === mode);
+        const studentIds = new Set(filteredStudents.map(s => s.id));
         
         const cardCache = await offlineDb.cache.where('collection').equals('health_cards').toArray();
-        const activeCards = cardCache.map(c => c.data).filter(c => c.status === 'active');
+        const activeCards = cardCache.map(c => c.data).filter(c => c.status === 'active' && studentIds.has(c.student_id));
+
+        const oneMonthFromNow = new Date();
+        oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
+        const expiring = cardCache.map(c => c.data).filter(c => 
+          c.status === 'active' && 
+          studentIds.has(c.student_id) && 
+          new Date(c.expiry_date) < oneMonthFromNow
+        ).slice(0, 3).map(c => ({
+          ...c,
+          students: filteredStudents.find(s => s.id === c.student_id)
+        }));
 
         setStats({
           totalStudents: filteredStudents.length,
           activeCards: activeCards.length,
-          expiringSoon: []
+          expiringSoon: expiring
         });
         return;
       } catch (err) {
@@ -78,7 +90,7 @@ export const DashboardHome: React.FC = () => {
       
       const { count: cardsCount } = await supabase
         .from('health_cards')
-        .select('*, students!inner(id)')
+        .select('*, students!inner(id)', { count: 'exact', head: true })
         .eq('status', 'active')
         .eq('students.type', mode);
       

@@ -22,9 +22,11 @@ import {
   Loader2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { offlineDb } from '../../lib/db';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
 import { useSync } from '../../contexts/SyncContext';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 
 interface Student {
   id: string;
@@ -62,7 +64,7 @@ interface Recommendation {
 
 export const GradesManagement: React.FC = () => {
   const { isTeacherMode } = useSystem();
-  const { performAction } = useSync();
+  const { performAction, isOnline } = useSync();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -273,7 +275,7 @@ export const GradesManagement: React.FC = () => {
       );
       if (error) throw error;
       setNewSubject({ name: '', level: classes[0] });
-      fetchSubjects();
+      await fetchSubjects(); // Ensure subjects list is updated
     } catch (err) {
       alert('خطا در ثبت صنف/موضوع');
     }

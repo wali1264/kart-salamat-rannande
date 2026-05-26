@@ -120,17 +120,35 @@ export const DriverList: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     const driverToDelete = drivers.find(d => d.id === id);
-    if (!window.confirm(`آیا از حذف این ${isTeacherMode ? 'معلم' : 'شاگرد'} اطمینان دارید؟`)) return;
+    if (!window.confirm(`آیا از حذف این ${isTeacherMode ? 'معلم' : 'شاگرد'} اطمینان دارید؟ تمامی سوابق، نمرات و کارت دیجیتال مربوطه نیز حذف خواهند شد.`)) return;
     
     try {
+      // 1. Delete associated records first (Cascade simulation)
+      const tablesToClean = [
+        'health_cards',
+        'attendance',
+        'absences',
+        'leave_requests',
+        'grades',
+        'recommendations',
+        'fee_payments'
+      ];
+
+      for (const table of tablesToClean) {
+        await performAction(
+          table as any,
+          'delete',
+          { student_id: id }, // Using student_id as primary key for associations
+          () => supabase.from(table).delete().eq('student_id', id)
+        );
+      }
+
+      // 2. Finally delete the student record
       const { error } = await performAction(
         'students',
         'delete',
         { id },
-        () => supabase
-          .from('students')
-          .delete()
-          .eq('id', id)
+        () => supabase.from('students').delete().eq('id', id)
       );
       
       if (error) throw error;
@@ -142,10 +160,10 @@ export const DriverList: React.FC = () => {
           {
             user_email: user.email,
             action: 'delete_student',
-            details: `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`,
+            details: `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} با تمامی سوابق از سیستم حذف گردید.`,
             created_at: new Date().toISOString()
           },
-          () => logActivity(user.email!, 'delete_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} از سیستم حذف گردید.`)
+          () => logActivity(user.email!, 'delete_student', `${isTeacherMode ? 'معلم' : 'شاگرد'} به نام ${driverToDelete.name} با تمامی سوابق حذف گردید.`)
         );
       }
 
@@ -155,7 +173,7 @@ export const DriverList: React.FC = () => {
         setDrivers(prev => prev.filter(d => d.id !== id));
       }
     } catch (err: any) {
-      alert('خطا در حذف شاگرد: ' + err.message);
+      alert('خطا در حذف: ' + err.message);
     }
   };
 

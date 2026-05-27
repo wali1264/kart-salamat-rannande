@@ -43,6 +43,64 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const getCached = async (collection: string, id: string) => {
+    const item = await offlineDb.cache.get([collection, id]);
+    return item ? item.data : null;
+  };
+
+  const setCache = async (collection: string, id: string, data: any) => {
+    await offlineDb.cache.put({
+      id,
+      collection,
+      data,
+      updatedAt: Date.now()
+    });
+  };
+
+  const performAction = useCallback(async <T,>(
+    table: string,
+    action: 'insert' | 'update' | 'delete' | 'upsert',
+    payload: any,
+    apiCall: () => Promise<{ data: T | null; error: any }>
+  ) => {
+    if (isOnline) {
+      try {
+        const result = await apiCall();
+        if (!result.error) {
+          return result;
+        }
+      } catch (err) {
+        console.error('Online API Error, queueing...', err);
+      }
+    }
+
+    await offlineDb.syncQueue.add({
+      type: action as any,
+      collection: table,
+      payload,
+      status: 'pending',
+      timestamp: Date.now()
+    });
+
+    if (action === 'insert' || action === 'upsert' || action === 'update') {
+      const id = payload.id || payload.student_id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await offlineDb.cache.put({
+        id: id.toString(),
+        collection: table,
+        data: payload,
+        updatedAt: Date.now()
+      });
+    } else if (action === 'delete') {
+      const id = payload.id;
+      if (id) {
+        await offlineDb.cache.delete([table, id.toString()]);
+      }
+    }
+    
+    refreshQueueStatus();
+    return { data: payload as T, error: null, queued: true } as any;
+  }, [isOnline, refreshQueueStatus]);
+
   useEffect(() => {
     refreshQueueStatus();
     const interval = setInterval(refreshQueueStatus, 15000); // Polling every 15s
@@ -142,6 +200,40 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isOnline, preloadData]);
 
+  const cleanupExpiredCards = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const cached = await offlineDb.cache.where('collection').equals('health_cards').toArray();
+      const expired = cached.filter(item => item.data.expiry_date && item.data.expiry_date < today);
+
+      if (expired.length === 0) return;
+
+      console.log(`Cleaning up ${expired.length} expired health cards...`);
+
+      for (const item of expired) {
+        await performAction(
+          'health_cards',
+          'delete',
+          { id: item.data.id },
+          () => supabase.from('health_cards').delete().eq('id', item.data.id)
+        );
+      }
+      refreshQueueStatus();
+    } catch (err) {
+      console.error('Expired health cards cleanup failed:', err);
+    }
+  }, [isOnline, refreshQueueStatus]);
+
+  useEffect(() => {
+    const lastCleanup = localStorage.getItem('last_health_card_cleanup');
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (lastCleanup !== today) {
+      cleanupExpiredCards();
+      localStorage.setItem('last_health_card_cleanup', today);
+    }
+  }, [cleanupExpiredCards]);
+
   const syncNow = useCallback(async () => {
     if (!isOnline || isSyncing) return;
     
@@ -200,65 +292,6 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return () => clearTimeout(timer);
     }
   }, [isOnline, queueCount, isSyncing, syncNow]);
-
-  const performAction = async <T,>(
-    table: string,
-    action: 'insert' | 'update' | 'delete' | 'upsert',
-    payload: any,
-    apiCall: () => Promise<{ data: T | null; error: any }>
-  ) => {
-    if (isOnline) {
-      try {
-        const result = await apiCall();
-        if (!result.error) {
-          return result;
-        }
-      } catch (err) {
-        console.error('Online API Error, queueing...', err);
-      }
-    }
-
-    await offlineDb.syncQueue.add({
-      type: action as any,
-      collection: table,
-      payload,
-      status: 'pending',
-      timestamp: Date.now()
-    });
-
-    // ALSO update local cache so it appears in lists immediately
-    if (action === 'insert' || action === 'upsert' || action === 'update') {
-      const id = payload.id || payload.student_id || `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      await offlineDb.cache.put({
-        id: id.toString(),
-        collection: table,
-        data: payload,
-        updatedAt: Date.now()
-      });
-    } else if (action === 'delete') {
-      const id = payload.id;
-      if (id) {
-        await offlineDb.cache.delete([table, id.toString()]);
-      }
-    }
-    
-    refreshQueueStatus();
-    return { data: payload as T, error: null, queued: true } as any;
-  };
-
-  const getCached = async (collection: string, id: string) => {
-    const item = await offlineDb.cache.get([collection, id]);
-    return item ? item.data : null;
-  };
-
-  const setCache = async (collection: string, id: string, data: any) => {
-    await offlineDb.cache.put({
-      id,
-      collection,
-      data,
-      updatedAt: Date.now()
-    });
-  };
 
   return (
     <SyncContext.Provider value={{ 

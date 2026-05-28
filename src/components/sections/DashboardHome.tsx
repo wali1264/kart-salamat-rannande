@@ -8,8 +8,11 @@ import {
   ArrowUpRight,
   ShieldCheck,
   User as UserIcon,
-  Clock
+  Clock,
+  Search,
+  X
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
@@ -43,14 +46,45 @@ export const DashboardHome: React.FC = () => {
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeCards: 0,
-    expiringSoon: [] as any[]
+    expiringSoon: [] as any[],
+    presentCount: 0,
+    absentCount: 0,
+    presentList: [] as any[],
+    absentList: [] as any[]
   });
   const [activities, setActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(true);
   const [filter, setFilter] = useState<'today' | 'yesterday' | 'date'>('today');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [modalType, setModalType] = useState<'present' | 'absent' | null>(null);
+  const [modalSearch, setModalSearch] = useState('');
 
   const fetchStats = async () => {
+    // Determine filter date boundaries dynamically
+    const startDate = new Date();
+    const endDate = new Date();
+
+    if (filter === 'today') {
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (filter === 'yesterday') {
+      startDate.setDate(startDate.getDate() - 1);
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setDate(endDate.getDate() - 1);
+      endDate.setHours(23, 59, 59, 999);
+    } else if (filter === 'date' && selectedDate) {
+      const parts = selectedDate.split('-');
+      if (parts.length === 3) {
+        startDate.setFullYear(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setFullYear(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        endDate.setHours(23, 59, 59, 999);
+      } else {
+        startDate.setHours(0, 0, 0, 0);
+        endDate.setHours(23, 59, 59, 999);
+      }
+    }
+
     if (!isOnline) {
       try {
         const studentCache = await offlineDb.cache.where('collection').equals('students').toArray();
@@ -71,10 +105,27 @@ export const DashboardHome: React.FC = () => {
           students: filteredStudents.find(s => s.id === c.student_id)
         }));
 
+        // Fetch offline attendance logs for date filter
+        const attendanceCache = await offlineDb.cache.where('collection').equals('attendance').toArray();
+        const dayLogs = attendanceCache
+          .map(c => c.data)
+          .filter(l => {
+            const rDate = new Date(l.recorded_at);
+            return rDate >= startDate && rDate <= endDate;
+          });
+
+        const presentIds = new Set(dayLogs.map(l => l.student_id));
+        const presentList = filteredStudents.filter(p => presentIds.has(p.id));
+        const absentList = filteredStudents.filter(p => !presentIds.has(p.id));
+
         setStats({
           totalStudents: filteredStudents.length,
           activeCards: activeCards.length,
-          expiringSoon: expiring
+          expiringSoon: expiring,
+          presentCount: presentList.length,
+          absentCount: absentList.length,
+          presentList: presentList,
+          absentList: absentList
         });
         return;
       } catch (err) {
@@ -83,10 +134,14 @@ export const DashboardHome: React.FC = () => {
     }
 
     try {
-      const { count: studentsCount } = await supabase
+      const { data: onlineStudents, error: pError } = await supabase
         .from('students')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
         .eq('type', mode);
+
+      if (pError) throw pError;
+      const filteredStudents = onlineStudents || [];
+      const studentIds = new Set(filteredStudents.map(s => s.id));
       
       const { count: cardsCount } = await supabase
         .from('health_cards')
@@ -105,10 +160,29 @@ export const DashboardHome: React.FC = () => {
         .lt('expiry_date', oneMonthFromNow.toISOString())
         .limit(3);
 
+      const { data: attendanceLogs, error: lError } = await supabase
+        .from('attendance')
+        .select('*')
+        .gte('recorded_at', startDate.toISOString())
+        .lte('recorded_at', endDate.toISOString());
+
+      if (lError) throw lError;
+
+      const logs = attendanceLogs || [];
+      const relevantLogs = logs.filter(l => studentIds.has(l.student_id));
+      const presentIds = new Set(relevantLogs.map(l => l.student_id));
+
+      const presentList = filteredStudents.filter(p => presentIds.has(p.id));
+      const absentList = filteredStudents.filter(p => !presentIds.has(p.id));
+
       setStats({
-        totalStudents: studentsCount || 0,
+        totalStudents: filteredStudents.length,
         activeCards: cardsCount || 0,
-        expiringSoon: expiring || []
+        expiringSoon: expiring || [],
+        presentCount: presentList.length,
+        absentCount: absentList.length,
+        presentList: presentList,
+        absentList: absentList
       });
     } catch (err) {
       console.error('Stats fetch error:', err);
@@ -190,59 +264,101 @@ export const DashboardHome: React.FC = () => {
     return 'text-blue-600 bg-blue-50';
   };
 
+  const getFilterLabel = () => {
+    if (filter === 'today') return 'امروز';
+    if (filter === 'yesterday') return 'دیروز';
+    if (filter === 'date' && selectedDate) {
+      try {
+        return new Date(selectedDate).toLocaleDateString('fa-AF', { year: 'numeric', month: 'long', day: 'numeric' });
+      } catch {
+        return selectedDate;
+      }
+    }
+    return 'امروز';
+  };
+
+  const listToDisplay = modalType === 'present' ? stats.presentList : stats.absentList;
+  const filteredList = listToDisplay.filter(p => {
+    const q = modalSearch.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.student_id_no && p.student_id_no.toLowerCase().includes(q)) ||
+      (p.license_number && p.license_number.toLowerCase().includes(q))
+    );
+  });
+
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
-      {/* 3 Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-        <div className="bento-card !p-8 bg-white border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
+      {/* 4 Stats Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+        {/* Total Registered */}
+        <div className="bento-card !p-6 bg-white border-l-4 border-l-emerald-500 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
             <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{isTeacherMode ? 'مجموع معلمین' : 'مجموع شاگردان'}</span>
             <div className={`w-10 h-10 rounded-xl ${isTeacherMode ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center`}>
               <Users className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-5xl font-black text-slate-800 tracking-tighter mb-2">{stats.totalStudents.toLocaleString('fa-AF')}</div>
+          <div className="text-4xl font-black text-slate-800 tracking-tighter mb-2">{stats.totalStudents.toLocaleString('fa-AF')}</div>
           <div className={`${isTeacherMode ? 'text-emerald-600' : 'text-blue-600'} text-[10px] font-bold flex items-center gap-1`}>
             <ArrowUpRight className="w-3 h-3" /> ثبت نام‌های جدید {isTeacherMode ? 'اساتید' : 'شاگردان'}
           </div>
         </div>
 
-        <div className="bento-card !p-8 bg-white border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
+        {/* Issued Identity Cards */}
+        <div className="bento-card !p-6 bg-white border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-4">
             <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">{isTeacherMode ? 'کارت‌های صادر شده معلمین' : 'کارت‌های صادر شده'}</span>
             <div className={`w-10 h-10 rounded-xl ${isTeacherMode ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600'} flex items-center justify-center`}>
               <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
-          <div className="text-5xl font-black text-slate-800 tracking-tighter mb-2">{stats.activeCards.toLocaleString('fa-AF')}</div>
+          <div className="text-4xl font-black text-slate-800 tracking-tighter mb-2">{stats.activeCards.toLocaleString('fa-AF')}</div>
           <div className="text-blue-600 text-[10px] font-bold">{isTeacherMode ? 'کارت‌های هویت دارای اعتبار معلمان' : 'کارت‌های هویت دارای اعتبار'}</div>
         </div>
 
-        <div className="bento-card !p-8 bg-amber-50/30 border-l-4 border-l-amber-500 shadow-sm hover:shadow-md transition-shadow border-amber-100">
+        {/* Present Count Card with Popup trigger */}
+        <div 
+          onClick={() => {
+            setModalType('present');
+            setModalSearch('');
+          }}
+          className="bento-card !p-6 bg-white border-l-4 border-l-teal-500 shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer transition-all"
+        >
           <div className="flex justify-between items-start mb-4">
-            <span className="text-amber-700 text-[10px] font-bold uppercase tracking-widest flex items-center gap-1">
-              <Clock className="w-3 h-3" /> نیاز به تمدید
+            <span className="text-slate-450 text-[10px] font-black uppercase tracking-widest text-[#0d9488]">
+              {isTeacherMode ? 'معلمان حاضر' : 'شاگردان حاضر'} ({getFilterLabel()})
             </span>
-            <div className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold tracking-tighter">
-              {stats.expiringSoon.length.toLocaleString('fa-AF')} مورد
+            <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5" />
             </div>
           </div>
-          <div className="space-y-2 mt-4">
-            {stats.expiringSoon.length > 0 ? stats.expiringSoon.slice(0, 2).map((item: any) => (
-              <div key={item.id} className="flex items-center justify-between p-2 bg-white/60 rounded-xl border border-amber-100/50">
-                <div className="flex items-center gap-2">
-                   <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-[8px]">
-                     {item.students?.name?.charAt(0)}
-                   </div>
-                   <div className="text-[10px] font-bold text-slate-800">{item.students?.name}</div>
-                </div>
-                <div className="text-[9px] text-amber-600 font-bold">
-                   {Math.ceil((new Date(item.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} روز
-                </div>
-              </div>
-            )) : (
-              <div className="text-center py-4 text-slate-400 text-[10px] italic">موردی برای تمدید یافت نشد</div>
-            )}
+          <div className="text-4xl font-black text-slate-800 tracking-tighter mb-2">{(stats.presentCount || 0).toLocaleString('fa-AF')}</div>
+          <div className="text-teal-600 text-[10px] font-bold flex items-center gap-1">
+            برای مشاهده لیست کلیک کنید
+          </div>
+        </div>
+
+        {/* Absent Count Card with Popup trigger */}
+        <div 
+          onClick={() => {
+            setModalType('absent');
+            setModalSearch('');
+          }}
+          className="bento-card !p-6 bg-white border-l-4 border-l-rose-500 shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer transition-all"
+        >
+          <div className="flex justify-between items-start mb-4">
+            <span className="text-slate-450 text-[10px] font-black uppercase tracking-widest text-[#e11d48]">
+              {isTeacherMode ? 'معلمان غیرحاضر' : 'شاگردان غیرحاضر'} ({getFilterLabel()})
+            </span>
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="text-4xl font-black text-slate-800 tracking-tighter mb-2">{(stats.absentCount || 0).toLocaleString('fa-AF')}</div>
+          <div className="text-rose-600 text-[10px] font-bold flex items-center gap-1">
+            برای مشاهده لیست کلیک کنید
           </div>
         </div>
       </div>
@@ -333,6 +449,111 @@ export const DashboardHome: React.FC = () => {
            </button>
         </div>
       </div>
+
+      {/* Attendance List Modal */}
+      <AnimatePresence>
+        {modalType && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setModalType(null)}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.35 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Modal Header */}
+              <div className="p-6 pb-4 border-b border-slate-50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-black text-slate-800">
+                    {modalType === 'present' 
+                      ? (isTeacherMode ? 'لیست اساتید حاضر' : 'لیست شاگردان حاضر') 
+                      : (isTeacherMode ? 'لیست اساتید غیرحاضر' : 'لیست شاگردان غیرحاضر')
+                    }
+                  </h3>
+                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">
+                    مربوط به بازه زمانی: {getFilterLabel()} • تعداد: {(modalType === 'present' ? stats.presentCount : stats.absentCount).toLocaleString('fa-AF')} نفر
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setModalType(null)}
+                  className="p-2 rounded-full hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Search Bar */}
+              <div className="p-6 pb-2">
+                <div className="relative">
+                  <span className="absolute inset-y-0 right-3.5 flex items-center text-slate-400">
+                    <Search className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="جستجو بر اساس نام یا نمبر..."
+                    value={modalSearch}
+                    onChange={(e) => setModalSearch(e.target.value)}
+                    className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right placeholder:text-slate-400"
+                  />
+                  {modalSearch && (
+                    <button 
+                      onClick={() => setModalSearch('')} 
+                      className="absolute inset-y-0 left-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal List Body (Vertical auto-scroll) */}
+              <div className="p-6 pt-0 flex-1 overflow-y-auto max-h-[350px] space-y-2 custom-scrollbar">
+                {filteredList.length > 0 ? (
+                  filteredList.map((person, index) => (
+                    <div 
+                      key={person.id} 
+                      className={`flex items-center justify-between p-3.5 bg-slate-50/50 rounded-2xl border-r-4 ${
+                        modalType === 'present' ? 'border-r-teal-500' : 'border-r-rose-400'
+                      } hover:bg-slate-50 hover:shadow-xs transition-all`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
+                          modalType === 'present' ? 'bg-teal-50 text-teal-600' : 'bg-rose-50 text-rose-500'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="text-xs font-black text-slate-800">{person.name}</p>
+                          {person.phone && (
+                            <p className="text-[9px] text-slate-400 font-bold mt-0.5">{person.phone}</p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-left">
+                        <span className="text-[10px] font-mono font-bold bg-white text-slate-600 border border-slate-100 px-2 py-1 rounded-lg">
+                          ID: {person.student_id_no || person.license_number}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-300 gap-3 opacity-60">
+                    <UserIcon className="w-12 h-12" />
+                    <p className="text-xs font-bold italic">شخصی با این مشخصات یافت نشد</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

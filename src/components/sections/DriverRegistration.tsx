@@ -45,37 +45,47 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
   const generateID = async () => {
     setIsGenerating(true);
     try {
-      let maxId = 1000000;
+      let lastStudent: any = null;
+      let lastTime = 0;
 
       // 1. Check Offline Cache first
       const { offlineDb } = await import('../../lib/db');
       const cached = await offlineDb.cache.where('collection').equals('students').toArray();
-      const cachedMax = cached.reduce((max, item) => {
-        const idRaw = item.data.license_number || item.data.student_id_no || '';
-        const idNum = parseInt(idRaw.replace(/\D/g, ''));
-        return !isNaN(idNum) ? Math.max(max, idNum) : max;
-      }, 0);
-      
-      maxId = Math.max(maxId, cachedMax);
+      for (const item of cached) {
+        const itemCreated = item.data?.created_at ? new Date(item.data.created_at).getTime() : 0;
+        if (itemCreated > lastTime) {
+          lastTime = itemCreated;
+          lastStudent = item.data;
+        }
+      }
 
       // 2. Check Online if available
       if (isOnline) {
         const { data, error } = await supabase
           .from('students')
-          .select('license_number')
-          .order('license_number', { ascending: false })
+          .select('license_number, student_id_no, created_at')
+          .order('created_at', { ascending: false })
           .limit(1);
         
         if (!error && data && data.length > 0) {
-          const lastIdRaw = data[0].license_number;
-          const lastId = parseInt(lastIdRaw.replace(/\D/g, ''));
-          if (!isNaN(lastId)) {
-            maxId = Math.max(maxId, lastId);
+          const onlineCreated = data[0].created_at ? new Date(data[0].created_at).getTime() : 0;
+          if (onlineCreated > lastTime) {
+            lastTime = onlineCreated;
+            lastStudent = data[0];
           }
         }
       }
 
-      setFormData(prev => ({ ...prev, license_number: (maxId + 1).toString() }));
+      let nextVal = 10000; // Default floor of 10,000 for empty system
+      if (lastStudent) {
+        const idRaw = lastStudent.license_number || lastStudent.student_id_no || '';
+        const idNum = parseInt(idRaw.replace(/\D/g, ''));
+        if (!isNaN(idNum)) {
+          nextVal = idNum + 1;
+        }
+      }
+
+      setFormData(prev => ({ ...prev, license_number: nextVal.toString() }));
     } catch (err) {
       console.error('ID generation failed:', err);
     } finally {

@@ -28,6 +28,11 @@ export const QrScanner: React.FC = () => {
   const [gradeLoading, setGradeLoading] = useState(false);
 
   const fetchAttendance = async (id: string, isMore = false) => {
+    const cleanedId = cleanInputId(id);
+    if (!cleanedId) {
+      alert('لطفاً یک کد معتبر وارد کنید.');
+      return;
+    }
     setAttendanceLoading(true);
     try {
       let person = null;
@@ -38,7 +43,7 @@ export const QrScanner: React.FC = () => {
           .from('students')
           .select('*')
           .eq('type', isTeacherMode ? 'teacher' : 'student')
-          .or(`student_id_no.eq.${id},license_number.eq.${id}`);
+          .or(`student_id_no.eq.${cleanedId},license_number.eq.${cleanedId}`);
         
         if (pError) throw pError;
         person = people?.[0];
@@ -47,7 +52,7 @@ export const QrScanner: React.FC = () => {
         const cached = await offlineDb.cache.where('collection').equals('students').toArray();
         person = cached.map(c => c.data).find(s => 
           s.type === (isTeacherMode ? 'teacher' : 'student') && 
-          (s.student_id_no === id || s.license_number === id)
+          (cleanInputId(s.student_id_no) === cleanedId || cleanInputId(s.license_number) === cleanedId)
         );
       }
       
@@ -125,6 +130,19 @@ export const QrScanner: React.FC = () => {
   const normalize = (text: string) => {
     if (!text) return '';
     return text.trim().replace(/ي/g, 'ی').replace(/ك/g, 'ک');
+  };
+
+  // Convert Persian/Arabic numbers to English and strip all spaces for strict matching
+  const cleanInputId = (idStr: string) => {
+    if (!idStr) return '';
+    const persianDigits = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
+    const arabicDigits = [/٠/g, /١/g, /٢/g, /٣/g, /٤/g, /٥/g, /٦/g, /٧/g, /٨/g, /٩/g];
+    let cleaned = idStr.toString().trim();
+    for (let i = 0; i < 10; i++) {
+      cleaned = cleaned.replace(persianDigits[i], i.toString());
+      cleaned = cleaned.replace(arabicDigits[i], i.toString());
+    }
+    return cleaned.replace(/\s+/g, '');
   };
 
 
@@ -278,8 +296,8 @@ export const QrScanner: React.FC = () => {
       q = parts[parts.length - 1];
     }
     
-    // Clean S/N patterns (e.g., 'A513345B-233' -> 'A513345B')
-    const qClean = q.includes('-') ? q.split('-')[0].trim() : q.trim();
+    // Clean S/N patterns (e.g., 'A513345B-233' -> 'A513345B') and strip spaces + convert Persian/Arabic numerals
+    const qClean = cleanInputId(q.includes('-') ? q.split('-')[0].trim() : q.trim());
 
     try {
       let card = null;
@@ -328,8 +346,8 @@ export const QrScanner: React.FC = () => {
           s.type === mode && 
           (
             normalize(s.name).includes(qClean) || 
-            s.student_id_no === qClean || 
-            s.license_number === qClean ||
+            cleanInputId(s.student_id_no) === qClean || 
+            cleanInputId(s.license_number) === qClean ||
             s.id.startsWith(qClean)
           )
         );

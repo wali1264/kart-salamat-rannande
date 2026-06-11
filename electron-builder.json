@@ -1,0 +1,14 @@
+{
+  "appId": "com.maktabportal.app",
+  "productName": "MaktabPortal",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "win": {
+    "target": "portable"
+  }
+}

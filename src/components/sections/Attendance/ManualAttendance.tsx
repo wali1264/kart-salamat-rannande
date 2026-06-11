@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, AlertCircle, ChevronLeft, Filter, Trash2, Edit2, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { offlineDb } from '../../../lib/db';
+import { queueAutoNotification } from '../../../lib/notifications';
 import { useSystem } from '../../../contexts/SystemContext';
 import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -439,6 +440,19 @@ export const ManualAttendance: React.FC = () => {
       );
 
       if (error) throw error;
+
+      // Auto notification queueing in the background (fire and forget)
+      try {
+        const notifyType = actionType === 'present' ? 'entry' : (actionType as 'entry' | 'exit' | 'absent');
+        queueAutoNotification(
+          selectedPerson,
+          notifyType,
+          isTeacherMode,
+          performAction
+        );
+      } catch (notifyErr) {
+        console.error('Failed to trigger automatic notification:', notifyErr);
+      }
 
       setSuccess(queued 
         ? `حضور در صف انتظار ذخیره شد. پس از اتصال همگام می‌شود.` 

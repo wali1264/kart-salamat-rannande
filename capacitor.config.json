@@ -1,0 +1,6 @@
+{
+  "appId": "com.maktabportal.app",
+  "appName": "مکتب پورتال",
+  "webDir": "dist",
+  "bundledWebRuntime": false
+}

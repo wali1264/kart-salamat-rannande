@@ -10,7 +10,10 @@ import {
   User as UserIcon,
   Clock,
   Search,
-  X
+  X,
+  MessageSquare,
+  Send,
+  Layers
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { supabase } from '../../lib/supabase';
@@ -18,6 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
 import { offlineDb } from '../../lib/db';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { useSync } from '../../contexts/SyncContext';
 import { 
   BarChart, 
   Bar, 
@@ -43,6 +47,7 @@ export const DashboardHome: React.FC = () => {
   const { profile } = useAuth();
   const { mode, isTeacherMode } = useSystem();
   const isOnline = useOnlineStatus();
+  const { performAction } = useSync();
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeCards: 0,
@@ -58,6 +63,14 @@ export const DashboardHome: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [modalType, setModalType] = useState<'present' | 'absent' | null>(null);
   const [modalSearch, setModalSearch] = useState('');
+
+  // Task Composer States (Phase 1)
+  const [composerPerson, setComposerPerson] = useState<any | null>(null);
+  const [isBulkCompose, setIsBulkCompose] = useState(false);
+  const [taskType, setTaskType] = useState<'sms' | 'whatsapp' | 'voice'>('sms');
+  const [composeMessage, setComposeMessage] = useState('');
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [sentToast, setSentToast] = useState<string | null>(null);
 
   const fetchStats = async () => {
     // Determine filter date boundaries dynamically
@@ -288,6 +301,83 @@ export const DashboardHome: React.FC = () => {
     );
   });
 
+  const handleQueueTask = async () => {
+    if (!composeMessage.trim()) return;
+
+    try {
+      if (isBulkCompose) {
+        let queuedCount = 0;
+        
+        for (const target of filteredList) {
+          const phone = target.phone || '';
+          if (!phone) continue;
+
+          // Replace placeholders if any
+          let msg = composeMessage;
+          msg = msg.replace(/\[name\]/g, target.name || 'مخاطب')
+                   .replace(/\[تاریخ\]/g, getFilterLabel());
+
+          const taskRecord = {
+            id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+            type: taskType,
+            phone: phone,
+            message: msg,
+            status: 'pending',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+
+          await performAction(
+            'tasks',
+            'insert',
+            taskRecord,
+            () => supabase.from('tasks').insert([taskRecord])
+          );
+          queuedCount++;
+        }
+        
+        setSentToast(`تعداد ${queuedCount.toLocaleString('fa-AF')} پیام با موفقیت در صف ارسال مخزن پس‌زمینه اندروید قرار گرفت.`);
+      } else if (composerPerson) {
+        const phone = composerPerson.phone || '';
+        if (!phone) {
+          alert('نمبر تماس برای این فرد ثبت نشده است.');
+          return;
+        }
+
+        const taskRecord = {
+          id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+          type: taskType,
+          phone: phone,
+          message: composeMessage,
+          status: 'pending',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        await performAction(
+          'tasks',
+          'insert',
+          taskRecord,
+          () => supabase.from('tasks').insert([taskRecord])
+        );
+
+        setSentToast(`پیام اطلاع‌رسانی برای ${composerPerson.name} در صف قرار بالا گرفت.`);
+      }
+
+      setComposerOpen(false);
+      setComposerPerson(null);
+      setIsBulkCompose(false);
+      
+      setTimeout(() => {
+        setSentToast(null);
+      }, 5000);
+
+    } catch (err) {
+      console.error('Queue task failed:', err);
+      alert('خطا در ذخیره وظیفه ارسال پیام');
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
       {/* 4 Stats Row */}
@@ -513,6 +603,29 @@ export const DashboardHome: React.FC = () => {
                 </div>
               </div>
 
+              {/* Bulk Dispatch Button for Absent List */}
+              {modalType === 'absent' && filteredList.length > 0 && (
+                <div className="px-6 pb-3">
+                  <button
+                    onClick={() => {
+                      setComposerPerson(null);
+                      setIsBulkCompose(true);
+                      setTaskType('sms');
+                      setComposeMessage(
+                        isTeacherMode
+                          ? `همکار گرامی جناب [name]، با احترام خواهشمندیم دلیل عدم حضور خود در تاریخ [تاریخ] را به اداره گزارش دهید. با تشکر، دفتر اساتید.`
+                          : `محترم والدین گرامی، با سلام. به اطلاع می‌رسانیم فرزند شما [name] امروز [تاریخ] در صنف حاضر نبوده است. اداره مکتب.`
+                      );
+                      setComposerOpen(true);
+                    }}
+                    className="w-full py-2.5 bg-rose-50 text-rose-600 hover:bg-[#e11d48]/10 rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-xs border border-rose-100"
+                  >
+                    <Layers className="w-4 h-4" />
+                    ارسال پیامک گروهی به غایبین (تعداد: {filteredList.length.toLocaleString('fa-AF')})
+                  </button>
+                </div>
+              )}
+
               {/* Modal List Body (Vertical auto-scroll) */}
               <div className="p-6 pt-0 flex-1 overflow-y-auto max-h-[350px] space-y-2 custom-scrollbar">
                 {filteredList.length > 0 ? (
@@ -536,10 +649,29 @@ export const DashboardHome: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="text-left">
-                        <span className="text-[10px] font-mono font-bold bg-white text-slate-600 border border-slate-100 px-2 py-1 rounded-lg">
+                      <div className="text-left flex items-center gap-2">
+                        <span className="text-[10px] font-mono font-bold bg-white text-slate-600 border border-slate-100 px-2.5 py-1 rounded-lg">
                           ID: {person.student_id_no || person.license_number}
                         </span>
+                        {modalType === 'absent' && person.phone && (
+                          <button
+                            onClick={() => {
+                              setComposerPerson(person);
+                              setIsBulkCompose(false);
+                              setTaskType('sms');
+                              setComposeMessage(
+                                isTeacherMode
+                                  ? `همکار گرامی جناب ${person.name}، با احترام خواهشمندیم دلیل عدم حضور خود در تاریخ ${getFilterLabel()} را به اداره گزارش دهید. دفتر اساتید.`
+                                  : `محترم والدین گرامی، با سلام. به اطلاع می‌رسانیم فرزند شما ${person.name} امروز ${getFilterLabel()} در صنف حاضر نبوده است. اداره مکتب.`
+                              );
+                              setComposerOpen(true);
+                            }}
+                            className="p-1.5 rounded-xl bg-[#e11d48]/10 text-[#e11d48] hover:bg-[#e11d48]/20 transition-all flex items-center justify-center shrink-0"
+                            title="ارسال پیامک اطلاع‌رسانی"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))
@@ -551,6 +683,140 @@ export const DashboardHome: React.FC = () => {
                 )}
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Task Composer Modal (Phase 1) */}
+      <AnimatePresence>
+        {composerOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setComposerOpen(false);
+              setComposerPerson(null);
+            }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
+            style={{ zIndex: 100 }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ type: 'spring', duration: 0.35 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 max-w-sm w-full overflow-hidden flex flex-col p-6 text-right"
+            >
+              <div className="flex justify-between items-center mb-5">
+                <h4 className="text-sm font-black text-slate-800">
+                  {isBulkCompose ? 'ایجاد پیامک گروهی در صف ارسال' : `ارسال پیام اطلاع‌رسانی به ${composerPerson?.name}`}
+                </h4>
+                <button 
+                  onClick={() => {
+                    setComposerOpen(false);
+                    setComposerPerson(null);
+                  }}
+                  className="p-1.5 rounded-full hover:bg-slate-50 text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Task Type Selector */}
+              <div className="mb-4">
+                <label className="text-[10px] text-slate-400 font-bold block mb-1.5">نوع وظیفه ارسال</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setTaskType('sms')}
+                    className={`py-2 px-1 rounded-xl text-center text-[10px] font-bold transition-all border ${
+                      taskType === 'sms' 
+                        ? 'bg-blue-50 border-blue-200 text-blue-600' 
+                        : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    پیامک (SMS)
+                  </button>
+                  <button
+                    onClick={() => setTaskType('whatsapp')}
+                    className={`py-2 px-1 rounded-xl text-center text-[10px] font-bold transition-all border ${
+                      taskType === 'whatsapp' 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
+                        : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    واتساپ
+                  </button>
+                  <button
+                    onClick={() => setTaskType('voice')}
+                    className={`py-2 px-1 rounded-xl text-center text-[10px] font-bold transition-all border ${
+                      taskType === 'voice' 
+                        ? 'bg-amber-50 border-amber-200 text-amber-600' 
+                        : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    تماس خودکار
+                  </button>
+                </div>
+              </div>
+
+              {/* Message Input Box */}
+              <div className="mb-4">
+                <label className="text-[10px] text-slate-400 font-bold block mb-1.5">متن پیام یا قالب فرستنده</label>
+                <textarea
+                  value={composeMessage}
+                  onChange={(e) => setComposeMessage(e.target.value)}
+                  placeholder="متن خود را وارد کنید..."
+                  className="w-full h-24 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                />
+                {isBulkCompose && (
+                  <p className="text-[9px] text-slate-400 font-bold mt-1 leading-relaxed">
+                    می‌توانید از شناسه <code className="bg-slate-50 border border-slate-100 px-1 py-0.5 rounded text-rose-500 font-mono">[name]</code> برای نام شخص و <code className="bg-slate-50 border border-slate-100 px-1 py-0.5 rounded text-rose-500 font-mono">[تاریخ]</code> برای تاریخ استفاده کنید.
+                  </p>
+                )}
+              </div>
+
+              {/* Target contact list preview */}
+              <div className="mb-5 bg-slate-50/50 rounded-2xl border border-slate-100 p-3 flex justify-between items-center text-[10px] text-slate-500">
+                <span className="font-bold">مخاطبین هدف:</span>
+                <span className="font-mono text-slate-700 bg-white border border-slate-100 px-2 py-0.5 rounded-lg font-bold">
+                  {isBulkCompose 
+                    ? `${filteredList.filter(x => x.phone).length.toLocaleString('fa-AF')} نمبر معتبر` 
+                    : (composerPerson?.phone || 'بدون نمبر تماس')
+                  }
+                </span>
+              </div>
+
+              {/* Submit Buttons */}
+              <button
+                onClick={handleQueueTask}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/10"
+              >
+                <Send className="w-3.5 h-3.5" />
+                ثبت و ردیابی در صف ارسال پس‌زمینه
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Alert */}
+      <AnimatePresence>
+        {sentToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 right-6 bg-slate-900 text-white rounded-2xl px-5 py-3.5 text-xs font-bold z-50 flex items-center gap-3 border border-slate-800 shadow-xl max-w-sm"
+            style={{ zIndex: 110 }}
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold">
+              <CheckCircle2 className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1 text-right">
+              {sentToast}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

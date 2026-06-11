@@ -5,6 +5,7 @@ import { useScanner } from '../../../hooks/useScanner';
 import { useSystem } from '../../../contexts/SystemContext';
 import { useSync } from '../../../contexts/SyncContext';
 import { supabase } from '../../../lib/supabase';
+import { queueAutoNotification } from '../../../lib/notifications';
 
 interface Props {
   onUnlock: () => void;
@@ -163,6 +164,19 @@ export const ScannerLocker: React.FC<Props> = ({ onUnlock, mode, autoSwitch }) =
       );
 
       if (attError) throw attError;
+
+      // Auto notification queueing in the background (fire and forget)
+      try {
+        const notifyType = finalType === 'present' ? 'entry' : (finalType as 'entry' | 'exit' | 'absent');
+        queueAutoNotification(
+          person,
+          notifyType,
+          isTeacherMode,
+          performAction
+        );
+      } catch (notifyErr) {
+        console.error('Failed to trigger automatic notification:', notifyErr);
+      }
 
       setStatus('success');
       setMessage(queued 

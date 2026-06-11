@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X, Clock, Loader2, Trash2 } from 'lucide-react';
+import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X, Clock, Loader2, Trash2, MessageSquare, Search, RotateCcw, FileText } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useSync } from '../../contexts/SyncContext';
+import { offlineDb } from '../../lib/db';
 import { compressImage } from '../../lib/utils';
+import { getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../../lib/notifications';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const SettingsSection: React.FC = () => {
   const { profile, signOut } = useAuth();
   const { performAction, isOnline } = useSync();
-  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup' | 'support' | 'items' | 'announcements'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'card' | 'tax' | 'backup' | 'support' | 'items' | 'announcements' | 'notifications'>('general');
   const [logoLoading, setLogoLoading] = useState(false);
   const [logos, setLogos] = useState({ main: '', mini: '' });
   const [announcement, setAnnouncement] = useState({ text: '', images: [] as string[] });
+  const [notificationConfig, setNotificationConfig] = useState<NotificationSettings | null>(null);
   const [customization, setCustomization] = useState<any>({
     title_primary_dr: 'د افغانستان اسلامی امارت',
     title_primary_ps: 'امارت اسلامی افغانستان',
@@ -46,8 +49,160 @@ export const SettingsSection: React.FC = () => {
 
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
+  // Live Task Monitor States (Phase 3)
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [tasksFilterType, setTasksFilterType] = useState<'all' | 'sms' | 'whatsapp' | 'voice'>('all');
+  const [tasksFilterStatus, setTasksFilterStatus] = useState<'all' | 'pending' | 'sent' | 'failed'>('all');
+  const [tasksSearch, setTasksSearch] = useState('');
+  const [tasksError, setTasksError] = useState<string | null>(null);
+
+  const fetchTasks = async () => {
+    if (activeTab !== 'notifications') return;
+    setTasksLoading(true);
+    setTasksError(null);
+    try {
+      let combinedTasks: any[] = [];
+
+      // 1. Fetch offline pending tasks from Dexie syncQueue
+      const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
+      const localPending = localQueue.map(item => ({
+        ...item.payload,
+        isLocalOnly: true,
+        status: 'pending'
+      }));
+      combinedTasks = [...localPending];
+
+      // 2. Fetch official synced/pending/failed items from Supabase if online
+      if (isOnline) {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(300);
+
+        if (error) throw error;
+
+        if (data) {
+          // Avoid duplicating items that are still waiting in local sync queue
+          const localIds = new Set(localPending.map(x => x.id));
+          const remoteFiltered = data.filter(x => !localIds.has(x.id));
+          combinedTasks = [...combinedTasks, ...remoteFiltered];
+        }
+      }
+
+      setTasks(combinedTasks);
+    } catch (err: any) {
+      console.error('Error fetching tasks queue:', err);
+      // Don't show critical error to users for harmless fetching issues
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  const handleRetryFailedTasks = async () => {
+    if (!isOnline) {
+      alert('این عملیات نیازمند اتصال فعال به انترنت می‌باشد.');
+      return;
+    }
+    try {
+      setTasksLoading(true);
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'pending', 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('status', 'failed');
+
+      if (error) throw error;
+      alert('تمامی پیام‌های ناموفق با موفقیت مجدداً آماده ارسال شدند.');
+      await fetchTasks();
+    } catch (err) {
+      console.error('Failed to retry all tasks:', err);
+      alert('خطا در بروزرسانی مجدد صف پیام‌ها.');
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  const handleRetrySingleTask = async (taskId: string) => {
+    if (!isOnline) {
+      alert('اتصال انترنت برقرار نیست.');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          status: 'pending', 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+      await fetchTasks();
+    } catch (err) {
+      console.error('Failed to retry task:', err);
+    }
+  };
+
+  const handleDeleteTask = async (task: any) => {
+    if (!confirm('آیا مطمئناً می‌خواهید این پیام را از صف حذف نمایید؟')) return;
+    try {
+      if (task.isLocalOnly) {
+        // Find inside Dexie queue
+        const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
+        const found = localQueue.find(item => item.payload.id === task.id);
+        if (found && found.id) {
+          await offlineDb.syncQueue.delete(found.id);
+        }
+      } else {
+        if (!isOnline) {
+          alert('برای حذف پیام‌های همگام‌شده با سرور به انترنت نیاز دارید.');
+          return;
+        }
+        const { error } = await supabase
+          .from('tasks')
+          .delete()
+          .eq('id', task.id);
+          
+        if (error) throw error;
+      }
+      await fetchTasks();
+    } catch (err) {
+      console.error('Failed to delete task:', err);
+      alert('خطا در حذف وظیفه.');
+    }
+  };
+
+  const handleClearAllTasksLogs = async () => {
+    if (!confirm('آیا مطمئن هستید که می‌خواهید کل مخزن پیامک‌ها و تاریخچه وظایف ارسال شده را از سرور پاک کنید؟')) return;
+    try {
+      setTasksLoading(true);
+      const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .neq('status', 'pending'); // keep only unsent in safety limit
+
+      if (error) throw error;
+      alert('تاریخچه گزارشات با موفقیت تخلیه شد.');
+      await fetchTasks();
+    } catch (err) {
+      console.error('Error clearing tasks logs:', err);
+      alert('خطا در پاکسازی تاریخچه.');
+    } finally {
+      setTasksLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, [activeTab, isOnline]);
+
   useEffect(() => {
     fetchSettings();
+    setNotificationConfig(getNotificationSettings());
   }, []);
 
   const fetchSettings = async () => {
@@ -187,6 +342,7 @@ export const SettingsSection: React.FC = () => {
     { id: 'card', label: 'شخصی‌سازی کارت', icon: CreditCard },
     { id: 'tax', label: 'تنظیمات مالیات', icon: DollarSign },
     { id: 'announcements', label: 'اعلانات', icon: Bell },
+    { id: 'notifications', label: 'اطلاع‌رسانی خودکار (SMS)', icon: MessageSquare },
     { id: 'backup', label: 'پشتیبان‌گیری', icon: Shield },
     { id: 'support', label: 'پشتیبانی', icon: LifeBuoy },
   ];
@@ -872,6 +1028,522 @@ export const SettingsSection: React.FC = () => {
                     <button className="flex items-center gap-2 text-blue-600 font-bold text-xs hover:underline">
                       <ExternalLink className="w-4 h-4" /> مشاهده مستندات راهنمای سامانه
                     </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'notifications' && notificationConfig && (
+              <motion.div
+                key="notifications"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="space-y-6 text-right"
+              >
+                {/* Header Information */}
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
+                  <h4 className="font-bold text-slate-800 flex items-center gap-3 text-lg">
+                    <MessageSquare className="w-6 h-6 text-blue-500" />
+                    تنظیمات اطلاع‌رسانی خودکار (مکتب پورتال)
+                  </h4>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    با فعال‌سازی گزینه‌های زیر، هنگام ثبت حضور و غیاب دستی یا اسکن بارکد، پیام در صف ارسال اندروید گیت‌وی به صورت خودکار ایجاد می‌گردد. وب‌سایت و نسخه ویندوز دیتای تسک‌ها را آماده نموده و اندروید در بک‌گراند به صورت زنده آنها را ارسال می‌نماید.
+                  </p>
+                </div>
+
+                {/* Gateway & Auto Event Toggles */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Toggle 1: Absence */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+                    <div>
+                      <h5 className="text-sm font-black text-slate-800">ارسال پیامک غیبت</h5>
+                      <p className="text-[10px] text-slate-400 mt-1">ارسال پیامک به والدین غایبین</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={notificationConfig.sms_on_absence_enabled}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          sms_on_absence_enabled: e.target.checked
+                        })}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Toggle 2: Entry */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+                    <div>
+                      <h5 className="text-sm font-black text-slate-800">ارسال پیامک ورود</h5>
+                      <p className="text-[10px] text-slate-400 mt-1">اعلام ورود شاگرد یا استاد</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={notificationConfig.sms_on_entry_enabled}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          sms_on_entry_enabled: e.target.checked
+                        })}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Toggle 3: Exit */}
+                  <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
+                    <div>
+                      <h5 className="text-sm font-black text-slate-800">ارسال پیامک خروج</h5>
+                      <p className="text-[10px] text-slate-400 mt-1">اعلام خروج شاگرد یا استاد</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input 
+                        type="checkbox" 
+                        checked={notificationConfig.sms_on_exit_enabled}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          sms_on_exit_enabled: e.target.checked
+                        })}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Gateway Type */}
+                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                  <div>
+                    <h5 className="text-sm font-black text-slate-800">بستر پیش‌فرض ارسال اندروید گیت‌وی</h5>
+                    <p className="text-[10px] text-slate-400 mt-1">تسک‌ها برای ارسال با کدام گیت‌وی در اندروید تنظیم شوند؟</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <button
+                      onClick={() => setNotificationConfig({ ...notificationConfig, default_service: 'sms' })}
+                      className={`p-4 rounded-2xl text-center text-xs font-black transition-all border ${
+                        notificationConfig.default_service === 'sms' 
+                          ? 'bg-blue-50 border-blue-200 text-blue-600' 
+                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      پیامک عمومی (SMS Gateway)
+                    </button>
+                    <button
+                      onClick={() => setNotificationConfig({ ...notificationConfig, default_service: 'whatsapp' })}
+                      className={`p-4 rounded-2xl text-center text-xs font-black transition-all border ${
+                        notificationConfig.default_service === 'whatsapp' 
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
+                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      واتساپ وب هوشمند
+                    </button>
+                    <button
+                      onClick={() => setNotificationConfig({ ...notificationConfig, default_service: 'voice' })}
+                      className={`p-4 rounded-2xl text-center text-xs font-black transition-all border ${
+                        notificationConfig.default_service === 'voice' 
+                          ? 'bg-amber-50 border-amber-200 text-amber-600' 
+                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      تماس خودکار صوتی (IVR)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Dynamic Variable Helps */}
+                <div className="bg-amber-50/50 border border-amber-100/50 rounded-2xl p-4 flex gap-3 text-xs text-amber-700">
+                  <Info className="w-5 h-5 text-amber-600 shrink-0" />
+                  <div>
+                    <span className="font-bold block mb-1">شناسه‌های متغیر قالب پیامک:</span>
+                    <p className="leading-relaxed">
+                      از شناسه‌های زیر در متن ارسال‌ها استفاده کنید: <code className="bg-white border border-amber-200/50 px-1 py-0.5 rounded font-mono text-rose-500">[name]</code> برای نام عضو، <code className="bg-white border border-amber-200/50 px-1 py-0.5 rounded font-mono text-rose-500">[تاریخ]</code> برای تاریخ روز، و <code className="bg-white border border-amber-200/50 px-1 py-0.5 rounded font-mono text-rose-500">[ساعت]</code> برای ساعت دقیق اسکن.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Student Templates */}
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                  <h4 className="font-bold text-slate-800 border-b border-slate-50 pb-3 text-base">مدیریت قالب‌های شاگردان</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Student Absence */}
+                    <div className="space-y-1.5Col">
+                      <label className="text-[11px] font-black text-slate-500 block mb-1">قالب پیام غیبت شاگردان</label>
+                      <textarea
+                        value={notificationConfig.student_template_absence}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          student_template_absence: e.target.value
+                        })}
+                        className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                      />
+                    </div>
+
+                    {/* Student Entry */}
+                    <div className="space-y-1.5Col">
+                      <label className="text-[11px] font-black text-slate-500 block mb-1">قالب پیام ورود شاگردان</label>
+                      <textarea
+                        value={notificationConfig.student_template_entry}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          student_template_entry: e.target.value
+                        })}
+                        className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                      />
+                    </div>
+
+                    {/* Student Exit */}
+                    <div className="space-y-1.5Col">
+                      <label className="text-[11px] font-black text-slate-500 block mb-1">قالب پیام خروج شاگردان</label>
+                      <textarea
+                        value={notificationConfig.student_template_exit}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          student_template_exit: e.target.value
+                        })}
+                        className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Teacher Templates */}
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                  <h4 className="font-bold text-slate-800 border-b border-slate-50 pb-3 text-base">مدیریت قالب‌های اساتید و کارمندان</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Teacher Absence */}
+                    <div className="space-y-1.5Col">
+                      <label className="text-[11px] font-black text-slate-500 block mb-1">قالب پیام غیبت اساتید</label>
+                      <textarea
+                        value={notificationConfig.teacher_template_absence}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          teacher_template_absence: e.target.value
+                        })}
+                        className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                      />
+                    </div>
+
+                    {/* Teacher Entry */}
+                    <div className="space-y-1.5Col">
+                      <label className="text-[11px] font-black text-slate-500 block mb-1">قالب پیام ورود اساتید</label>
+                      <textarea
+                        value={notificationConfig.teacher_template_entry}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          teacher_template_entry: e.target.value
+                        })}
+                        className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                      />
+                    </div>
+
+                    {/* Teacher Exit */}
+                    <div className="space-y-1.5Col">
+                      <label className="text-[11px] font-black text-slate-500 block mb-1">قالب پیام خروج اساتید</label>
+                      <textarea
+                        value={notificationConfig.teacher_template_exit}
+                        onChange={(e) => setNotificationConfig({
+                          ...notificationConfig,
+                          teacher_template_exit: e.target.value
+                        })}
+                        className="w-full h-32 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-700 p-3 outline-none focus:bg-white focus:border-blue-500/20 focus:ring-4 focus:ring-blue-500/5 transition-all text-right resize-none placeholder:text-slate-400 font-sans"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
+                  <span className="text-xs text-slate-400 font-bold">
+                    تنظیمات و قالب‌های اطلاع‌رسانی در حافظه محلی کوکی مرورگر ذخیره می‌شوند.
+                  </span>
+                  <button
+                    onClick={() => {
+                      saveNotificationSettings(notificationConfig);
+                      setSaveStatus('success');
+                      setTimeout(() => setSaveStatus(null), 3500);
+                    }}
+                    className="bg-blue-600 text-white px-10 py-3.5 rounded-2xl text-xs font-black transition-all hover:bg-blue-700 hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-blue-100 flex items-center gap-2"
+                  >
+                    <Check className="w-4 h-4 text-white" />
+                    ذخیره تنظیمات سیستم اطلاع‌رسانی
+                  </button>
+                </div>
+
+                {/* Live Task Queue Monitor Header */}
+                <div className="border-t border-slate-100 pt-8 mt-12 space-y-4">
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                      <h4 className="font-black text-slate-800 text-base">مانیتورینگ زنده و کنترل صف ارسال پیام‌ها</h4>
+                      <p className="text-xs text-slate-400 mt-1">مدیریت، ردیابی، تلاش مجدد و بررسی پیامک‌ها یا پیام‌های صوتی و واتساپ در صف انتظار.</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={fetchTasks}
+                        className="p-2.5 bg-slate-50 border border-slate-100 text-slate-600 hover:bg-slate-100 rounded-xl transition-all flex items-center gap-1.5 text-[11px] font-black"
+                        title="بروزرسانی زنده لیست"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        بروزرسانی صف
+                      </button>
+                      <button
+                        onClick={handleRetryFailedTasks}
+                        className="py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded-xl transition-all flex items-center gap-1.5 text-[11px] font-black"
+                      >
+                        تلاش مجدد همه ناموفق‌ها
+                      </button>
+                      <button
+                        onClick={handleClearAllTasksLogs}
+                        className="py-2.5 px-4 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-all flex items-center gap-1.5 text-[11px] font-black"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        تخلیه تاریخچه
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filter Controls Row */}
+                <div className="bg-slate-50 border border-slate-100 p-4 rounded-3xl grid grid-cols-1 md:grid-cols-4 gap-3">
+                  {/* Search input */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={tasksSearch}
+                      onChange={(e) => setTasksSearch(e.target.value)}
+                      placeholder="جستجو شماره تلفن یا متن پیام..."
+                      className="w-full bg-white border border-slate-200/60 rounded-2xl py-2 px-9 text-[11px] font-bold text-slate-700 outline-none focus:border-blue-500/20 text-right focus:bg-white transition-all font-sans"
+                    />
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  </div>
+
+                  {/* Filter Status */}
+                  <div>
+                    <select
+                      value={tasksFilterStatus}
+                      onChange={(e) => setTasksFilterStatus(e.target.value as any)}
+                      className="w-full bg-white border border-slate-200/60 rounded-2xl py-2 px-3 text-[11px] font-bold text-slate-700 outline-none focus:border-blue-500/20 font-sans"
+                    >
+                      <option value="all">همه وضعیت‌ها</option>
+                      <option value="pending">در انتظار ارسال (Pending)</option>
+                      <option value="sent">ارسال شده (Sent)</option>
+                      <option value="failed">ارسال ناموفق (Failed)</option>
+                    </select>
+                  </div>
+
+                  {/* Filter Type */}
+                  <div>
+                    <select
+                      value={tasksFilterType}
+                      onChange={(e) => setTasksFilterType(e.target.value as any)}
+                      className="w-full bg-white border border-slate-200/60 rounded-2xl py-2 px-3 text-[11px] font-bold text-slate-700 outline-none focus:border-blue-500/20 font-sans"
+                    >
+                      <option value="all">همه بسترهای ارسال</option>
+                      <option value="sms">پیامک (SMS)</option>
+                      <option value="whatsapp">واتساپ وب</option>
+                      <option value="voice">تماس خودکار صوتی</option>
+                    </select>
+                  </div>
+
+                  {/* Export Payload Manual Button */}
+                  <div>
+                    <button
+                      onClick={() => {
+                        const pendingOnly = tasks.filter(t => t.status === 'pending');
+                        if (pendingOnly.length === 0) {
+                          alert('هیچ پیامی در صف انتظار (Pending) جهت خروجی گرفتن وجود ندارد.');
+                          return;
+                        }
+                        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(pendingOnly, null, 2));
+                        const downloadAnchor = document.createElement('a');
+                        downloadAnchor.setAttribute("href", dataStr);
+                        downloadAnchor.setAttribute("download", `school_pending_tasks_export_${new Date().toISOString().split('T')[0]}.json`);
+                        document.body.appendChild(downloadAnchor);
+                        downloadAnchor.click();
+                        downloadAnchor.remove();
+                      }}
+                      className="w-full justify-center bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-2xl py-2 px-4 text-[11px] font-black flex items-center gap-1.5 transition-all shadow-2xs"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-blue-500" />
+                      اکسپورت صف جهت فرستنده دستی ({tasks.filter(t => t.status === 'pending').length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tasks Grid List */}
+                <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden p-6">
+                  {tasksLoading ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                      <span className="text-xs text-slate-400 font-bold">بروزرسانی داده‌های صف ارسال...</span>
+                    </div>
+                  ) : (
+                    (() => {
+                      const filtered = tasks.filter(task => {
+                        // Type filter
+                        if (tasksFilterType !== 'all' && task.type !== tasksFilterType) return false;
+                        // Status filter
+                        if (tasksFilterStatus !== 'all' && task.status !== tasksFilterStatus) return false;
+                        // Search filter
+                        if (tasksSearch.trim()) {
+                          const query = tasksSearch.toLowerCase();
+                          const matchesPhone = task.phone?.toLowerCase().includes(query);
+                          const matchesMsg = task.message?.toLowerCase().includes(query);
+                          if (!matchesPhone && !matchesMsg) return false;
+                        }
+                        return true;
+                      });
+
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-16 space-y-2">
+                            <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
+                            <p className="text-xs font-bold text-slate-500">هیچ وظیفه‌ای با مشخصات فیلتر شده پیدا نشد.</p>
+                            <p className="text-[10px] text-slate-400">تاکنون پیامی برای غیبت یا حضور ایجاد نگردیده یا با فیلترها همخوانی ندارد.</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="overflow-x-auto min-h-[250px] custom-scrollbar">
+                          <table className="w-full text-right text-xs">
+                            <thead>
+                              <tr className="border-b border-slate-50 text-slate-400 font-bold block-table md:table-row">
+                                <th className="pb-3 text-right">شماره مخاطب</th>
+                                <th className="pb-3 text-center">نوع</th>
+                                <th className="pb-3 text-right">متن پیـام ارسـالی</th>
+                                <th className="pb-3 text-center">تاریخ ثبت (شمسی مکانی)</th>
+                                <th className="pb-3 text-center">وضعیت ارسال</th>
+                                <th className="pb-3 text-left">عملیات مدیریت</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {filtered.map((task) => {
+                                const PersianDate = new Date(task.created_at).toLocaleDateString('fa-AF', {
+                                  hour: '2-digit', minute: '2-digit'
+                                });
+                                return (
+                                  <tr key={task.id} className="text-slate-700 hover:bg-slate-50/50 block-table md:table-row">
+                                    <td className="py-3.5 font-mono font-bold">{task.phone}</td>
+                                    <td className="py-3.5 text-center">
+                                      <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black ${
+                                        task.type === 'sms' 
+                                          ? 'bg-blue-50 text-blue-600 border border-blue-100'
+                                          : task.type === 'whatsapp' 
+                                          ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                          : 'bg-amber-50 text-amber-600 border border-amber-100'
+                                      }`}>
+                                        {task.type === 'sms' ? 'SMS' : task.type === 'whatsapp' ? 'واتساپ' : 'تماس'}
+                                      </span>
+                                    </td>
+                                    <td className="py-3.5 text-right font-medium max-w-[280px] break-words text-slate-600 text-[11px] leading-relaxed">
+                                      {task.message}
+                                    </td>
+                                    <td className="py-3.5 text-center text-[10px] font-bold text-slate-400 font-sans">
+                                      {PersianDate}
+                                    </td>
+                                    <td className="py-3.5 text-center">
+                                      {task.status === 'pending' ? (
+                                        <span className={`px-2.5 py-1 rounded-full text-[9px] font-black flex items-center justify-center gap-1 mx-auto w-max ${
+                                          task.isLocalOnly 
+                                            ? 'bg-slate-100 text-slate-600 animate-pulse'
+                                            : 'bg-amber-50 text-amber-600 border border-amber-100'
+                                        }`}>
+                                          <Clock className="w-3 h-3" />
+                                          {task.isLocalOnly ? 'در صف محلی (Offline)' : 'در صف ارسال گیت‌وی'}
+                                        </span>
+                                      ) : task.status === 'sent' ? (
+                                        <span className="px-2.5 py-1 rounded-full text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-100 font-black flex items-center justify-center gap-1 mx-auto w-max">
+                                          <Check className="w-3 h-3" />
+                                          ارسال موفق
+                                        </span>
+                                      ) : (
+                                        <span className="px-2.5 py-1 rounded-full text-[9px] bg-rose-50 text-rose-600 border border-rose-100 font-black flex items-center justify-center gap-1 mx-auto w-max">
+                                          <AlertCircle className="w-3 h-3" />
+                                          ارسال ناموفق
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-3.5 text-left">
+                                      <div className="flex gap-2 justify-end">
+                                        {task.status === 'failed' && (
+                                          <button
+                                            onClick={() => handleRetrySingleTask(task.id)}
+                                            className="p-1 px-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-[9px] transition-all"
+                                            title="ارسال مجدد وظیفه"
+                                          >
+                                            تلاش دوباره
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={() => handleDeleteTask(task)}
+                                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-all flex items-center justify-center shrink-0"
+                                          title="حذف از صف"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()
+                  )}
+                </div>
+
+                {/* Offline-First Android Gateway integration Documentation & Developers Guide */}
+                <div className="bg-slate-900 text-slate-100 p-8 rounded-[2rem] border border-slate-800 shadow-xl space-y-6">
+                  <div className="border-b border-slate-800 pb-4">
+                    <h4 className="font-black text-white text-base flex items-center gap-2.5">
+                      <Shield className="w-5 h-5 text-indigo-400" />
+                      آموزش اتصال و همگام‌سازی با گوشی‌های اندروید (گیت‌وی پیامک)
+                    </h4>
+                    <p className="text-[11px] text-slate-400 mt-1">روش‌های پیش‌فرض و حرفه‌ای جهت فرستادن خودکار پیامک‌ها از سیم‌کارت واقعی مکتب شما.</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
+                    {/* Column 1: Automated Sync (Gateway Apps) */}
+                    <div className="space-y-3 bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
+                      <span className="font-black text-indigo-400 block pb-1 border-b border-slate-800">
+                        روش اول: اتصال مستقیم API با گیت‌وی سیم‌کارت اندروید
+                      </span>
+                      <p className="text-[11px] text-slate-300">
+                        در این روش، با نصب اپلیکیشن‌های اندرویدی رایج مانند <strong className="text-white">"SMS Gateway API"</strong> یا هر برنامه دریافت درخواست HTTP روی موبایل اندروید مکتب، گوشی را به عنوان مودم پیامک تنظیم نمایید.
+                      </p>
+                      <ul className="list-disc pr-4 space-y-1 text-slate-400 text-[10px]">
+                        <li>دریافت خودکار پیام‌های صف از جدول <code className="text-amber-400 font-mono">tasks</code> با کوئری فیلتر <code className="text-emerald-400 font-mono">"status=pending"</code>.</li>
+                        <li>امکان بکارگیری متدهای وب‌هوک به ازای هر بار ثبت ورود و خروج غایبین.</li>
+                        <li>سرعت بی‌نظیر و هماهنگ با تعرفه‌های فوق‌العاده ارزان سیم‌کارت‌های مخابراتی افغانستان (افغان بیسیم، ام‌تی‌ان، اتصالات، روشن و سلام).</li>
+                      </ul>
+                    </div>
+
+                    {/* Column 2: Bulk CSV/JSON Exporters */}
+                    <div className="space-y-3 bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
+                      <span className="font-black text-indigo-400 block pb-1 border-b border-slate-800">
+                        روش دوم: ارسال دستی گروهی با ابزارهای اکسپورت
+                      </span>
+                      <p className="text-[11px] text-slate-300">
+                        اگر مایل به استفاده از اپلیکیشن پس‌زمینه اندروید نیستید، می‌توانید از دکمه اکسپورت تعبیه شده در بالا استفاده نمایید:
+                      </p>
+                      <ol className="list-decimal pr-4 space-y-1 text-slate-400 text-[10px]">
+                        <li>شاگردان غایب و حضور را طبق معمول در صنف‌ها ثبت نمایید.</li>
+                        <li>روی دکمه <strong className="text-white">"اکسپورت صف جهت فرستنده دستی"</strong> واقع در پنل فیلترها کلیک کنید.</li>
+                        <li>فایل دانلود شده را مستقیماً وارد برنامه‌های انبوه پیامک سیم‌کارت (Bulk SMS Sender) یا کلاینت واتساپ مکتب خود نمایید تا به سرعت ارسال شوند.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-850/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                    <span>Database Table Name Target: <strong className="text-green-400">tasks</strong></span>
+                    <span>Required Columns: <strong className="text-blue-400">id, phone, message, status (pending/sent/failed), type</strong></span>
                   </div>
                 </div>
               </motion.div>

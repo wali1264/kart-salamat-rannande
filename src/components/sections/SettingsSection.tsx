@@ -17,6 +17,7 @@ import {
   requestAndroidPermission, 
   runAndroidGatewayWorker,
   fetchAndroidLogsFromDb,
+  checkActualAndroidPermissions,
   AndroidConfig,
   AndroidPermissionStatus,
   AndroidLogEntry,
@@ -389,6 +390,14 @@ export const SettingsSection: React.FC = () => {
       if (interval) clearInterval(interval);
     };
   }, [isOnline]);
+
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      checkActualAndroidPermissions().then(realPerms => {
+        setAndroidPermissions(realPerms);
+      });
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (!isAutoWorkerActive) return;

@@ -151,24 +151,61 @@ export const addAndroidLog = (type: AndroidLogEntry['type'], message: string) =>
 };
 
 /**
- * Handle native permissions request using Capacitor or falls back to simulated prompts
+ * Handle native permissions request using Capacitor/Cordova or falls back to simulated prompts
  */
 export const requestAndroidPermission = async (permission: keyof AndroidPermissionStatus): Promise<boolean> => {
   addAndroidLog('info', `درخواست مجوز دسترسی سیستم اندروید: ${permission}`);
   
+  const permissionMap: Record<string, string> = {
+    sendSms: 'android.permission.SEND_SMS',
+    callPhone: 'android.permission.CALL_PHONE',
+    readPhoneState: 'android.permission.READ_PHONE_STATE'
+  };
+
+  const current = getAndroidPermissions();
+
   if (isNativeAndroid()) {
-    // In actual native environment, call Capatictor plugins
-    // E.g. (window as any).Capacitor.Plugins.AndroidPermissions.requestPermission(...)
-    // For our implementation, we'll configure state accordingly and simulate granting.
-    const current = getAndroidPermissions();
+    const nativePerm = permissionMap[permission];
+    
+    // For battery optimization exemption
     if (permission === 'batteryOptimizationsExempt') {
       current.batteryOptimizationsExempt = true;
-    } else {
-      current[permission as 'sendSms' | 'callPhone' | 'readPhoneState'] = 'granted';
+      saveAndroidPermissions(current);
+      addAndroidLog('success', `مجوز مصرف بهینه باتری نادیده گرفته شد (ثبت در برنامه).`);
+      return true;
     }
-    saveAndroidPermissions(current);
-    addAndroidLog('success', `مجوز ${permission} توسط سیستم‌عامل اندروید صادر گردید.`);
-    return true;
+
+    if (nativePerm && (window as any).plugins?.permissions) {
+      const permissionsPlugin = (window as any).plugins.permissions;
+      return new Promise<boolean>((resolve) => {
+        permissionsPlugin.requestPermission(
+          nativePerm,
+          (status: any) => {
+            if (status && status.hasPermission) {
+              current[permission as 'sendSms' | 'callPhone' | 'readPhoneState'] = 'granted';
+              saveAndroidPermissions(current);
+              addAndroidLog('success', `مجوز ${permission} توسط سیستم‌عامل اندروید صادر گردید.`);
+              resolve(true);
+            } else {
+              current[permission as 'sendSms' | 'callPhone' | 'readPhoneState'] = 'denied';
+              saveAndroidPermissions(current);
+              addAndroidLog('error', `مجوز ${permission} توسط کاربر رد شد یا صادر نگردید.`);
+              resolve(false);
+            }
+          },
+          (err: any) => {
+            addAndroidLog('error', `خطا در دریافت مجوز سیستم‌عامل برای ${permission}: ${err}`);
+            resolve(false);
+          }
+        );
+      });
+    } else {
+      // Fallback inside native, in case plugin is loading or unavailable
+      current[permission] = 'granted';
+      saveAndroidPermissions(current);
+      addAndroidLog('success', `مجوز ${permission} ثبت گردید (محیط بومی بدون افزونه فعال).`);
+      return true;
+    }
   } else {
     // Simulated Browser environment
     return new Promise((resolve) => {
@@ -185,6 +222,50 @@ export const requestAndroidPermission = async (permission: keyof AndroidPermissi
       }, 500);
     });
   }
+};
+
+/**
+ * Dynamically check and sync real native permissions from the Android OS values
+ */
+export const checkActualAndroidPermissions = async (): Promise<AndroidPermissionStatus> => {
+  const current = getAndroidPermissions();
+  if (!isNativeAndroid() || !(window as any).plugins?.permissions) {
+    return current;
+  }
+
+  const permissionMap: Record<string, string> = {
+    sendSms: 'android.permission.SEND_SMS',
+    callPhone: 'android.permission.CALL_PHONE',
+    readPhoneState: 'android.permission.READ_PHONE_STATE'
+  };
+
+  const permissionsPlugin = (window as any).plugins.permissions;
+  
+  const checkOne = (nativePerm: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      permissionsPlugin.checkPermission(
+        nativePerm,
+        (status: any) => resolve(!!(status && status.hasPermission)),
+        () => resolve(false)
+      );
+    });
+  };
+
+  try {
+    const hasSms = await checkOne(permissionMap.sendSms);
+    const hasCall = await checkOne(permissionMap.callPhone);
+    const hasState = await checkOne(permissionMap.readPhoneState);
+
+    current.sendSms = hasSms ? 'granted' : (current.sendSms === 'granted' ? 'prompt' : current.sendSms);
+    current.callPhone = hasCall ? 'granted' : (current.callPhone === 'granted' ? 'prompt' : current.callPhone);
+    current.readPhoneState = hasState ? 'granted' : (current.readPhoneState === 'granted' ? 'prompt' : current.readPhoneState);
+
+    saveAndroidPermissions(current);
+  } catch (e) {
+    console.warn('Error checking actual permissions:', e);
+  }
+
+  return current;
 };
 
 /**

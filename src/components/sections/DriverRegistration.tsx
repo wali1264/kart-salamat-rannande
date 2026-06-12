@@ -7,6 +7,19 @@ import { logActivity } from '../../lib/logger';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSystem } from '../../contexts/SystemContext';
 
+export const cleanPhoneSuffix = (val: string): string => {
+  let clean = val.replace(/\D/g, '');
+  if (clean.startsWith('0093')) {
+    clean = clean.slice(4);
+  } else if (clean.startsWith('93')) {
+    clean = clean.slice(2);
+  }
+  if (clean.startsWith('0')) {
+    clean = clean.slice(1);
+  }
+  return clean.slice(0, 9);
+};
+
 interface Props {
   onComplete: () => void;
 }
@@ -36,6 +49,11 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     blood_type: 'نامعلوم',
     total_monthly_fee: '1500', // Default fee
   });
+
+  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = cleanPhoneSuffix(e.target.value);
+    setFormData(prev => ({ ...prev, phone: cleaned }));
+  };
 
   // Handle sequential ID generation on mount
   React.useEffect(() => {
@@ -203,11 +221,19 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
     setError(null);
 
     try {
+      // Validate phone format (must be 9 digits starting with 7)
+      const phoneDigits = formData.phone;
+      if (phoneDigits.length !== 9 || !phoneDigits.startsWith('7')) {
+        setError('لطفاً شماره تماس معتبر ۹ رقمی معتبر افغانستان بدون صفر اول وارد کنید (مثال: 799123456).');
+        setLoading(false);
+        return;
+      }
+
       // Map form data to the correct database columns in the 'students' table
       const studentData = {
         name: formData.name,
         father_name: formData.father_name,
-        phone: formData.phone,
+        phone: `+93${phoneDigits}`, // Prepend standard Afghanistan country code without raw trash
         id_number: formData.id_number,
         blood_type: formData.blood_type,
         photo_url: photo || '',
@@ -446,17 +472,24 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                <div className="space-y-2 text-right">
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">{isTeacherMode ? 'شماره تماس' : 'شماره تماس والدین'}</label>
-                  <div className="relative">
+                  <div className="relative flex items-center">
+                    <span className="absolute left-4 font-mono text-sm text-slate-500 select-none pointer-events-none" dir="ltr">
+                      +93
+                    </span>
                     <Phone className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input 
-                      type="tel" 
+                      type="text" 
                       required
+                      dir="ltr"
                       value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      placeholder="۰۷XXXXXXXX"
-                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-4 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all text-right"
+                      onChange={handlePhoneInputChange}
+                      placeholder="7xxxxxxxx"
+                      className="w-full bg-slate-50 border-slate-100 rounded-xl py-3 pr-11 pl-14 text-sm focus:ring-2 focus:ring-blue-500/20 outline-none border transition-all font-mono font-bold text-left"
                     />
                   </div>
+                  <p className="text-[9px] text-slate-400 text-right mr-1">
+                    مثال: <span className="font-mono font-bold">799123456</span> (۹ رقم بدون صفر اول)
+                  </p>
                </div>
 
                <div className="space-y-2 text-right">

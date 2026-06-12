@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { offlineDb } from './db';
+import { loadNotificationSettingsFromDb } from './notifications';
 
 export interface AndroidPermissionStatus {
   sendSms: 'granted' | 'denied' | 'prompt';
@@ -91,9 +92,45 @@ export const getAndroidLogs = (): AndroidLogEntry[] => {
 };
 
 // Clear Logs
+// Clear Logs
 export const clearAndroidLogs = () => {
   localStorage.setItem('school_android_gateway_logs', JSON.stringify([]));
   window.dispatchEvent(new Event('android_logs_updated'));
+  syncAndroidLogsToDb([]).catch(e => console.warn('Failed to clear cloud logs:', e));
+};
+
+// Synchronizes local logs to the central Database so Web clients can display them
+export const syncAndroidLogsToDb = async (logs: AndroidLogEntry[]): Promise<void> => {
+  try {
+    const payload = {
+      id: '22222222-2222-2222-2222-222222222222',
+      content: JSON.stringify(logs),
+      images: [],
+      updated_at: new Date().toISOString()
+    };
+    await supabase.from('announcements').upsert(payload);
+  } catch (err) {
+    console.warn('Error syncing logs to DB:', err);
+  }
+};
+
+// Fetches logs from the central Database (used by Web admin client to monitor other clients)
+export const fetchAndroidLogsFromDb = async (): Promise<AndroidLogEntry[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('id', '22222222-2222-2222-2222-222222222222')
+      .maybeSingle();
+
+    if (!error && data && data.content) {
+      const dbLogs = JSON.parse(data.content);
+      return dbLogs;
+    }
+  } catch (err) {
+    console.warn('Error fetching logs from DB:', err);
+  }
+  return [];
 };
 
 // Add Log Entry
@@ -108,6 +145,9 @@ export const addAndroidLog = (type: AndroidLogEntry['type'], message: string) =>
   const updated = [newLog, ...logs].slice(0, 100); // Keep last 100 logs
   localStorage.setItem('school_android_gateway_logs', JSON.stringify(updated));
   window.dispatchEvent(new Event('android_logs_updated'));
+
+  // Background sync to Cloud DB
+  syncAndroidLogsToDb(updated).catch(e => console.warn('Failed to sync logs to cloud:', e));
 };
 
 /**
@@ -156,6 +196,11 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
   let processedCount = 0;
 
   try {
+    // Sync templates and recorded voice announcement base64 from cloud
+    if (isOnline) {
+      await loadNotificationSettingsFromDb().catch(e => console.warn('Gateway settings sync failed:', e));
+    }
+
     // Verify permissions are set
     if (permissions.sendSms !== 'granted' || permissions.callPhone !== 'granted') {
       addAndroidLog('warn', 'توجه: مجوزهای ارسال پیامک یا برقراری تماس هنوز صادر نشده‌اند. اجرای پردازش متوقف شد.');

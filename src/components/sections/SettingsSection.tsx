@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useSync } from '../../contexts/SyncContext';
 import { offlineDb } from '../../lib/db';
 import { compressImage } from '../../lib/utils';
-import { getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../../lib/notifications';
+import { getNotificationSettings, saveNotificationSettings, NotificationSettings, syncNotificationSettingsToDb, loadNotificationSettingsFromDb } from '../../lib/notifications';
 import { 
   getAndroidConfig, 
   saveAndroidConfig, 
@@ -16,6 +16,7 @@ import {
   addAndroidLog, 
   requestAndroidPermission, 
   runAndroidGatewayWorker,
+  fetchAndroidLogsFromDb,
   AndroidConfig,
   AndroidPermissionStatus,
   AndroidLogEntry,
@@ -107,11 +108,13 @@ export const SettingsSection: React.FC = () => {
         // Convert blob to base64 for persistent localStorage / offlineDb syncing
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64String = reader.result as string;
           setRecordedAudioBase64(base64String);
           localStorage.setItem('school_voice_announcement_base64', base64String);
           addAndroidLog('success', 'صوت ضبط‌شده جدید مدیر با موفقیت انکود و در گیت‌وی ذخیره گردید.');
+          // Immediate cloud sync of settings and the written voice announcement
+          await syncNotificationSettingsToDb(notificationConfig, base64String);
         };
 
         setRecordedAudioUrl(audioUrl);
@@ -191,7 +194,7 @@ export const SettingsSection: React.FC = () => {
 
     const reader = new FileReader();
     reader.readAsDataURL(file);
-    reader.onload = () => {
+    reader.onload = async () => {
       const base64String = reader.result as string;
       setRecordedAudioBase64(base64String);
       localStorage.setItem('school_voice_announcement_base64', base64String);
@@ -201,6 +204,8 @@ export const SettingsSection: React.FC = () => {
       localStorage.setItem('school_voice_announcement_url', url);
 
       addAndroidLog('success', `فایل صوتی بارگذاری شده [${file.name}] به جای صوت ضبط‌شده مدیر جایگزین شد.`);
+      // Sync immediately to the cloud database
+      await syncNotificationSettingsToDb(notificationConfig, base64String);
     };
   };
 
@@ -361,10 +366,29 @@ export const SettingsSection: React.FC = () => {
       setAndroidLogs(getAndroidLogs());
     };
     window.addEventListener('android_logs_updated', handleLogsUpdate);
+
+    // Dynamic Cloud Polling to sync logs across different devices/clients
+    let interval: NodeJS.Timeout;
+    if (isOnline) {
+      fetchAndroidLogsFromDb().then(dbLogs => {
+        if (dbLogs && dbLogs.length > 0) {
+          setAndroidLogs(dbLogs);
+        }
+      });
+
+      interval = setInterval(async () => {
+        const dbLogs = await fetchAndroidLogsFromDb();
+        if (dbLogs && dbLogs.length > 0) {
+          setAndroidLogs(dbLogs);
+        }
+      }, 3000); // refresh every 3 seconds for perfect real-time feedback
+    }
+
     return () => {
       window.removeEventListener('android_logs_updated', handleLogsUpdate);
+      if (interval) clearInterval(interval);
     };
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     if (!isAutoWorkerActive) return;
@@ -411,6 +435,23 @@ export const SettingsSection: React.FC = () => {
   useEffect(() => {
     fetchSettings();
     setNotificationConfig(getNotificationSettings());
+
+    const loadCloudSettings = async () => {
+      try {
+        const { settings, voiceBase64 } = await loadNotificationSettingsFromDb();
+        setNotificationConfig(settings);
+        if (voiceBase64) {
+          setRecordedAudioBase64(voiceBase64);
+          const audioBlob = await (await fetch(voiceBase64)).blob();
+          const url = URL.createObjectURL(audioBlob);
+          setRecordedAudioUrl(url);
+          localStorage.setItem('school_voice_announcement_url', url);
+        }
+      } catch (err) {
+        console.warn('Silent cloud settings fetching failed, using local fallback:', err);
+      }
+    };
+    loadCloudSettings();
   }, []);
 
   const fetchSettings = async () => {
@@ -1710,13 +1751,15 @@ export const SettingsSection: React.FC = () => {
                 {/* Submit Action */}
                 <div className="flex justify-between items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-xs">
                   <span className="text-xs text-slate-400 font-bold">
-                    تنظیمات و قالب‌های اطلاع‌رسانی در حافظه محلی کوکی مرورگر ذخیره می‌شوند.
+                    تنظیمات و قالب‌های اطلاع‌رسانی به صورت خودکار با سرور و کلاینت اندروید همگام‌سازی می‌شوند.
                   </span>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       saveNotificationSettings(notificationConfig);
                       setSaveStatus('success');
                       setTimeout(() => setSaveStatus(null), 3500);
+                      // Sync to remote database
+                      await syncNotificationSettingsToDb(notificationConfig, recordedAudioBase64);
                     }}
                     className="bg-blue-600 text-white px-10 py-3.5 rounded-2xl text-xs font-black transition-all hover:bg-blue-700 hover:scale-[1.01] active:scale-[0.99] shadow-md shadow-blue-100 flex items-center gap-2"
                   >

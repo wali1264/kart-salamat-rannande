@@ -3,6 +3,7 @@ import { Search, User, Clock, Calendar as CalendarIcon, CheckCircle2, XCircle, A
 import { supabase } from '../../../lib/supabase';
 import { offlineDb } from '../../../lib/db';
 import { queueAutoNotification } from '../../../lib/notifications';
+import { runAndroidGatewayWorker, addAndroidLog } from '../../../lib/androidBridge';
 import { useSystem } from '../../../contexts/SystemContext';
 import { useSync } from '../../../contexts/SyncContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,7 +16,7 @@ export const ManualAttendance: React.FC = () => {
   const [people, setPeople] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPerson, setSelectedPerson] = useState<any | null>(null);
-  const [actionType, setActionType] = useState<'entry' | 'exit' | 'present'>('entry');
+  const [actionType, setActionType] = useState<'entry' | 'exit' | 'absent'>('entry');
   const [customDateTime, setCustomDateTime] = useState(false);
   
   // Jalali Date Parts
@@ -392,9 +393,16 @@ export const ManualAttendance: React.FC = () => {
     // Logic checks
     const hasArrival = todayRecords.some(r => r.type === 'entry' || r.type === 'present');
     const hasExit = todayRecords.some(r => r.type === 'exit');
+    const hasAbsent = todayRecords.some(r => r.type === 'absent');
 
-    if ((actionType === 'entry' || actionType === 'present') && hasArrival) {
-      setErrorStatus('وضعیت حضور (ورود/حاضری) قبلاً برای این روز ثبت شده است.');
+    if (actionType === 'entry' && hasArrival) {
+      setErrorStatus('وضعیت حضور (ورود) قبلاً برای این روز ثبت شده است.');
+      setTimeout(() => setErrorStatus(null), 3000);
+      return;
+    }
+
+    if (actionType === 'absent' && (hasArrival || hasAbsent)) {
+      setErrorStatus('وضعیت غیبت یا حضور قبلاً برای این روز ثبت شده است.');
       setTimeout(() => setErrorStatus(null), 3000);
       return;
     }
@@ -406,7 +414,7 @@ export const ManualAttendance: React.FC = () => {
     }
 
     if (actionType === 'exit' && !hasArrival) {
-      setErrorStatus('ابتدا باید ورود یا حاضری ثبت شود.');
+      setErrorStatus('ابتدا باید ورود ثبت شده باشد تا بتوان خروج زد.');
       setTimeout(() => setErrorStatus(null), 3000);
       return;
     }
@@ -427,7 +435,7 @@ export const ManualAttendance: React.FC = () => {
 
       const record = {
         student_id: selectedPerson.id,
-        type: actionType === 'present' ? 'entry' : actionType,
+        type: actionType,
         recorded_at: timestamp,
         method: 'manual'
       };
@@ -443,22 +451,34 @@ export const ManualAttendance: React.FC = () => {
 
       // Auto notification queueing in the background (fire and forget)
       try {
-        const notifyType = actionType === 'present' ? 'entry' : (actionType as 'entry' | 'exit' | 'absent');
-        queueAutoNotification(
+        const notifyType = actionType as 'entry' | 'exit' | 'absent';
+        await queueAutoNotification(
           selectedPerson,
           notifyType,
           isTeacherMode,
           performAction
         );
+
+        // Immediate gateway worker push
+        if (isOnline) {
+          addAndroidLog('info', `تحریک سریع همگام‌سازی گیت‌وی: پردازش خودکار تسک جدید شروع شد...`);
+          runAndroidGatewayWorker(isOnline).then(processed => {
+            if (processed > 0) {
+              addAndroidLog('success', `پخش صوتی یا پیامک با موفقیت توسط گیت‌وی بصورت زنده ارسال شد.`);
+            }
+          }).catch(err => {
+            console.error('Unified worker trigger error:', err);
+          });
+        }
       } catch (notifyErr) {
         console.error('Failed to trigger automatic notification:', notifyErr);
       }
 
       setSuccess(queued 
-        ? `حضور در صف انتظار ذخیره شد. پس از اتصال همگام می‌شود.` 
-        : `حضور ${actionType === 'entry' ? 'ورود' : actionType === 'exit' ? 'خروج' : 'حاضری'} برای ${selectedPerson.name} ثبت شد.`);
+        ? `وضعیت در صف دستگاه محلی ذخیره شد و پس از ارتباط همگام می‌شود.` 
+        : `وضعیت ${actionType === 'entry' ? 'ورود' : actionType === 'exit' ? 'خروج' : 'غیبت'} برای ${selectedPerson.name} با موفقیت ثبت شد.`);
       
-      setTimeout(() => setSuccess(null), 3000);
+      setTimeout(() => setSuccess(null), 3500);
       setSelectedPerson(null);
       fetchPeople(true); // Refresh stats
     } catch (err) {
@@ -688,7 +708,7 @@ export const ManualAttendance: React.FC = () => {
                         label: 'ورود', 
                         color: 'emerald', 
                         icon: <CheckCircle2 className="w-5 h-5" />, 
-                        active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present') 
+                        active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present' || r.type === 'absent') 
                       },
                       { 
                         id: 'exit', 
@@ -698,11 +718,11 @@ export const ManualAttendance: React.FC = () => {
                         active: todayRecords.some(r => r.type === 'entry' || r.type === 'present') && !todayRecords.some(r => r.type === 'exit') 
                       },
                       { 
-                        id: 'present', 
-                        label: 'حاضر', 
-                        color: 'blue', 
-                        icon: <Clock className="w-5 h-5" />, 
-                        active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present') 
+                        id: 'absent', 
+                        label: 'غیرحاضر', 
+                        color: 'amber', 
+                        icon: <XCircle className="w-5 h-5 text-amber-500" />, 
+                        active: !todayRecords.some(r => r.type === 'entry' || r.type === 'present' || r.type === 'absent') 
                       },
                     ].map((btn) => (
                       <button

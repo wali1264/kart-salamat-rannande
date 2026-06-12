@@ -65,6 +65,83 @@ export const saveNotificationSettings = (settings: NotificationSettings): void =
 };
 
 /**
+ * Synchronize settings and custom manager base64 audio to the cloud announcements table
+ */
+export const syncNotificationSettingsToDb = async (settings: NotificationSettings, base64Audio?: string | null): Promise<void> => {
+  try {
+    const finalAudio = base64Audio !== undefined 
+      ? base64Audio 
+      : localStorage.getItem('school_voice_announcement_base64');
+      
+    const imagesArray = finalAudio ? [finalAudio] : [];
+
+    const payload = {
+      id: '11111111-1111-1111-1111-111111111111',
+      content: JSON.stringify(settings),
+      images: imagesArray,
+      updated_at: new Date().toISOString()
+    };
+
+    // Keep local storage fresh as well
+    localStorage.setItem('school_notification_settings', JSON.stringify(settings));
+    if (finalAudio) {
+      localStorage.setItem('school_voice_announcement_base64', finalAudio);
+    } else {
+      localStorage.removeItem('school_voice_announcement_base64');
+    }
+
+    const { error } = await supabase
+      .from('announcements')
+      .upsert(payload);
+
+    if (error) {
+      console.warn('Fail merging settings to remote cloud:', error.message);
+    } else {
+      console.log('App settings and master announcement voice synced beautifully to database.');
+    }
+  } catch (err) {
+    console.error('Error in syncNotificationSettingsToDb:', err);
+  }
+};
+
+/**
+ * Loads and caches settings and custom manager base64 audio directly from the cloud database
+ */
+export const loadNotificationSettingsFromDb = async (): Promise<{ settings: NotificationSettings; voiceBase64: string | null }> => {
+  try {
+    // Attempt load from online db
+    const { data, error } = await supabase
+      .from('announcements')
+      .select('*')
+      .eq('id', '11111111-1111-1111-1111-111111111111')
+      .maybeSingle();
+
+    if (!error && data) {
+      const settings: NotificationSettings = JSON.parse(data.content);
+      const voiceBase64 = data.images && data.images[0] ? data.images[0] : null;
+
+      // Update local storage so synchronous modules have immediate access
+      localStorage.setItem('school_notification_settings', JSON.stringify(settings));
+      if (voiceBase64) {
+        localStorage.setItem('school_voice_announcement_base64', voiceBase64);
+      } else {
+        localStorage.removeItem('school_voice_announcement_base64');
+      }
+
+      return { settings, voiceBase64 };
+    }
+  } catch (err) {
+    console.error('Error loading notification settings of School from supabase:', err);
+  }
+
+  // Fallback to local
+  return {
+    settings: getNotificationSettings(),
+    voiceBase64: localStorage.getItem('school_voice_announcement_base64')
+  };
+};
+
+/**
  * Automatically queues a notification task when attendance events occur.
  */
 export const queueAutoNotification = async (

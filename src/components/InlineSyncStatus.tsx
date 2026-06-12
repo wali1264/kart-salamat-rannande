@@ -37,7 +37,7 @@ export const InlineSyncStatus: React.FC = () => {
       <motion.button
         layout
         onClick={() => setShowDetails(!showDetails)}
-        className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl border transition-all h-12 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border transition-all h-9 sm:h-11 cursor-pointer ${
           !isOnline 
             ? 'bg-amber-50 border-amber-200 text-amber-600' 
             : (queueCount > 0 || failedItems.length > 0 || isSyncing)
@@ -45,46 +45,43 @@ export const InlineSyncStatus: React.FC = () => {
             : 'bg-emerald-50 border-emerald-200 text-emerald-600'
         }`}
       >
-        <div className="relative">
+        <div className="relative flex items-center justify-center">
           {!isOnline ? (
-            <CloudOff className="w-4 h-4" />
+            <CloudOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           ) : isSyncing ? (
-            <RotateCcw className="w-4 h-4 animate-spin" />
+            <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
           ) : (
-            <Database className="w-4 h-4" />
+            <Database className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           )}
           
           {allItems.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-black w-3.5 h-3.5 flex items-center justify-center rounded-full border border-white">
+            <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[8px] font-black w-3.5 h-3.5 flex items-center justify-center rounded-full border border-white">
               {allItems.length}
             </span>
           )}
         </div>
 
-        <div className="flex flex-col items-start min-w-[120px]">
-          <span className="text-[10px] font-black leading-none">
-            {!isOnline ? 'حالت آفلاین فعال است' : isSyncing ? 'در حال همگام‌سازی...' : 'وضعیت داده‌ها'}
-          </span>
-          <span className="text-[9px] opacity-70 font-bold mt-0.5">
-            {allItems.length > 0 ? `${allItems.length} مورد در صف انتظار` : 'همه داده‌ها همگام هستند'}
+        <div className="flex flex-col items-start text-right">
+          <span className="text-[9px] sm:text-[10px] font-black leading-none">
+            {!isOnline ? 'آفلاین' : isSyncing ? 'درحال بروزرسانی' : 'وضعیت داده‌ها'}
           </span>
         </div>
 
-        {showDetails ? <ChevronUp className="w-4 h-4 opacity-50" /> : <ChevronDown className="w-4 h-4 opacity-50" />}
+        {showDetails ? <ChevronUp className="w-3 h-3 opacity-50" /> : <ChevronDown className="w-3 h-3 opacity-50" />}
       </motion.button>
 
       <AnimatePresence>
         {showDetails && (
           <>
             <div 
-              className="fixed inset-0 z-40" 
+              className="fixed inset-0 bg-slate-950/20 backdrop-blur-xs z-40" 
               onClick={() => setShowDetails(false)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="absolute top-full mt-2 left-0 w-80 bg-white border border-slate-200 shadow-2xl rounded-3xl overflow-hidden p-4 flex flex-col gap-3 z-50 transform origin-top-left"
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed sm:absolute bottom-4 sm:bottom-auto inset-x-4 sm:inset-x-auto sm:top-full sm:left-0 sm:right-auto mt-2 w-auto sm:w-80 bg-white border border-slate-200 shadow-2xl rounded-3xl overflow-hidden p-4 flex flex-col gap-3 z-50 transform origin-bottom sm:origin-top-left"
             >
               <div className="flex items-center justify-between border-b border-slate-50 pb-2">
                 <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint, Bell, QrCode, GraduationCap, Calendar } from 'lucide-react';
+import { ShieldCheck, Loader2, AlertCircle, Camera, Info, ShieldAlert, Clock, User as UserIcon, Search, PowerOff, Fingerprint, Bell, QrCode, GraduationCap, Calendar, Sparkles, Award } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -26,6 +26,7 @@ export const QrScanner: React.FC = () => {
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [weeksToShow, setWeeksToShow] = useState(1);
   const [gradeLoading, setGradeLoading] = useState(false);
+  const luxMode = false;
 
   const fetchAttendance = async (id: string, isMore = false) => {
     const cleanedId = cleanInputId(id);
@@ -511,38 +512,42 @@ export const QrScanner: React.FC = () => {
 
   return (
     <div className="max-w-xl mx-auto px-2">
-      {/* 0. Section Tabs */}
-      <div className="flex bg-slate-100 p-1.5 rounded-3xl mb-6 border border-slate-200">
-        <button 
-          onClick={() => setActiveTab('scan')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'scan' ? 'bg-white text-blue-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          <QrCode className="w-4 h-4" />
-          اسکنر و استعلام
-        </button>
-        <button 
-          onClick={() => setActiveTab('announcements')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'announcements' ? 'bg-white text-orange-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          <Bell className="w-4 h-4" />
-          اعلانات مکتب
-        </button>
-        <button 
-          onClick={() => setActiveTab('attendance')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'attendance' ? 'bg-white text-blue-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          <Calendar className="w-4 h-4" />
-          استعلام حضور
-        </button>
-        {!isTeacherMode && (
-          <button 
-            onClick={() => setActiveTab('grades')}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-xs font-black transition-all ${activeTab === 'grades' ? 'bg-white text-emerald-600 shadow-xl' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <GraduationCap className="w-4 h-4" />
-            نمرات و توصیه‌ها
-          </button>
-        )}
+      {/* 0. Section Tabs with Framer Motion sliding pill layout */}
+      <div className={`flex p-1.5 rounded-2xl mb-6 border transition-all duration-300 ${
+        luxMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-slate-100 border-slate-200'
+      }`}>
+        {[
+          { id: 'scan', label: 'اسکنر هوشمند', icon: QrCode, activeColor: luxMode ? 'text-amber-500' : isTeacherMode ? 'text-emerald-600' : 'text-blue-600' },
+          { id: 'announcements', label: 'اعلانات مکتب', icon: Bell, activeColor: luxMode ? 'text-amber-400' : 'text-orange-600' },
+          { id: 'attendance', label: 'استعلام حضور', icon: Calendar, activeColor: luxMode ? 'text-amber-400' : 'text-indigo-600' },
+          ...(!isTeacherMode ? [{ id: 'grades', label: 'نمرات آموزشی', icon: GraduationCap, activeColor: luxMode ? 'text-amber-400' : 'text-emerald-600' }] : [])
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 py-2 sm:py-2.5 rounded-xl text-[10px] font-black transition-all relative z-10 cursor-pointer ${
+                isActive ? tab.activeColor : luxMode ? 'text-zinc-500 hover:text-zinc-400' : 'text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+              {isActive && (
+                <motion.div
+                  layoutId="activeScannerTab"
+                  className={`absolute inset-0 rounded-xl -z-10 ${
+                    luxMode 
+                      ? 'bg-zinc-950 border border-amber-500/30 shadow-[0_4px_15px_rgba(245,158,11,0.15)]' 
+                      : 'bg-white shadow-[0_4px_15px_rgba(15,23,42,0.06)]'
+                  }`}
+                  transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <AnimatePresence mode="wait">
@@ -556,15 +561,21 @@ export const QrScanner: React.FC = () => {
           >
             {/* 1. Global Loading Overlay during Verification */}
             {loading && (
-              <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[200] flex flex-col items-center justify-center animate-in fade-in duration-300">
-                <div className="bg-white p-10 rounded-[3rem] shadow-2xl flex flex-col items-center gap-6">
+              <div className={`fixed inset-0 z-[200] flex flex-col items-center justify-center animate-in fade-in duration-300 ${
+                luxMode ? 'bg-black/80 backdrop-blur-md' : 'bg-slate-900/60 backdrop-blur-md'
+              }`}>
+                <div className={`p-10 rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-6 border ${
+                  luxMode ? 'bg-zinc-950 border-amber-500/30 text-amber-100' : 'bg-white border-slate-100'
+                }`}>
                   <div className="relative">
-                    <div className="w-16 h-16 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
-                    <Search className="absolute inset-0 m-auto w-6 h-6 text-blue-600/50" />
+                    <div className={`w-16 h-16 border-4 rounded-full animate-spin ${
+                      luxMode ? 'border-amber-500/20 border-t-amber-500' : 'border-blue-100 border-t-blue-600'
+                    }`} />
+                    <Search className={`absolute inset-0 m-auto w-6 h-6 ${luxMode ? 'text-amber-500/50' : 'text-blue-600/50'}`} />
                   </div>
                   <div className="text-center">
-                    <h3 className="text-lg font-black text-slate-800 mb-1">در حال استعلام...</h3>
-                    <p className="text-xs text-slate-500 font-bold">در حال بازیابی اطلاعات از سرور مرکزی</p>
+                    <h3 className={`text-lg font-black mb-1 ${luxMode ? 'text-amber-400 font-sans' : 'text-slate-800'}`}>در حال استعلام هوشمند...</h3>
+                    <p className={`text-xs font-bold ${luxMode ? 'text-zinc-500' : 'text-slate-500'}`}>در حال بازیابی هویت دیجیتال و بیومتریک</p>
                   </div>
                 </div>
               </div>
@@ -574,22 +585,30 @@ export const QrScanner: React.FC = () => {
             <div className="mb-4 relative">
               <div className="relative z-50 flex items-center gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Search className={`absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 ${luxMode ? 'text-amber-500/70' : 'text-slate-400'}`} />
                   <input 
                     type="text" 
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && verifyCard(searchInput)}
                     placeholder={isTeacherMode ? "جستجوی استاد (نام، کد، موبایل...)" : "جستجوی شاگرد (نام، پلاک، جواز...)"}
-                    className="w-full bg-white border border-slate-200 rounded-2xl py-3.5 pr-11 pl-4 text-sm outline-none focus:border-blue-500 shadow-sm transition-all"
+                    className={`w-full rounded-2xl py-3.5 pr-11 pl-4 text-sm outline-none shadow-sm transition-all ${
+                      luxMode 
+                        ? 'bg-zinc-950 border border-zinc-800 text-white placeholder-zinc-500 focus:border-amber-500/80 shadow-[0_4px_12px_rgba(0,0,0,0.5)]' 
+                        : 'bg-white border border-slate-200 focus:border-blue-500 text-slate-800'
+                    }`}
                   />
                   {isSearching && (
-                    <Loader2 className="absolute left-12 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500 animate-spin" />
+                    <Loader2 className={`absolute left-12 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin ${luxMode ? 'text-amber-500' : 'text-blue-500'}`} />
                   )}
                 </div>
                 <button 
                   onClick={() => verifyCard(searchInput)}
-                  className="bg-slate-800 text-white px-6 py-3.5 rounded-2xl font-bold text-sm hover:bg-slate-900 transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap"
+                  className={`px-6 py-3.5 rounded-2xl font-black text-sm transition-all shadow-md active:scale-95 cursor-pointer whitespace-nowrap ${
+                    luxMode 
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-lg shadow-amber-500/15' 
+                      : 'bg-slate-800 text-white hover:bg-slate-900'
+                  }`}
                 >
                   جستجو
                 </button>
@@ -597,32 +616,48 @@ export const QrScanner: React.FC = () => {
 
               {/* Floating Suggestions List */}
               {suggestions.length > 0 && !cardData && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2">
-                  <div className="p-3 border-b border-slate-50 bg-slate-50 flex justify-between items-center">
-                    <span className="text-[10px] font-black text-slate-400 uppercase">نتایج پیشنهادی</span>
-                    <Info className="w-3 h-3 text-slate-300" />
+                <div className={`absolute top-full left-0 right-0 mt-2 rounded-2xl shadow-2xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2 border ${
+                  luxMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-100'
+                }`}>
+                  <div className={`p-3 flex justify-between items-center border-b ${
+                    luxMode ? 'bg-zinc-950 border-zinc-800 text-zinc-400' : 'bg-slate-50 border-slate-50 text-slate-400'
+                  }`}>
+                    <span className="text-[10px] font-black uppercase">نتایج پیشنهادی</span>
+                    <Info className={`w-3 h-3 ${luxMode ? 'text-amber-500/50' : 'text-slate-300'}`} />
                   </div>
                   {suggestions.map((driver) => (
                     <button
                       key={driver.id}
                       onClick={() => verifyCard(driver.name)}
-                      className="w-full flex items-center gap-4 p-4 hover:bg-blue-50 transition-colors border-b border-slate-50 last:border-0 text-right active:bg-blue-100"
+                      className={`w-full flex items-center gap-4 p-4 transition-colors border-b last:border-0 text-right active:scale-[0.99] origin-center ${
+                        luxMode 
+                          ? 'hover:bg-zinc-800/80 border-zinc-800/50 text-amber-50 bg-zinc-900' 
+                          : 'hover:bg-blue-50 border-slate-50 text-slate-800 bg-white'
+                      }`}
                     >
-                      <div className="w-12 h-12 bg-slate-100 rounded-xl overflow-hidden shadow-sm flex-shrink-0">
+                      <div className={`w-11 h-11 rounded-xl overflow-hidden shadow-sm flex-shrink-0 border ${
+                        luxMode ? 'bg-zinc-800 border-zinc-700' : 'bg-slate-100 border-slate-100'
+                      }`}>
                         {driver.photo_url ? (
                           <img src={driver.photo_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <UserIcon className="w-6 h-6 text-slate-300 m-3" />
+                          <UserIcon className={`w-5 h-5 mx-auto mt-3 ${luxMode ? 'text-amber-500/40' : 'text-slate-300'}`} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-bold text-slate-800 truncate text-sm mb-1">{driver.name}</h4>
+                        <h4 className={`font-black truncate text-sm mb-0.5 ${luxMode ? 'text-amber-100' : 'text-slate-800'}`}>{driver.name}</h4>
                         <div className="flex gap-2 items-center">
-                          <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">{isTeacherMode ? 'رتبه' : 'صنف'}: {driver.class_name || driver.vehicle_type}</span>
-                          <span className="text-[9px] bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded font-bold">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}: {driver.student_id_no || driver.license_number}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-mono ${
+                            luxMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-500'
+                          }`}>{isTeacherMode ? 'رتبه' : 'صنف'}: {driver.class_name || driver.vehicle_type}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
+                            luxMode ? 'bg-amber-500/10 text-amber-400' : 'bg-blue-50 text-blue-500'
+                          }`}>{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}: {driver.student_id_no || driver.license_number}</span>
                         </div>
                       </div>
-                      <div className="bg-blue-100 text-blue-600 p-2 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <div className={`p-2 rounded-lg transition-colors ${
+                        luxMode ? 'bg-zinc-800 text-amber-500' : 'bg-blue-100 text-blue-600'
+                      }`}>
                         <UserIcon className="w-4 h-4" />
                       </div>
                     </button>
@@ -639,7 +674,13 @@ export const QrScanner: React.FC = () => {
                     setShowScanner(!showScanner);
                     setFingerprintMode(false);
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 ${showScanner ? 'bg-rose-50 text-rose-600 border border-rose-100' : 'bg-blue-600 text-white shadow-blue-100'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer ${
+                    showScanner 
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/20' 
+                      : luxMode 
+                        ? 'bg-zinc-950 text-amber-400 border border-amber-500/30 hover:bg-zinc-900 shadow-amber-500/5' 
+                        : 'bg-blue-600 text-white shadow-blue-100'
+                  }`}
                 >
                   {showScanner ? (
                     <><PowerOff className="w-4 h-4" /> قطع کمره</>
@@ -653,7 +694,13 @@ export const QrScanner: React.FC = () => {
                     setFingerprintMode(!fingerprintMode);
                     setShowScanner(false);
                   }}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 ${fingerprintMode ? 'bg-blue-600 text-white shadow-blue-100' : 'bg-white text-blue-600 border border-blue-100'}`}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-2xl font-black text-xs transition-all shadow-md active:scale-95 cursor-pointer ${
+                    fingerprintMode 
+                      ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20' 
+                      : luxMode 
+                        ? 'bg-zinc-950 text-amber-400 border border-amber-500/30 hover:bg-zinc-900' 
+                        : 'bg-white text-blue-600 border border-blue-100'
+                  }`}
                 >
                   <Fingerprint className="w-4 h-4" />
                   {fingerprintMode ? 'درحال انتظار...' : 'اسکن اثر انگشت'}
@@ -663,19 +710,27 @@ export const QrScanner: React.FC = () => {
 
             {/* Fingerprint Active UI */}
             {!cardData && !error && fingerprintMode && (
-              <div className="mb-6 p-10 bg-blue-50 border-2 border-dashed border-blue-200 rounded-[3rem] text-center animate-in zoom-in duration-300">
+              <div className={`mb-6 p-10 rounded-[2.5rem] text-center animate-in zoom-in duration-300 border ${
+                luxMode 
+                  ? 'bg-zinc-950 border-amber-500/30' 
+                  : 'bg-blue-50 border-2 border-dashed border-blue-200'
+              }`}>
                  <div className="relative mx-auto w-24 h-24 mb-6">
-                    <div className="absolute inset-0 bg-blue-500/20 rounded-full animate-ping" />
-                    <div className="relative bg-blue-600 w-24 h-24 rounded-full flex items-center justify-center shadow-xl">
-                       <Fingerprint className="w-12 h-12 text-white animate-pulse" />
+                    <div className={`absolute inset-0 rounded-full animate-ping ${luxMode ? 'bg-amber-500/10' : 'bg-blue-500/20'}`} />
+                    <div className={`relative w-24 h-24 rounded-full flex items-center justify-center shadow-xl ${
+                      luxMode ? 'bg-amber-500 text-black' : 'bg-blue-600 text-white'
+                    }`}>
+                       <Fingerprint className="w-12 h-12 animate-pulse" />
                     </div>
                  </div>
-                 <h3 className="text-xl font-black text-blue-900 mb-2">آماده شناسایی اثر انگشت</h3>
-                 <p className="text-xs text-blue-600 font-bold mb-6">لطفاً انگشت خود را روی دستگاه قرار دهید</p>
+                 <h3 className={`text-xl font-black mb-2 ${luxMode ? 'text-amber-400 font-sans' : 'text-blue-900'}`}>آماده شناسایی اثر انگشت</h3>
+                 <p className={`text-xs font-bold mb-6 ${luxMode ? 'text-zinc-500' : 'text-blue-600'}`}>لطفاً انگشت خود را روی دستگاه قرار دهید</p>
                  
-                  <div className="bg-white/60 p-4 rounded-2xl border border-blue-100 flex items-center justify-center gap-3">
+                  <div className={`p-4 rounded-2xl border flex items-center justify-center gap-3 ${
+                    luxMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white/60 border-blue-100'
+                  }`}>
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <p className="text-[10px] text-slate-500 font-bold">سیستم آماده دریافت داده از اسکنر می‌باشد</p>
+                    <p className={`text-[10px] font-bold ${luxMode ? 'text-zinc-400' : 'text-slate-500'}`}>سیستم آماده دریافت داده از اسکنر می‌باشد</p>
                   </div>
               </div>
             )}
@@ -683,76 +738,125 @@ export const QrScanner: React.FC = () => {
             {/* Camera Section */}
             {!cardData && !error && showScanner && (
               <div className="space-y-4 animate-in fade-in zoom-in duration-300">
-                <div className="relative aspect-square max-w-[340px] mx-auto bg-black rounded-[3rem] overflow-hidden shadow-2xl border-4 border-white">
+                <div className={`relative aspect-square max-w-[340px] mx-auto rounded-[2.5rem] overflow-hidden shadow-2xl transition-all duration-300 ${
+                  luxMode ? 'border-4 border-amber-500/30 bg-black/90 shadow-amber-500/5' : 'border-4 border-white bg-black'
+                }`}>
                   <div id="reader" className="w-full h-full"></div>
                   <div className="absolute inset-0 pointer-events-none z-10 flex items-center justify-center">
-                    <div className="w-48 h-48 border-2 border-white/20 rounded-3xl relative">
-                      <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-xl animate-pulse" />
-                      <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-xl animate-pulse" />
-                      <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-xl animate-pulse" />
-                      <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-xl animate-pulse" />
-                      <div className="absolute left-2 right-2 h-0.5 bg-blue-500/40 animate-[scan_2s_infinite]" />
+                    <div className={`w-48 h-48 border-2 rounded-3xl relative ${luxMode ? 'border-amber-500/20' : 'border-white/20'}`}>
+                      <div className={`absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 rounded-tr-xl animate-pulse ${luxMode ? 'border-amber-400' : 'border-blue-500'}`} />
+                      <div className={`absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 rounded-tl-xl animate-pulse ${luxMode ? 'border-amber-400' : 'border-blue-500'}`} />
+                      <div className={`absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 rounded-br-xl animate-pulse ${luxMode ? 'border-amber-400' : 'border-blue-500'}`} />
+                      <div className={`absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 rounded-bl-xl animate-pulse ${luxMode ? 'border-amber-400' : 'border-blue-500'}`} />
+                      <div className={`absolute left-2 right-2 h-0.5 animate-[scan_2s_infinite] ${luxMode ? 'bg-amber-400/60' : 'bg-blue-500/40'}`} />
                     </div>
                   </div>
                   {loading && (
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col items-center justify-center z-20">
-                      <Loader2 className="w-8 h-8 text-white animate-spin" />
+                      <Loader2 className={`w-8 h-8 animate-spin ${luxMode ? 'text-amber-400' : 'text-white'}`} />
                     </div>
                   )}
                 </div>
-                <p className="text-[10px] text-center text-slate-400 font-black uppercase tracking-widest">کارت را مقابل کمره بگیرید</p>
+                <p className={`text-[10px] text-center font-black uppercase tracking-widest ${luxMode ? 'text-amber-500/70' : 'text-slate-400'}`}>
+                  کارت را مقابل کمره بگیرید
+                </p>
               </div>
             )}
 
             {/* Result: FAKE (Error) */}
             {error && scanStatus === 'fake' && (
-              <div className="bg-rose-50 border-2 border-rose-100 p-8 rounded-[3rem] text-center shadow-xl animate-in slide-in-from-bottom duration-500">
-                <div className="w-20 h-20 bg-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-rose-200">
-                  <ShieldAlert className="w-10 h-10 text-white" />
+              <div className={`p-8 rounded-[2.5rem] text-center shadow-xl animate-in slide-in-from-bottom duration-500 border ${
+                luxMode ? 'bg-zinc-950 border-rose-500/40 text-rose-100 shadow-rose-950/20' : 'bg-rose-50 border-2 border-rose-100 text-rose-900'
+              }`}>
+                <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg ${
+                  luxMode ? 'bg-rose-950/80 border border-rose-500/40 text-rose-500' : 'bg-rose-500 text-white shadow-rose-200'
+                }`}>
+                  <ShieldAlert className="w-10 h-10" />
                 </div>
-                <h3 className="text-2xl font-black text-rose-900 mb-3 text-[18px]">کارت غیرمعتبر!</h3>
-                <p className="text-rose-700 font-bold mb-8 text-sm px-4 leading-relaxed">
-                  این کارت در سیستم ثبت نشده است و غیرمعتبر می‌باشد. احتمال جعل وجود دارد.
+                <h3 className="text-xl font-black mb-3">کارت غیرمعتبر!</h3>
+                <p className={`font-bold mb-8 text-xs sm:text-sm px-4 leading-relaxed ${luxMode ? 'text-zinc-400' : 'text-rose-700'}`}>
+                  این کارت در سیستم ثبت نشده است و غیرمعتبر می‌باشد. احتمال جعل یا عدم هماهنگی اطلاعات وجود دارد.
                 </p>
-                <button onClick={resetScanner} className="w-full bg-rose-600 text-white py-4 rounded-2xl font-black text-lg shadow-lg active:scale-95 transition-all">تلاش مجدد</button>
+                <button 
+                  onClick={resetScanner} 
+                  className={`w-full py-4 rounded-xl font-black text-sm active:scale-95 transition-all cursor-pointer ${
+                    luxMode ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-600/20' : 'bg-rose-600 text-white shadow-lg'
+                  }`}
+                >
+                  تلاش مجدد
+                </button>
               </div>
             )}
 
             {/* Result: SUCCESS or EXPIRED */}
             {cardData && (
-              <div className="bg-white border border-slate-100 rounded-[3rem] shadow-2xl overflow-hidden relative animate-in slide-in-from-bottom duration-500">
-                <div className={`p-4 flex flex-col items-center justify-center gap-2 ${scanStatus === 'expired' ? 'bg-amber-500' : isTeacherMode ? 'bg-emerald-500' : 'bg-blue-600'} text-white`}>
+              <div className={`rounded-[2.5rem] shadow-2xl overflow-hidden relative animate-in slide-in-from-bottom duration-500 border-2 ${
+                luxMode 
+                  ? 'bg-zinc-950 border-amber-500/30 text-amber-100 shadow-[0_12px_40px_rgba(234,179,8,0.15)] font-sans' 
+                  : 'bg-white border-slate-100'
+              }`}>
+                <div className={`p-5 flex flex-col items-center justify-center gap-2 text-white ${
+                  scanStatus === 'expired' 
+                    ? 'bg-amber-600' 
+                    : luxMode 
+                      ? 'bg-gradient-to-r from-zinc-900 via-amber-900/40 to-zinc-900 border-b border-amber-500/20' 
+                      : isTeacherMode 
+                        ? 'bg-emerald-500' 
+                        : 'bg-blue-600'
+                }`}>
                   <div className="flex items-center gap-3">
-                    {scanStatus === 'expired' ? <Clock className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
-                    <span className="text-sm font-black uppercase tracking-tight">
+                    {scanStatus === 'expired' ? (
+                      <Clock className={`w-5 h-5 ${luxMode ? 'text-amber-400' : 'text-white'}`} />
+                    ) : (
+                      <ShieldCheck className={`w-5 h-5 ${luxMode ? 'text-amber-400' : 'text-white'}`} />
+                    )}
+                    <span className={`text-xs font-black uppercase tracking-tight ${luxMode ? 'text-amber-400' : 'text-white'}`}>
                       {scanStatus === 'expired' 
                         ? (isTeacherMode ? 'کارت استاد منقضی شده است' : 'کارت شاگرد منقضی شده است')
                         : (isTeacherMode ? 'کارت استاد معتبر و تایید شده' : 'کارت شاگرد معتبر و تایید شده')}
                     </span>
                   </div>
-                  <p className="text-[11px] font-bold opacity-90">
+                  <p className={`text-[10px] text-center font-bold px-2 ${luxMode ? 'text-zinc-400' : 'text-white/90'}`}>
                     {scanStatus === 'expired' 
                       ? (isTeacherMode ? 'این کارت در سیستم موجود است اما تاریخ اعتبار آن برای استاد مذکور منقضی شده است.' : 'این کارت در سیستم موجود است اما تاریخ اعتبار آن منقضی شده و نیاز به تمدید دارد.')
                       : (isTeacherMode ? 'هویت استاد در سامانه تایید گردید. کارت کاملاً معتبر است.' : 'این کارت موجود و کاملاً معتبر است و نیازی به تمدید ندارد.')}
                   </p>
                   {lastMatchedFinger && (
-                    <div className="mt-2 bg-white/20 px-3 py-1 rounded-lg flex items-center gap-2">
+                    <div className={`mt-2 px-3 py-1 rounded-lg flex items-center gap-2 ${luxMode ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' : 'bg-white/20'}`}>
                       <Fingerprint className="w-3 h-3" />
-                      <span className="text-[10px] font-black uppercase tracking-tighter">شناسایی شده توسط: انگشت {lastMatchedFinger}</span>
+                      <span className="text-[10px] font-black uppercase tracking-tighter">شناسایی شده توسط: اثر انگشت {lastMatchedFinger}</span>
                     </div>
                   )}
                 </div>
 
                 <div className="p-5">
-                  <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b border-slate-100 text-center">
-                    <div className={`w-28 h-40 bg-slate-100 rounded-[1.5rem] border-4 border-white shadow-xl overflow-hidden bg-cover bg-center ${isTeacherMode ? 'ring-2 ring-emerald-100' : 'ring-2 ring-blue-100'}`} 
+                  <div className="flex flex-col items-center gap-4 mb-6 pb-6 border-b border-slate-100 dark:border-zinc-800 text-center relative">
+                    {luxMode && (
+                      <div className="absolute top-0 right-0 left-0 flex justify-center -translate-y-4">
+                        <span className="bg-amber-500/10 border border-amber-500/30 text-amber-500 text-[8px] font-black tracking-widest px-3 py-0.5 rounded-full uppercase flex items-center gap-1.5 shadow-[0_2px_10px_rgba(245,158,11,0.05)]">
+                          <Award className="w-3 h-3" />
+                          عضو ویژه مکتب ملکی
+                        </span>
+                      </div>
+                    )}
+                    
+                    <div className={`w-28 h-36 rounded-2xl border-4 shadow-xl overflow-hidden bg-cover bg-center transition-all ${
+                      luxMode 
+                        ? 'border-amber-500/40 shadow-amber-500/5 ring-4 ring-amber-500/10' 
+                        : isTeacherMode 
+                          ? 'border-white ring-2 ring-emerald-100' 
+                          : 'border-white ring-2 ring-blue-100'
+                    }`} 
                          style={{ backgroundImage: cardData.student.photo_url ? `url(${cardData.student.photo_url})` : 'none' }}>
-                      {!cardData.student.photo_url && <UserIcon className="w-16 h-16 text-slate-300 mt-12 mx-auto" />}
+                      {!cardData.student.photo_url && <UserIcon className={`w-16 h-16 mt-10 mx-auto ${luxMode ? 'text-amber-500/20' : 'text-slate-300'}`} />}
                     </div>
+                    
                     <div>
-                      <p className="text-[10px] text-slate-400 font-black uppercase mb-1">نوم / نام</p>
-                      <h3 className="text-2xl font-black text-slate-800 leading-tight">{cardData.student.name}</h3>
-                      <span className={`inline-block mt-2 px-3 py-1 ${isTeacherMode ? 'bg-emerald-600' : 'bg-slate-900'} text-white rounded-lg text-[9px] font-bold`}>S/N: {cardData.card.id.slice(0, 8)}</span>
+                      <p className={`text-[8px] font-black uppercase mb-1 ${luxMode ? 'text-zinc-500' : 'text-slate-400'}`}>نوم / نام</p>
+                      <h3 className={`text-xl font-bold leading-tight ${luxMode ? 'text-amber-100 font-sans' : 'text-slate-800'}`}>{cardData.student.name}</h3>
+                      <span className={`inline-block mt-2 px-3 py-1 rounded-md text-[9px] font-bold ${
+                        luxMode ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400' : isTeacherMode ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white'
+                      }`}>S/N: {cardData.card.id.slice(0, 8)}</span>
                     </div>
                   </div>
 
@@ -765,40 +869,79 @@ export const QrScanner: React.FC = () => {
                       { label: 'نمبر تذکره', value: cardData.student.id_number },
                       { label: 'گروه خون', value: cardData.student.blood_type, color: 'text-rose-600' },
                       { label: 'شماره تماس', value: cardData.student.phone, mono: true },
-                      { label: 'تاریخ انقضا', value: new Date(cardData.card.expiry_date).toLocaleDateString('fa-AF'), color: scanStatus === 'expired' ? 'text-rose-600' : isTeacherMode ? 'text-emerald-600' : 'text-blue-600' }
+                      { label: 'تاریخ انقضا', value: new Date(cardData.card.expiry_date).toLocaleDateString('fa-AF'), color: scanStatus === 'expired' ? 'text-rose-500' : luxMode ? 'text-amber-400' : isTeacherMode ? 'text-emerald-500' : 'text-blue-500' }
                     ].map((item, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50/80 rounded-2xl border border-slate-100">
-                        <p className="text-[8px] text-slate-400 font-bold mb-1 uppercase">{item.label}</p>
-                        <p className={`font-bold text-slate-800 text-xs sm:text-sm ${item.mono ? 'font-mono' : ''} ${item.color || ''}`}>{item.value || '---'}</p>
+                      <div key={idx} className={`p-3 rounded-xl border ${
+                        luxMode 
+                          ? 'bg-zinc-900/60 border-zinc-800/80 text-zinc-300' 
+                          : 'bg-slate-50/80 border-slate-100 text-slate-800'
+                      }`}>
+                        <p className={`text-[8px] font-bold mb-1 uppercase ${luxMode ? 'text-zinc-500' : 'text-slate-400'}`}>{item.label}</p>
+                        <p className={`font-bold text-xs sm:text-xs ${item.mono ? 'font-mono' : ''} ${item.color || ''}`}>{item.value || '---'}</p>
                       </div>
                     ))}
                   </div>
 
                   <div className="mb-6 space-y-3">
                     <div className="flex items-center gap-2 pr-1">
-                      <div className={`w-1 h-3 ${isTeacherMode ? 'bg-emerald-600' : 'bg-blue-600'} rounded-full`} />
-                      <h4 className="text-[10px] font-black text-slate-900 uppercase">{isTeacherMode ? 'اطلاعات بیومتریک و اداری' : 'اطلاعات پرونده صحی'}</h4>
+                      <div className={`w-1 h-3 rounded-full ${luxMode ? 'bg-amber-500' : isTeacherMode ? 'bg-emerald-600' : 'bg-blue-600'}`} />
+                      <h4 className={`text-[10px] font-black uppercase ${luxMode ? 'text-amber-400' : 'text-slate-900'}`}>
+                        {isTeacherMode ? 'اطلاعات بیومتریک و اداری' : 'اطلاعات پرونده صحی'}
+                      </h4>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className={`${isTeacherMode ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'} p-3 rounded-xl border`}>
-                        <p className={`text-[8px] ${isTeacherMode ? 'text-emerald-500' : 'text-blue-400'} font-bold mb-0.5 uppercase`}>{isTeacherMode ? 'وضعیت تایید' : 'فشار خون'}</p>
-                        <p className={`text-xs font-bold ${isTeacherMode ? 'text-emerald-900' : 'text-blue-900'}`}>{isTeacherMode ? 'تایید شده' : (cardData.card.blood_pressure || 'سالم')}</p>
+                      <div className={`p-3 rounded-xl border ${
+                        luxMode 
+                          ? 'bg-zinc-900/40 border-zinc-800 text-zinc-300' 
+                          : isTeacherMode 
+                            ? 'bg-emerald-50/50 border-emerald-100 text-slate-800' 
+                            : 'bg-blue-50/50 border-blue-100 text-slate-800'
+                      }`}>
+                        <p className={`text-[8px] font-bold mb-0.5 uppercase ${
+                          luxMode ? 'text-amber-500/60' : isTeacherMode ? 'text-emerald-500' : 'text-blue-400'
+                        }`}>{isTeacherMode ? 'وضعیت تایید' : 'فشار خون'}</p>
+                        <p className="text-xs font-bold">{isTeacherMode ? 'تایید شده' : (cardData.card.blood_pressure || 'سالم')}</p>
                       </div>
-                      <div className={`${isTeacherMode ? 'bg-emerald-50/50 border-emerald-100' : 'bg-blue-50/50 border-blue-100'} p-3 rounded-xl border`}>
-                        <p className={`text-[8px] ${isTeacherMode ? 'text-emerald-500' : 'text-blue-400'} font-bold mb-0.5 uppercase`}>{isTeacherMode ? 'آخرین استعلام' : 'وضعیت بینایی'}</p>
-                        <p className={`text-xs font-bold ${isTeacherMode ? 'text-emerald-900' : 'text-blue-900'}`}>{isTeacherMode ? 'امروز' : (cardData.card.vision_status || 'سالم')}</p>
+                      <div className={`p-3 rounded-xl border ${
+                        luxMode 
+                          ? 'bg-zinc-900/40 border-zinc-800 text-zinc-300' 
+                          : isTeacherMode 
+                            ? 'bg-emerald-50/50 border-emerald-100 text-slate-800' 
+                            : 'bg-blue-50/50 border-blue-100 text-slate-800'
+                      }`}>
+                        <p className={`text-[8px] font-bold mb-0.5 uppercase ${
+                          luxMode ? 'text-amber-500/60' : isTeacherMode ? 'text-emerald-500' : 'text-blue-400'
+                        }`}>{isTeacherMode ? 'آخرین استعلام' : 'وضعیت بینایی'}</p>
+                        <p className="text-xs font-bold">{isTeacherMode ? 'امروز' : (cardData.card.vision_status || 'سالم')}</p>
                       </div>
                     </div>
                     {cardData.card.notes && (
-                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                        <p className="text-[8px] text-slate-400 font-bold mb-1 uppercase">{isTeacherMode ? 'ملاحظات مدیریتی' : 'ملاحظات داکتر'}</p>
-                        <p className="text-[10px] text-slate-700 leading-relaxed font-medium">{cardData.card.notes}</p>
+                      <div className={`p-3 rounded-xl border ${
+                        luxMode ? 'bg-zinc-900/40 border-zinc-850' : 'bg-slate-50 border-slate-200'
+                      }`}>
+                        <p className={`text-[8px] font-bold mb-1 uppercase ${luxMode ? 'text-zinc-500' : 'text-slate-400'}`}>
+                          {isTeacherMode ? 'ملاحظات مدیریتی' : 'ملاحظات داکتر'}
+                        </p>
+                        <p className={`text-[10px] leading-relaxed font-medium ${luxMode ? 'text-zinc-400' : 'text-slate-700'}`}>
+                          {cardData.card.notes}
+                        </p>
                       </div>
                     )}
                   </div>
 
                   <div className="flex gap-2">
-                    <button onClick={resetScanner} className={`w-full py-4 rounded-[1.5rem] font-bold text-lg shadow-xl ${isTeacherMode ? 'bg-emerald-900' : 'bg-slate-900'} text-white active:scale-95 transition-all`}>استعلام جدید</button>
+                    <button 
+                      onClick={resetScanner} 
+                      className={`w-full py-4 rounded-xl font-bold text-sm shadow-xl active:scale-95 transition-all cursor-pointer ${
+                        luxMode 
+                          ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 text-black shadow-lg shadow-amber-500/10' 
+                          : isTeacherMode 
+                            ? 'bg-emerald-950 text-white' 
+                            : 'bg-slate-900 text-white'
+                      }`}
+                    >
+                      استعلام جدید
+                    </button>
                   </div>
                 </div>
               </div>

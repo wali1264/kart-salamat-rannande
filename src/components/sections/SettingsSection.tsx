@@ -1,11 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X, Clock, Loader2, Trash2, MessageSquare, Search, RotateCcw, FileText } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { User, Shield, Info, LogOut, Bell, Monitor, Globe, Download, Upload, Image as ImageIcon, Check, CreditCard, DollarSign, LifeBuoy, Layers, AlertCircle, Phone, Mail, ExternalLink, PlusCircle, X, Clock, Loader2, Trash2, MessageSquare, Search, RotateCcw, FileText, Mic, Square, Play, Pause, Volume2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { useSync } from '../../contexts/SyncContext';
 import { offlineDb } from '../../lib/db';
 import { compressImage } from '../../lib/utils';
 import { getNotificationSettings, saveNotificationSettings, NotificationSettings } from '../../lib/notifications';
+import { 
+  getAndroidConfig, 
+  saveAndroidConfig, 
+  getAndroidPermissions, 
+  saveAndroidPermissions, 
+  getAndroidLogs, 
+  clearAndroidLogs, 
+  addAndroidLog, 
+  requestAndroidPermission, 
+  runAndroidGatewayWorker,
+  AndroidConfig,
+  AndroidPermissionStatus,
+  AndroidLogEntry,
+  isNativeAndroid
+} from '../../lib/androidBridge';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const SettingsSection: React.FC = () => {
@@ -48,6 +63,146 @@ export const SettingsSection: React.FC = () => {
   const [categories, setCategories] = useState(['اول', 'دوم', 'سوم', 'چهارم', 'پنجم', 'ششم', 'هفتم', 'هشتم', 'نهم', 'دهم', 'یازدهم', 'دوازدهم']);
 
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Android Native Gateway State
+  const [androidPermissions, setAndroidPermissions] = useState<AndroidPermissionStatus>(getAndroidPermissions());
+  const [androidConfig, setAndroidConfig] = useState<AndroidConfig>(getAndroidConfig());
+  const [androidLogs, setAndroidLogs] = useState<AndroidLogEntry[]>(getAndroidLogs());
+  const [isSimulatingBackgroundWorker, setIsSimulatingBackgroundWorker] = useState<boolean>(false);
+  const [isAutoWorkerActive, setIsAutoWorkerActive] = useState<boolean>(false);
+
+  // Manager Direct Voice Recorder States
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(() => {
+    return localStorage.getItem('school_voice_announcement_url') || null;
+  });
+  const [recordedAudioBase64, setRecordedAudioBase64] = useState<string | null>(() => {
+    return localStorage.getItem('school_voice_announcement_base64') || null;
+  });
+  const [recordingDuration, setRecordingDuration] = useState<number>(0);
+  const [isPlayingRecorded, setIsPlayingRecorded] = useState<boolean>(false);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  const startVoiceRecording = async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        addAndroidLog('error', 'خطا: مرورگر شما از ضبط زنده پشتیبانی نمی‌کند یا دسترسی امن HTTPS برقرار نیست.');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      const chunks: Blob[] = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(chunks, { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        // Convert blob to base64 for persistent localStorage / offlineDb syncing
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          setRecordedAudioBase64(base64String);
+          localStorage.setItem('school_voice_announcement_base64', base64String);
+          addAndroidLog('success', 'صوت ضبط‌شده جدید مدیر با موفقیت انکود و در گیت‌وی ذخیره گردید.');
+        };
+
+        setRecordedAudioUrl(audioUrl);
+        localStorage.setItem('school_voice_announcement_url', audioUrl);
+        
+        // Cleanup actual stream tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      audioIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 1);
+      }, 1000);
+
+      addAndroidLog('info', 'سیستم ضبط صدای زنده مدیر شروع گردید. لطفاً صحبت کنید...');
+    } catch (err: any) {
+      addAndroidLog('error', `ناتوانی در دسترسی به سخت‌افزار میکروفون: ${err.message || err}`);
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      if (audioIntervalRef.current) {
+        clearInterval(audioIntervalRef.current);
+        audioIntervalRef.current = null;
+      }
+    }
+  };
+
+  const playRecordedAudio = () => {
+    const audioSrc = recordedAudioUrl || recordedAudioBase64;
+    if (!audioSrc) {
+      addAndroidLog('warn', 'هیچ فایل ضبط‌شده‌ای یافت نشد.');
+      return;
+    }
+
+    if (isPlayingRecorded && audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+      setIsPlayingRecorded(false);
+    } else {
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+      }
+      const player = new Audio(audioSrc);
+      audioPlayerRef.current = player;
+      player.onended = () => {
+        setIsPlayingRecorded(false);
+        addAndroidLog('info', 'بازپخش آزمایشی صوت به پایان رسید.');
+      };
+      player.play();
+      setIsPlayingRecorded(true);
+      addAndroidLog('info', 'شروع پخش آزمایشی اعلان صوتی مدیر برای تست صحولت مکالمه صوتی رباتیک...');
+    }
+  };
+
+  const deleteRecordedAudio = () => {
+    if (audioPlayerRef.current) {
+      audioPlayerRef.current.pause();
+    }
+    setIsPlayingRecorded(false);
+    setRecordedAudioUrl(null);
+    setRecordedAudioBase64(null);
+    localStorage.removeItem('school_voice_announcement_url');
+    localStorage.removeItem('school_voice_announcement_base64');
+    addAndroidLog('warn', 'فایل صوتی اختصاصی مدیر سنترال به طور کامل پاک شد.');
+  };
+
+  const handleAudioFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      const base64String = reader.result as string;
+      setRecordedAudioBase64(base64String);
+      localStorage.setItem('school_voice_announcement_base64', base64String);
+
+      const url = URL.createObjectURL(file);
+      setRecordedAudioUrl(url);
+      localStorage.setItem('school_voice_announcement_url', url);
+
+      addAndroidLog('success', `فایل صوتی بارگذاری شده [${file.name}] به جای صوت ضبط‌شده مدیر جایگزین شد.`);
+    };
+  };
 
   // Live Task Monitor States (Phase 3)
   const [tasks, setTasks] = useState<any[]>([]);
@@ -199,6 +354,59 @@ export const SettingsSection: React.FC = () => {
   useEffect(() => {
     fetchTasks();
   }, [activeTab, isOnline]);
+
+  // Register Android Log synchronization and auto worker loop
+  useEffect(() => {
+    const handleLogsUpdate = () => {
+      setAndroidLogs(getAndroidLogs());
+    };
+    window.addEventListener('android_logs_updated', handleLogsUpdate);
+    return () => {
+      window.removeEventListener('android_logs_updated', handleLogsUpdate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isAutoWorkerActive) return;
+    
+    addAndroidLog('info', 'سرویس پس‌زمینه خودکار اندروید فعال گردید. در حال شنیدن به صف پیام‌ها و تماس‌ها...');
+    
+    const interval = setInterval(async () => {
+      await runAndroidGatewayWorker(isOnline);
+      await fetchTasks();
+    }, 15000); // Check tasks every 15s in background mode
+
+    return () => {
+      clearInterval(interval);
+      addAndroidLog('info', 'سرویس پس‌زمینه خودکار اندروید متوقف شد.');
+    };
+  }, [isAutoWorkerActive, isOnline]);
+
+  const handleRequestPermission = async (permission: keyof AndroidPermissionStatus) => {
+    await requestAndroidPermission(permission);
+    setAndroidPermissions(getAndroidPermissions());
+  };
+
+  const updateAndroidConfig = (key: keyof AndroidConfig, value: any) => {
+    const updated = { ...androidConfig, [key]: value };
+    setAndroidConfig(updated);
+    saveAndroidConfig(updated);
+    addAndroidLog('info', `تنظیمات تغییر یافت: ${key} = ${value}`);
+  };
+
+  const handleManualRunWorker = async () => {
+    setIsSimulatingBackgroundWorker(true);
+    addAndroidLog('info', 'شروع اجرای اضطراری و فوری پردازشگر سیم‌کارت صوتی و متنی به خواست اپراتور...');
+    try {
+      const processed = await runAndroidGatewayWorker(isOnline);
+      addAndroidLog('success', `پردازش فوری به پایان رسید. تعداد پیام‌ها/تماس‌های ارسال شده: ${processed}`);
+      await fetchTasks();
+    } catch (e: any) {
+      addAndroidLog('error', `خطا در پردازش فوری: ${e.message || e}`);
+    } finally {
+      setIsSimulatingBackgroundWorker(false);
+    }
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -1058,7 +1266,7 @@ export const SettingsSection: React.FC = () => {
                   <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xs flex items-center justify-between">
                     <div>
                       <h5 className="text-sm font-black text-slate-800">ارسال پیامک غیبت</h5>
-                      <p className="text-[10px] text-slate-400 mt-1">ارسال پیامک به والدین غایبین</p>
+                      <p className="text-[10px] text-slate-400 mt-1">ارسال پیام یا تماس به مخاطبین در زمان غیبت</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer select-none">
                       <input 
@@ -1115,43 +1323,286 @@ export const SettingsSection: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Gateway Type */}
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                {/* Advanced Granular Service Channels (Smart Event Router) */}
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
                   <div>
-                    <h5 className="text-sm font-black text-slate-800">بستر پیش‌فرض ارسال اندروید گیت‌وی</h5>
-                    <p className="text-[10px] text-slate-400 mt-1">تسک‌ها برای ارسال با کدام گیت‌وی در اندروید تنظیم شوند؟</p>
+                    <h5 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                      <Volume2 className="w-5 h-5 text-blue-500 animate-pulse" />
+                      تنظیمات اختصاصی بسترهای فرستنده (ارسال هوشمند غیبت/ورود/خروج)
+                    </h5>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      برای هر یک از رویدادها، بستر ترجیحی مخابراتی را برگزینید. برای نمونه، غیبت‌ها تماس ربات صوتی و ورود/خروج‌ها به شکل پیامک منتقل گردند.
+                    </p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <button
-                      onClick={() => setNotificationConfig({ ...notificationConfig, default_service: 'sms' })}
-                      className={`p-4 rounded-2xl text-center text-xs font-black transition-all border ${
-                        notificationConfig.default_service === 'sms' 
-                          ? 'bg-blue-50 border-blue-200 text-blue-600' 
-                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      پیامک عمومی (SMS Gateway)
-                    </button>
-                    <button
-                      onClick={() => setNotificationConfig({ ...notificationConfig, default_service: 'whatsapp' })}
-                      className={`p-4 rounded-2xl text-center text-xs font-black transition-all border ${
-                        notificationConfig.default_service === 'whatsapp' 
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-600' 
-                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      واتساپ وب هوشمند
-                    </button>
-                    <button
-                      onClick={() => setNotificationConfig({ ...notificationConfig, default_service: 'voice' })}
-                      className={`p-4 rounded-2xl text-center text-xs font-black transition-all border ${
-                        notificationConfig.default_service === 'voice' 
-                          ? 'bg-amber-50 border-amber-200 text-amber-600' 
-                          : 'bg-slate-50 border-slate-100 text-slate-500 hover:bg-slate-100'
-                      }`}
-                    >
-                      تماس خودکار صوتی (IVR)
-                    </button>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Event 1: Absence */}
+                    <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <span className="text-[11px] font-black text-slate-700">۱. ثبت غیبت شاگردان و معلمان</span>
+                        <span className="text-[9px] bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full">اصلی</span>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_absence: 'sms' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_absence === 'sms'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          ارسال پیامک سیم‌کارتی (SMS)
+                        </button>
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_absence: 'whatsapp' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_absence === 'whatsapp'
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          ارسال پیامک واتساپ هوشمند
+                        </button>
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_absence: 'voice' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_absence === 'voice'
+                              ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          تماس صوتی خودکار سیم‌کارت (IVR)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Event 2: Entry */}
+                    <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <span className="text-[11px] font-black text-slate-700">۲. ثبت حضور و خروج (پیام ورود)</span>
+                        <span className="text-[9px] bg-emerald-100 text-emerald-600 font-bold px-2 py-0.5 rounded-full">کمکی</span>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_entry: 'sms' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_entry === 'sms'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          ارسال پیامک سیم‌کارتی (SMS)
+                        </button>
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_entry: 'whatsapp' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_entry === 'whatsapp'
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          ارسال پیامک واتساپ هوشمند
+                        </button>
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_entry: 'voice' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_entry === 'voice'
+                              ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          تماس صوتی خودکار سیم‌کارت (IVR)
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Event 3: Exit */}
+                    <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                        <span className="text-[11px] font-black text-slate-700">۳. مرخصی و خروج شاگردان</span>
+                        <span className="text-[9px] bg-slate-150 text-slate-600 font-bold px-2 py-0.5 rounded-full">فرعی</span>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_exit: 'sms' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_exit === 'sms'
+                              ? 'bg-blue-600 border-blue-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          ارسال پیامک سیم‌کارتی (SMS)
+                        </button>
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_exit: 'whatsapp' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_exit === 'whatsapp'
+                              ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          ارسال پیامک واتساپ هوشمند
+                        </button>
+                        <button
+                          onClick={() => setNotificationConfig({ ...notificationConfig, service_for_exit: 'voice' })}
+                          className={`py-2.5 px-3 rounded-xl text-center text-[10px] font-black transition-all border ${
+                            notificationConfig.service_for_exit === 'voice'
+                              ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
+                              : 'bg-white border-slate-150 text-slate-500 hover:bg-slate-100'
+                          }`}
+                        >
+                          تماس صوتی خودکار سیم‌کارت (IVR)
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* -------------------- MANAGER NATIVE VOICE RECORDER CENTRAL PANEL -------------------- */}
+                <div className="bg-slate-900 text-white p-8 rounded-[2rem] border border-slate-800 shadow-xl space-y-6">
+                  <div>
+                    <h5 className="font-black text-white text-base flex items-center gap-2.5">
+                      <Mic className="w-5 h-5 text-amber-400 animate-pulse" />
+                      سامانه مرجع ضبط صدا و بارگذاری فایل صوتی مدیر کل مکتب ویژه تماس‌ها (IVR)
+                    </h5>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      صدای واقعی مدیر مکتب ضبط، فشرده‌سازی و محفظه‌بندی می‌شود. سرور اندروید مکتب به محض همگام‌سازی، این صوت را دانلود کرده و هنگام برپایی تماس صوتی، آن را به عنوان اعلان باکیفیت و زنده پخش خواهد کرد.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+                    {/* Visual Status Indicator Card */}
+                    <div className="bg-slate-950 p-6 rounded-2xl border border-slate-850 space-y-4">
+                      <span className="text-[9px] font-black text-slate-500 uppercase tracking-wider block">وضعیت دیتای صوتی گیت‌وی</span>
+                      
+                      {isRecording ? (
+                        <div className="flex items-center gap-3 bg-red-950/40 p-4 rounded-xl border border-red-500/20 text-red-400 animate-pulse">
+                          <span className="w-3 h-3 rounded-full bg-red-500 block animate-ping shrink-0" />
+                          <div className="text-right">
+                            <span className="font-black text-xs block">سیستم مکانیزه ضبط میکروفون فعال است...</span>
+                            <span className="text-[10px] text-slate-400">زمان سپری شده: {recordingDuration} ثانیه (برای توقف، روی دکمه توقف ضربه بزنید)</span>
+                          </div>
+                        </div>
+                      ) : recordedAudioBase64 ? (
+                        <div className="space-y-3">
+                          <div className="flex items-start gap-3 bg-indigo-950/20 p-4 rounded-xl border border-indigo-500/20 text-indigo-400">
+                            <Volume2 className="w-5 h-5 text-indigo-400 mt-0.5 shrink-0" />
+                            <div className="text-right">
+                              <span className="font-black text-xs block text-slate-200">فایل صوتی اختصاصی مدیر هم‌اکنون فعال است</span>
+                              <span className="text-[10px] text-slate-400 block mt-0.5">
+                                فرمت ذخیره: WAV با بافر بیس۶۴ (حجم پهنای باند: {Math.round(recordedAudioBase64.length / 1024)} کیلوبایت)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3 bg-slate-850 p-4 rounded-xl border border-slate-800 text-slate-400">
+                          <Info className="w-5 h-5 text-slate-500 shrink-0" />
+                          <div className="text-right">
+                            <span className="font-black text-xs block text-slate-300">هیچ صوتی از سوی مدیر ضبط یا بارگذاری نشده است</span>
+                            <span className="text-[9px] text-slate-500">موبایل اندروید گیت‌وی در این سناریو به صورت اتوماتیک از ربات شنیداری متنی (Text-to-Speech) استفاده خواهد کرد.</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Small Player for Browser preview */}
+                      {(recordedAudioUrl || recordedAudioBase64) && (
+                        <div className="pt-2 border-t border-slate-850 flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400">شنیدن آزمایشی پیش‌نمایش در مرورگر:</span>
+                          <button
+                            onClick={playRecordedAudio}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                              isPlayingRecorded 
+                                ? 'bg-amber-500 text-white' 
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                            }`}
+                          >
+                            {isPlayingRecorded ? (
+                              <>
+                                <Pause className="w-3.5 h-3.5" />
+                                توقف آزمایشی
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-3.5 h-3.5" />
+                                پخش پیش‌شنوایی
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Operational Buttons */}
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        {/* Record Trigger Button */}
+                        <button
+                          onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
+                          type="button"
+                          className={`flex-1 py-4 px-3 rounded-2xl font-black text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                            isRecording 
+                              ? 'bg-red-650 hover:bg-red-700 text-white animate-pulse border border-red-500/20' 
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+                          }`}
+                        >
+                          {isRecording ? (
+                            <>
+                              <Square className="w-4 h-4 text-white" />
+                              توقف و ذخیره نهایی ضبط
+                            </>
+                          ) : (
+                            <>
+                              <Mic className="w-4 h-4 text-white animate-bounce" />
+                              شروع ضبط صدای زنده مدیر
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* File Upload Button wrapper */}
+                        <label className="flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-[10px] font-black cursor-pointer transition-all">
+                          <Upload className="w-3.5 h-3.5" />
+                          بارگذاری فایل (MP3/WAV)
+                          <input 
+                            type="file" 
+                            accept="audio/*" 
+                            onChange={handleAudioFileUpload} 
+                            className="hidden" 
+                          />
+                        </label>
+
+                        {/* Export/Download Button for direct copy to SD/Internal storage */}
+                        <button
+                          onClick={() => {
+                            const source = recordedAudioUrl || recordedAudioBase64;
+                            if (!source) return;
+                            const a = document.createElement('a');
+                            a.href = source;
+                            a.download = `voice_announcement_${Date.now()}.wav`;
+                            a.click();
+                            addAndroidLog('success', 'فایل صوتی جهت استقرار آفلاین یا آرشیو آماده دانلود گردید.');
+                          }}
+                          disabled={!recordedAudioUrl && !recordedAudioBase64}
+                          className="py-3 bg-slate-800 hover:bg-slate-700 disabled:bg-slate-900 disabled:text-slate-600 text-slate-200 border border-slate-700 rounded-xl text-[10px] font-black flex items-center justify-center gap-2 transition-all cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          دانلود جهت کپی موبایل
+                        </button>
+                      </div>
+
+                      {/* Clean Audio */}
+                      {(recordedAudioUrl || recordedAudioBase64) && (
+                        <button
+                          onClick={deleteRecordedAudio}
+                          className="w-full py-2 bg-red-500/10 hover:bg-red-500/15 text-red-400 rounded-xl text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          حذف کامل صوت فعلی مدیر
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -1499,51 +1950,279 @@ export const SettingsSection: React.FC = () => {
                   )}
                 </div>
 
-                {/* Offline-First Android Gateway integration Documentation & Developers Guide */}
-                <div className="bg-slate-900 text-slate-100 p-8 rounded-[2rem] border border-slate-800 shadow-xl space-y-6">
-                  <div className="border-b border-slate-800 pb-4">
-                    <h4 className="font-black text-white text-base flex items-center gap-2.5">
-                      <Shield className="w-5 h-5 text-indigo-400" />
-                      آموزش اتصال و همگام‌سازی با گوشی‌های اندروید (گیت‌وی پیامک)
-                    </h4>
-                    <p className="text-[11px] text-slate-400 mt-1">روش‌های پیش‌فرض و حرفه‌ای جهت فرستادن خودکار پیامک‌ها از سیم‌کارت واقعی مکتب شما.</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs leading-relaxed">
-                    {/* Column 1: Automated Sync (Gateway Apps) */}
-                    <div className="space-y-3 bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
-                      <span className="font-black text-indigo-400 block pb-1 border-b border-slate-800">
-                        روش اول: اتصال مستقیم API با گیت‌وی سیم‌کارت اندروید
-                      </span>
-                      <p className="text-[11px] text-slate-300">
-                        در این روش، با نصب اپلیکیشن‌های اندرویدی رایج مانند <strong className="text-white">"SMS Gateway API"</strong> یا هر برنامه دریافت درخواست HTTP روی موبایل اندروید مکتب، گوشی را به عنوان مودم پیامک تنظیم نمایید.
+                {/* -------------------- INTERACTIVE ANDROID NATIVE SERVICE CENTRAL PANEL -------------------- */}
+                <div className="bg-slate-900 text-slate-100 p-8 rounded-[2rem] border border-slate-800 shadow-xl space-y-8 text-right" dir="rtl">
+                  <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                      <h4 className="font-black text-white text-base flex items-center gap-2.5">
+                        <Shield className="w-5 h-5 text-indigo-400" />
+                        سامانه هوشمند و مدیریت سرویس محلی اندروید (سیم‌کارت واقعی)
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        پایشگر، پیکربندی زمان‌بندی تماس‌های صوتی صنف و بررسی دسترسی‌های سخت‌افزاری دستگاه اندروید مکتب.
                       </p>
-                      <ul className="list-disc pr-4 space-y-1 text-slate-400 text-[10px]">
-                        <li>دریافت خودکار پیام‌های صف از جدول <code className="text-amber-400 font-mono">tasks</code> با کوئری فیلتر <code className="text-emerald-400 font-mono">"status=pending"</code>.</li>
-                        <li>امکان بکارگیری متدهای وب‌هوک به ازای هر بار ثبت ورود و خروج غایبین.</li>
-                        <li>سرعت بی‌نظیر و هماهنگ با تعرفه‌های فوق‌العاده ارزان سیم‌کارت‌های مخابراتی افغانستان (افغان بیسیم، ام‌تی‌ان، اتصالات، روشن و سلام).</li>
-                      </ul>
                     </div>
-
-                    {/* Column 2: Bulk CSV/JSON Exporters */}
-                    <div className="space-y-3 bg-slate-800/40 border border-slate-800 p-5 rounded-2xl">
-                      <span className="font-black text-indigo-400 block pb-1 border-b border-slate-800">
-                        روش دوم: ارسال دستی گروهی با ابزارهای اکسپورت
-                      </span>
-                      <p className="text-[11px] text-slate-300">
-                        اگر مایل به استفاده از اپلیکیشن پس‌زمینه اندروید نیستید، می‌توانید از دکمه اکسپورت تعبیه شده در بالا استفاده نمایید:
-                      </p>
-                      <ol className="list-decimal pr-4 space-y-1 text-slate-400 text-[10px]">
-                        <li>شاگردان غایب و حضور را طبق معمول در صنف‌ها ثبت نمایید.</li>
-                        <li>روی دکمه <strong className="text-white">"اکسپورت صف جهت فرستنده دستی"</strong> واقع در پنل فیلترها کلیک کنید.</li>
-                        <li>فایل دانلود شده را مستقیماً وارد برنامه‌های انبوه پیامک سیم‌کارت (Bulk SMS Sender) یا کلاینت واتساپ مکتب خود نمایید تا به سرعت ارسال شوند.</li>
-                      </ol>
+                    <div className="bg-slate-800 text-[10px] px-3 py-1.5 rounded-full border border-slate-700/50 flex items-center gap-2 font-mono">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                      <span>پلتفرم: {isNativeAndroid() ? 'نسخه رسمی اندروید' : 'شبیه‌ساز دسکتاپ وب'}</span>
                     </div>
                   </div>
 
-                  <div className="bg-slate-850/80 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-[10px] text-slate-400 font-mono">
-                    <span>Database Table Name Target: <strong className="text-green-400">tasks</strong></span>
-                    <span>Required Columns: <strong className="text-blue-400">id, phone, message, status (pending/sent/failed), type</strong></span>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* LEFT COLUMN: PERMISSIONS & SYSTEM POLICY */}
+                    <div className="space-y-6">
+                      <div className="bg-slate-850 p-6 rounded-2xl space-y-4 border border-slate-800">
+                        <h5 className="font-black text-indigo-300 text-xs flex items-center gap-2">
+                          <Check className="w-4 h-4" />
+                          کنترل مجوزهای سخت‌افزاری سیم‌کارت
+                        </h5>
+                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                          سیستم عامل اندروید برای امنیت بیشتر، مجوزهای مخابراتی را هنگام اجرا از کاربر سوال می‌کند:
+                        </p>
+
+                        <div className="space-y-3 pt-2">
+                          {/* SEND_SMS */}
+                          <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                            <div>
+                              <span className="font-bold text-[11px] block text-slate-200">مجوز ارسال پیامک (SEND_SMS)</span>
+                              <span className="text-[9px] text-slate-400">ارسال اتوماتیک پیام حضور و غیاب برای والدین</span>
+                            </div>
+                            <button
+                              onClick={() => handleRequestPermission('sendSms')}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
+                                androidPermissions.sendSms === 'granted'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-700 hover:bg-slate-600 text-white'
+                              }`}
+                            >
+                              {androidPermissions.sendSms === 'granted' ? 'مجوز صادر شده' : 'درخواست صدور'}
+                            </button>
+                          </div>
+
+                          {/* CALL_PHONE */}
+                          <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                            <div>
+                              <span className="font-bold text-[11px] block text-slate-200">مجوز برقراری تماس (CALL_PHONE)</span>
+                              <span className="text-[9px] text-slate-400">تماس بی‌واسطه ربات صوتی بدون دخالت دستی</span>
+                            </div>
+                            <button
+                              onClick={() => handleRequestPermission('callPhone')}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
+                                androidPermissions.callPhone === 'granted'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-700 hover:bg-slate-600 text-white'
+                              }`}
+                            >
+                              {androidPermissions.callPhone === 'granted' ? 'مجوز صادر شده' : 'درخواست صدور'}
+                            </button>
+                          </div>
+
+                          {/* READ_PHONE_STATE */}
+                          <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-800">
+                            <div>
+                              <span className="font-bold text-[11px] block text-slate-200">شنود خطوط تماس (READ_PHONE_STATE)</span>
+                              <span className="text-[9px] text-slate-400">تشخیص جواب دادن یا مشغول بودن تماس والدین</span>
+                            </div>
+                            <button
+                              onClick={() => handleRequestPermission('readPhoneState')}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
+                                androidPermissions.readPhoneState === 'granted'
+                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-700 hover:bg-slate-600 text-white'
+                              }`}
+                            >
+                              {androidPermissions.readPhoneState === 'granted' ? 'مجوز صادر شده' : 'درخواست صدور'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Battery Exempt details */}
+                      <div className="bg-slate-850 p-6 rounded-2xl space-y-3 border border-slate-800">
+                        <h5 className="font-black text-amber-400 text-xs flex items-center gap-2">
+                          <Info className="w-4 h-4" />
+                          سیاست استثنای باتری اندروید (خواب عمیق سیم‌کارت)
+                        </h5>
+                        <p className="text-[10px] text-slate-400 leading-relaxed">
+                          سیستم عامل اندروید پس از چند دقیقه خاموش بودن اسکرین، برنامه‌های پس‌زمینه را به حالت Dormant یا خواب عمیق می‌برد که این کار پردازش صف پیامک مکتب را متوقف می‌کند. قرارگیری در <strong className="text-white">"لیست سفید استثنای بهینه‌سازی باتری"</strong> برای کارکرد مداوم سرور پس‌زمینه الزامیست.
+                        </p>
+                        <div className="flex justify-between items-center bg-slate-800/50 p-3.5 rounded-xl border border-slate-800">
+                          <div>
+                            <span className="font-black text-[10px] text-slate-300 block">نادیده‌گیری ذخیره باتری (Ignore Battery Optimization)</span>
+                            <span className="text-[9px] text-slate-400">امکان فعالیت شبانه‌روزی بدون بسته شدن خودکار</span>
+                          </div>
+                          <button
+                            onClick={() => handleRequestPermission('batteryOptimizationsExempt')}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
+                              androidPermissions.batteryOptimizationsExempt
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                                : 'bg-slate-700 hover:bg-slate-600 text-white'
+                            }`}
+                          >
+                            {androidPermissions.batteryOptimizationsExempt ? 'در استثنا قرار دارد' : 'اجازه عبور'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* RIGHT COLUMN: VOICE CALLBACK & REAL RETRY CRON CONFIG */}
+                    <div className="space-y-6">
+                      <div className="bg-slate-850 p-6 rounded-2xl space-y-4 border border-slate-800">
+                        <h5 className="font-black text-indigo-300 text-xs flex items-center gap-2">
+                          <Phone className="w-4 h-4 text-indigo-400" />
+                          پیکربندی خطوط تماس صوتی و پاسخ‌دهی
+                        </h5>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          اگر تماسی با والدین برقرار شد ولی جواب ندادند یا خط مشغول بود، سیستم در چه بازه‌ای و چند بار تکرار کند؟
+                        </p>
+
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div>
+                            <label className="text-[10px] font-black text-slate-400 block mb-1">مکث تلاش مجدد (دقیقه)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="30"
+                              value={androidConfig.voiceCallRetryMinutes}
+                              onChange={(e) => updateAndroidConfig('voiceCallRetryMinutes', parseInt(e.target.value) || 2)}
+                              className="w-full bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white p-2.5 outline-none focus:border-indigo-500 transition-all text-center"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-black text-slate-400 block mb-1">حداکثر دفعات تماس</label>
+                            <input
+                              type="number"
+                              min="1"
+                              max="10"
+                              value={androidConfig.voiceCallMaxAttempts}
+                              onChange={(e) => updateAndroidConfig('voiceCallMaxAttempts', parseInt(e.target.value) || 3)}
+                              className="w-full bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white p-2.5 outline-none focus:border-indigo-500 transition-all text-center"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2">
+                          <label className="text-[10px] font-black text-slate-400 block mb-1">تاخیر دلیوری بین پیامک‌ها (میلی‌ثانیه)</label>
+                          <input
+                            type="number"
+                            min="1000"
+                            max="30000"
+                            step="1000"
+                            value={androidConfig.delayBetweenSmsMs}
+                            onChange={(e) => updateAndroidConfig('delayBetweenSmsMs', parseInt(e.target.value) || 5000)}
+                            className="w-full bg-slate-800 border border-slate-700 rounded-xl text-xs font-bold text-white p-2.5 outline-none focus:border-indigo-500 transition-all text-center"
+                          />
+                          <span className="text-[9px] text-slate-400 mt-1 block">تاخیر استاندارد ۵۰۰ مگاهرتزی (۵ ثانیه) جهت عدم اسپم تشخیص دادن سیم کارت از سوی افغان بیسیم، روشن و اتصالات.</span>
+                        </div>
+                      </div>
+
+                      {/* SIM / carrier slots setup */}
+                      <div className="bg-slate-850 p-5 rounded-2xl flex items-center justify-between border border-slate-800">
+                        <div>
+                          <span className="font-bold text-[11px] text-slate-200 block">انتخاب اسلات سیم‌کارت فعال</span>
+                          <span className="text-[9px] text-slate-400">جهت برقراری تماس و سیم‌کارت پیش‌فرض پیامک</span>
+                        </div>
+                        <select
+                          value={androidConfig.autoSimCarrier}
+                          onChange={(e) => updateAndroidConfig('autoSimCarrier', e.target.value as any)}
+                          className="bg-slate-800 border border-slate-700 text-xs font-bold text-white p-2 px-3 rounded-xl outline-none"
+                        >
+                          <option value="auto">انتخاب اتوماتیک سیستم</option>
+                          <option value="sim1">سیم‌کارت اول (SIM Slot 1)</option>
+                          <option value="sim2">سیم‌کارت دوم (SIM Slot 2)</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* LIVE LOG MONITOR TERMINAL CARD */}
+                  <div className="bg-slate-950 p-6 rounded-3xl border border-slate-850 space-y-4">
+                    <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border-b border-slate-850 pb-4">
+                      <div>
+                        <h5 className="font-black text-emerald-400 text-xs flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                          ترمینال مانیتورینگ آنلاین گیت‌وی موبایل و پیام صوتی دکمه‌ای
+                        </h5>
+                        <p className="text-[10px] text-slate-400 mt-1">تراکنش‌ها، تماس‌ها و ارسال‌های انجام شده توسط گوشی اندروید مکتب به صورت لحظه‌ای.</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 w-full xl:w-auto">
+                        <button
+                          onClick={handleManualRunWorker}
+                          disabled={isSimulatingBackgroundWorker}
+                          className="py-2 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-800 text-white font-black text-[10px] rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {isSimulatingBackgroundWorker ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              در حال ارسال...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="w-3.5 h-3.5" />
+                              ارسال دستی و بررسی بلافاصله صف
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsAutoWorkerActive(!isAutoWorkerActive);
+                          }}
+                          className={`py-2 px-4 rounded-xl font-black text-[10px] transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            isAutoWorkerActive 
+                              ? 'bg-amber-500 text-white' 
+                              : 'bg-slate-800 text-slate-200 border border-slate-700'
+                          }`}
+                        >
+                          {isAutoWorkerActive ? 'غیرفعال‌سازی بررسی مداوم' : 'فعال‌سازی بررسی مداوم (هر ۱۵ ثانیه)'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            clearAndroidLogs();
+                            setAndroidLogs([]);
+                          }}
+                          className="py-2 px-3 bg-red-400/10 hover:bg-red-400/20 text-red-400 font-bold text-[10px] rounded-xl transition-all cursor-pointer"
+                        >
+                          پاک کردن لاگ‌ها
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* LIVE TERMINAL LAYOUT */}
+                    <div className="h-48 bg-slate-900 border border-slate-850 rounded-2xl p-4 overflow-y-auto space-y-2 font-mono scrollbar-thin text-right" dir="ltr">
+                      {androidLogs.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
+                          <p dir="rtl">هیچ لاگ یا تراکنشی هم‌اکنون موجود نیست.</p>
+                          <p dir="rtl" className="text-[9px] text-slate-600 mt-1">با زدن دکمه "ارسال دستی" یا ثبت حضور و غیاب، پورتال و سیم‌کارت شروع به کار خواهند کرد.</p>
+                        </div>
+                      ) : (
+                        androidLogs.map((log) => (
+                          <div key={log.id} className="text-[10px] flex items-start gap-1 justify-end text-right">
+                            <span className="text-slate-500 text-[8px] shrink-0 font-sans">[{log.timestamp}]</span>
+                            <span className="text-slate-300 break-all select-all font-sans text-right" dir="rtl">{log.message}</span>
+                            <span className={`px-1.5 py-0.5 rounded text-[7px] font-black shrink-0 ${
+                              log.type === 'success' ? 'bg-emerald-500/20 text-emerald-300' :
+                              log.type === 'error' ? 'bg-rose-500/20 text-rose-300' :
+                              log.type === 'warn' ? 'bg-amber-500/20 text-amber-300' :
+                              log.type === 'call' ? 'bg-indigo-500/20 text-indigo-300' :
+                              log.type === 'sms' ? 'bg-teal-500/20 text-teal-300' :
+                              'bg-slate-800 text-slate-300'
+                            }`}>{
+                              log.type === 'success' ? 'SUCCESS' :
+                              log.type === 'error' ? 'ERROR' :
+                              log.type === 'warn' ? 'WARN' :
+                              log.type === 'call' ? 'CALL/VOICE' :
+                              log.type === 'sms' ? 'SIM-SMS' :
+                              'INFO'
+                            }</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-[9px] text-slate-500 font-mono">
+                      <span>Database Table Name Target: <strong className="text-green-400">tasks</strong></span>
+                      <span>Polling status: <strong className={isAutoWorkerActive ? 'text-green-500 animate-pulse' : 'text-slate-400'}>{isAutoWorkerActive ? 'فعال (ACTIVE)' : 'غیرفعال (OFF)'}</strong></span>
+                    </div>
                   </div>
                 </div>
               </motion.div>

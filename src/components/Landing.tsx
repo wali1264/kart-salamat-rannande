@@ -71,6 +71,7 @@ export const Landing: React.FC = () => {
   });
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isBottomMenuOpen, setIsBottomMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Listener for lock state changes from within AttendanceManagement
@@ -109,30 +110,33 @@ export const Landing: React.FC = () => {
 
   const visibleNavItems = navItems.filter(item => !item.protected || user);
 
-  return (
-    <div className="min-h-screen bg-slate-50 flex" dir="rtl">
-      {/* Mobile Sidebar Overlay */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden"
-          />
-        )}
-      </AnimatePresence>
+  // Helper to resolve currently displayed section label for header
+  const getSectionLabel = () => {
+    switch (activeSection) {
+      case 'home': return 'روزنامچه و خلاصه';
+      case 'drivers': return isTeacherMode ? 'لیست معلمین' : 'لیست شاگردان';
+      case 'registration': return isTeacherMode ? 'ثبت معلم' : 'ثبت شاگرد';
+      case 'attendance': return 'حضور و غیاب';
+      case 'grades': return 'نمرات و توصیه‌ها';
+      case 'finance': return isTeacherMode ? 'حقوق معلمین' : 'امور مالی شاگردان';
+      case 'scanner': return 'اسکن هوشمند';
+      case 'settings': return 'تنظیمات سامانه';
+      case 'auth': return 'ورود به حساب';
+      default: return 'مدیریت مکتب';
+    }
+  };
 
-      {/* Sidebar */}
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row relative" dir="rtl">
+      
+      {/* 1. Desktop Sidebar (Always Hidden on Mobile/Tablet) */}
       {!isLocked && (
-        <aside className={`
-          fixed lg:static inset-y-0 right-0 z-50 w-72 bg-white border-l border-slate-200 transform transition-transform duration-300 ease-in-out
-          ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}
-        `}>
-          <div className="h-full flex flex-col p-8">
+        <aside className="hidden lg:flex flex-col w-72 bg-white border-l border-slate-200 h-screen sticky top-0">
+          <div className="h-full flex flex-col p-8 overflow-y-auto">
             <div className="flex items-center gap-3 mb-12">
-              <div className={`w-12 h-12 ${isTeacherMode ? 'emerald-gradient' : 'navy-gradient'} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl`}>{isTeacherMode ? 'T' : 'S'}</div>
+              <div className={`w-12 h-12 ${isTeacherMode ? 'emerald-gradient' : 'navy-gradient'} rounded-2xl flex items-center justify-center shadow-lg shadow-blue-200 text-white font-bold text-xl`}>
+                {isTeacherMode ? 'T' : 'S'}
+              </div>
               <div>
                 <h1 className="font-bold text-slate-800 leading-tight text-sm">سامانه مدیریت مکاتب</h1>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Appointment Management System</p>
@@ -145,7 +149,6 @@ export const Landing: React.FC = () => {
                   key={item.id}
                   onClick={() => {
                     setActiveSection(item.id as Section);
-                    setIsSidebarOpen(false);
                     setSearchQuery('');
                   }}
                   className={`
@@ -172,7 +175,7 @@ export const Landing: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs font-bold text-slate-800">{profile?.name || 'کاربر سیستم'}</p>
-                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role === 'doctor' ? 'داکتر موظف' : 'اپراتور سیستم'}</p>
+                      <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{profile?.role === 'doctor' ? 'بخش طبی موظف' : 'بخش اداری مکتب'}</p>
                     </div>
                   </div>
                   <div className="flex justify-between items-center bg-white px-3 py-2 rounded-xl border border-slate-100">
@@ -206,19 +209,45 @@ export const Landing: React.FC = () => {
         </aside>
       )}
 
-      {/* Main Content */}
-      <main className={`flex-1 flex flex-col min-w-0 h-screen overflow-hidden ${isLocked ? 'bg-slate-950' : ''}`}>
-        {/* Header */}
-        {!isLocked && (
-          <header className="h-24 bg-white/40 backdrop-blur-xl border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-30">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="p-3 bg-white border border-slate-200 rounded-2xl lg:hidden transition-colors"
-            >
-              <Menu className="w-5 h-5 text-slate-600" />
-            </button>
+      {/* 2. Pure Mobile Native Header (Sticky, Elegant) */}
+      {!isLocked && (
+        <header className="lg:hidden sticky top-0 z-40 w-full h-16 bg-white/80 backdrop-blur-md border-b border-slate-200/80 flex items-center justify-between px-3" dir="rtl">
+          {/* Right Side: Switcher and Sync Status aligned beautifully */}
+          <div className="flex items-center gap-1.5 xs:gap-2">
+            {/* Direct Switcher */}
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/50">
+              <button 
+                onClick={() => setMode('student')}
+                className={`px-2 py-1 rounded-lg text-[9px] font-black transition-all cursor-pointer ${!isTeacherMode ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-400'}`}
+              >
+                شاگردان
+              </button>
+              <button 
+                onClick={() => setMode('teacher')}
+                className={`px-2 py-1 rounded-lg text-[9px] font-black transition-all cursor-pointer ${isTeacherMode ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-400'}`}
+              >
+                معلمین
+              </button>
+            </div>
 
-            <div className="flex-1 max-w-xl mx-6 hidden md:flex items-center justify-start">
+            {/* Inline sync status compact */}
+            <InlineSyncStatus />
+          </div>
+
+          {/* Left Side: Minimal brand layout containing only the authorized brand label */}
+          <div>
+            <h1 className="text-xs font-black text-slate-800 tracking-tight leading-none">پورتال هوشمند مکتب</h1>
+          </div>
+        </header>
+      )}
+
+      {/* Main Content Viewport */}
+      <main className={`flex-1 flex flex-col min-w-0 h-screen overflow-hidden ${isLocked ? 'bg-slate-950' : ''}`}>
+        
+        {/* Desktop-only secondary header */}
+        {!isLocked && (
+          <header className="hidden lg:flex h-24 bg-white/40 backdrop-blur-xl border-b border-slate-200 items-center justify-between px-8 sticky top-0 z-30">
+            <div className="flex-1 max-w-xl flex items-center justify-start">
               <InlineSyncStatus />
             </div>
 
@@ -255,8 +284,8 @@ export const Landing: React.FC = () => {
           </header>
         )}
 
-        {/* Content Area */}
-        <div className={`flex-1 overflow-y-auto ${isLocked ? 'p-0' : 'p-6 md:p-10'}`}>
+        {/* Content Area (Adds safety padding on mobile for the Bottom Bar) */}
+        <div className={`flex-1 overflow-y-auto ${isLocked ? 'p-0' : 'p-4 pb-28 md:p-10'}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeSection}
@@ -278,6 +307,203 @@ export const Landing: React.FC = () => {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* 3. Pure Mobile Native Bottom Navigation Bar */}
+      {!isLocked && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-lg border-t border-slate-200/80 px-2 pb-[safe-area-inset-bottom] pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.06)] rounded-t-3xl flex items-center justify-around h-18">
+          
+          {/* Menu Item 1: Home (only visible if logged in, otherwise scanner or auth link) */}
+          {user ? (
+            <button 
+              onClick={() => { setActiveSection('home'); setIsBottomMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${activeSection === 'home' ? 'text-blue-600' : 'text-slate-400'}`}
+            >
+              <LayoutDashboard className="w-5.5 h-5.5" />
+              <span className="text-[10px] font-black mt-1">روزنامچه</span>
+            </button>
+          ) : (
+            <button 
+              onClick={() => { setActiveSection('auth'); setIsBottomMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${activeSection === 'auth' ? 'text-blue-600' : 'text-slate-400'}`}
+            >
+              <ShieldCheck className="w-5.5 h-5.5" />
+              <span className="text-[10px] font-black mt-1">ورود ادمین</span>
+            </button>
+          )}
+
+          {/* Menu Item 2: List */}
+          {user && (
+            <button 
+              onClick={() => { setActiveSection('drivers'); setIsBottomMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${activeSection === 'drivers' ? 'text-blue-600' : 'text-slate-400'}`}
+            >
+              <Users className="w-5.5 h-5.5" />
+              <span className="text-[10px] font-black mt-1">{isTeacherMode ? 'لیست معلمان' : 'لیست شاگردان'}</span>
+            </button>
+          )}
+
+          {/* Core Central Action FAB: QR Scanner */}
+          <div className="w-16 h-16 relative -mt-6">
+            <button 
+              onClick={() => { setActiveSection('scanner'); setIsBottomMenuOpen(false); }}
+              className={`absolute inset-0 w-14 h-14 mx-auto rounded-full flex items-center justify-center text-white transition-all transform shadow-lg shadow-blue-500/20 active:scale-90 ${
+                activeSection === 'scanner' 
+                  ? 'bg-blue-600 scale-105' 
+                  : `${isTeacherMode ? 'emerald-gradient hover:scale-105' : 'navy-gradient hover:scale-105'}`
+              }`}
+            >
+              <QrCode className="w-6 h-6 animate-pulse" />
+            </button>
+          </div>
+
+          {/* Menu Item 3: Attendance */}
+          {user && (
+            <button 
+              onClick={() => { setActiveSection('attendance'); setIsBottomMenuOpen(false); }}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-90 ${activeSection === 'attendance' ? 'text-blue-600' : 'text-slate-400'}`}
+            >
+              <ListChecks className="w-5.5 h-5.5" />
+              <span className="text-[10px] font-black mt-1">حضورغیاب</span>
+            </button>
+          )}
+
+          {/* Menu Item 4: More / Sheets */}
+          {user ? (
+            <button 
+              onClick={() => setIsBottomMenuOpen(true)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all active:scale-105 ${isBottomMenuOpen ? 'text-blue-600' : 'text-slate-400'}`}
+            >
+              <Menu className="w-5.5 h-5.5" />
+              <span className="text-[10px] font-black mt-1">بیشتر</span>
+            </button>
+          ) : (
+            <div className="flex-1" /> // Spacer
+          )}
+        </div>
+      )}
+
+      {/* 4. Elegant Mobile Drawers / Bottom Sheets (AnimatePresence) */}
+      <AnimatePresence>
+        {isBottomMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsBottomMenuOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 lg:hidden"
+            />
+
+            {/* Bottom Drawer Sheet */}
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed bottom-0 left-0 right-0 bg-white rounded-t-[2.5rem] z-50 p-6 shadow-[0_-16px_36px_rgba(15,23,42,0.15)] lg:hidden border-t border-slate-200 pb-10"
+            >
+              {/* Smooth drag handle indicator */}
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-6" onClick={() => setIsBottomMenuOpen(false)} />
+
+              <div className="flex items-center justify-between mb-5">
+                <div>
+                  <h3 className="font-black text-slate-800 text-base">دسترسی سریع</h3>
+                  <p className="text-[10px] text-slate-400 font-bold mt-1">امکانات اضافی پورتال مکتب ملکی</p>
+                </div>
+                <button 
+                  onClick={() => setIsBottomMenuOpen(false)}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-600" />
+                </button>
+              </div>
+
+              {/* Grid of secondary sections */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <button
+                  onClick={() => { setActiveSection('registration'); setIsBottomMenuOpen(false); }}
+                  className={`flex flex-col items-start gap-2.5 p-4 rounded-2xl border text-right transition-all active:scale-95 ${
+                    activeSection === 'registration' 
+                      ? 'bg-blue-50/50 border-blue-200 text-blue-700' 
+                      : 'bg-slate-50 border-slate-100 text-slate-700'
+                  }`}
+                >
+                  <PlusCircle className="w-5 h-5 text-blue-500" />
+                  <span className="text-xs font-black">{isTeacherMode ? 'ثبت معلم جدید' : 'ثبت شاگرد جدید'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveSection('grades'); setIsBottomMenuOpen(false); }}
+                  className={`flex flex-col items-start gap-2.5 p-4 rounded-2xl border text-right transition-all active:scale-95 ${
+                    activeSection === 'grades' 
+                      ? 'bg-purple-50/50 border-purple-200 text-purple-700' 
+                      : 'bg-slate-50 border-slate-100 text-slate-700'
+                  }`}
+                >
+                  <Bell className="w-5 h-5 text-purple-500" />
+                  <span className="text-xs font-black">نمرات و توصیه‌ها</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveSection('finance'); setIsBottomMenuOpen(false); }}
+                  className={`flex flex-col items-start gap-2.5 p-4 rounded-2xl border text-right transition-all active:scale-95 ${
+                    activeSection === 'finance' 
+                      ? 'bg-emerald-50/50 border-emerald-200 text-emerald-700' 
+                      : 'bg-slate-50 border-slate-100 text-slate-700'
+                  }`}
+                >
+                  <FinanceIcon className="w-5 h-5 text-emerald-500" />
+                  <span className="text-xs font-black">{isTeacherMode ? 'حقوق معلمین' : 'مدیریت مالی'}</span>
+                </button>
+
+                <button
+                  onClick={() => { setActiveSection('settings'); setIsBottomMenuOpen(false); }}
+                  className={`flex flex-col items-start gap-2.5 p-4 rounded-2xl border text-right transition-all active:scale-95 ${
+                    activeSection === 'settings' 
+                      ? 'bg-slate-100 border-slate-200 text-slate-800' 
+                      : 'bg-slate-50 border-slate-100 text-slate-700'
+                  }`}
+                >
+                  <Settings className="w-5 h-5 text-slate-500" />
+                  <span className="text-xs font-black">تنظیمات سامانه</span>
+                </button>
+              </div>
+
+              {/* Profile card & quick actions */}
+              <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100 mb-6">
+                <div className="flex items-center gap-3.5 mb-3">
+                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-xl flex items-center justify-center">
+                    <UserIcon className="w-5 h-5 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-slate-800">{profile?.name || 'کاربر سیستم'}</p>
+                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wide mt-0.5">{profile?.role === 'doctor' ? 'داکتر موظف' : 'مدیر مکتب'}</p>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 flex justify-between items-center bg-white px-3 py-2 rounded-xl">
+                  <span>نام کاربری: </span>
+                  <span className="text-slate-600 font-bold">{profile?.email}</span>
+                </div>
+              </div>
+
+              {/* Log out option */}
+              <button
+                onClick={() => {
+                  signOut();
+                  setIsBottomMenuOpen(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-2xl font-black text-xs transition-all active:scale-95"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>خروج کامل از سامانه</span>
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
+

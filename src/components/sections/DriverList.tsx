@@ -259,101 +259,200 @@ export const DriverList: React.FC = () => {
             <p className="text-[10px] uppercase">No Match for Search Query</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-sm">
-              <thead className="bg-slate-50 border-b border-slate-100">
-                <tr className="text-slate-400 font-normal">
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest text-center">وضعیت کارت</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نوم / نام</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">د پلار نوم / نام پدر</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'رتبه/بست' : 'صنف'}</th>
-                  <th className="p-5 font-bold uppercase text-[10px] tracking-widest">عملیات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {displayedDrivers.map((driver) => {
-                  const activeCard = driver.health_cards?.find(c => c.status === 'active');
-                  const isExpired = activeCard && new Date(activeCard.expiry_date) < new Date();
-                  
-                  return (
-                    <tr key={driver.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="p-5">
-                        <div className="flex justify-center">
-                          {activeCard && !isExpired ? (
-                            <span className="status-chip status-approved">فعال</span>
-                          ) : (
-                            <span className="status-chip status-pending">بدون کارت</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors text-xs overflow-hidden">
-                            {driver.photo_url ? <img src={driver.photo_url} className="w-full h-full object-cover" /> : driver.name.charAt(0)}
-                          </div>
-                          <span className="font-bold text-slate-800">{driver.name}</span>
-                        </div>
-                      </td>
-                      <td className="p-5">
-                        <span className="text-slate-600 text-sm">{driver.father_name || '---'}</span>
-                      </td>
-                      <td className="p-5 text-slate-600 font-mono text-xs">{driver.license_number}</td>
-                      <td className="p-5 text-slate-600 text-xs font-bold">{driver.vehicle_type}</td>
-                      <td className="p-5">
-                        <div className="flex items-center gap-2">
-                          <div className="flex flex-wrap gap-2">
-                            {activeCard ? (
-                              <button 
-                                onClick={() => {
-                                  setSelectedDriver(driver);
-                                  setSelectedCard(activeCard);
-                                  setIsPrinting(true);
-                                  setIsViewOpen(true);
-                                }}
-                                className="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
-                              >
-                                <Printer className="w-4 h-4" />
-                                <span>چاپ کارت</span>
-                              </button>
+          <div>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-right text-sm">
+                <thead className="bg-slate-50 border-b border-slate-100">
+                  <tr className="text-slate-400 font-normal">
+                    <th className="p-5 font-bold uppercase text-[10px] tracking-widest text-center">وضعیت کارت</th>
+                    <th className="p-5 font-bold uppercase text-[10px] tracking-widest">نوم / نام</th>
+                    <th className="p-5 font-bold uppercase text-[10px] tracking-widest">د پلار نوم / نام پدر</th>
+                    <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}</th>
+                    <th className="p-5 font-bold uppercase text-[10px] tracking-widest">{isTeacherMode ? 'رتبه/بست' : 'صنف'}</th>
+                    <th className="p-5 font-bold uppercase text-[10px] tracking-widest">عملیات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {displayedDrivers.map((driver) => {
+                    const activeCard = driver.health_cards?.find(c => c.status === 'active');
+                    const isExpired = activeCard && new Date(activeCard.expiry_date) < new Date();
+                    
+                    return (
+                      <tr key={driver.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="p-5">
+                          <div className="flex justify-center">
+                            {activeCard && !isExpired ? (
+                              <span className="status-chip status-approved">فعال</span>
                             ) : (
+                              <span className="status-chip status-pending">بدون کارت</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600 transition-colors text-xs overflow-hidden">
+                              {driver.photo_url ? <img src={driver.photo_url} className="w-full h-full object-cover" /> : driver.name.charAt(0)}
+                            </div>
+                            <span className="font-bold text-slate-800">{driver.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-5">
+                          <span className="text-slate-600 text-sm">{driver.father_name || '---'}</span>
+                        </td>
+                        <td className="p-5 text-slate-600 font-mono text-xs">{driver.license_number}</td>
+                        <td className="p-5 text-slate-600 text-xs font-bold">{driver.vehicle_type}</td>
+                        <td className="p-5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap gap-2">
+                              {activeCard ? (
+                                <button 
+                                  onClick={() => {
+                                    setSelectedDriver(driver);
+                                    setSelectedCard(activeCard);
+                                    setIsPrinting(true);
+                                    setIsViewOpen(true);
+                                  }}
+                                  className="bg-blue-600 text-white px-4 py-2.5 rounded-xl text-[10px] font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
+                                >
+                                  <Printer className="w-4 h-4" />
+                                  <span>چاپ کارت</span>
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => {
+                                    setSelectedDriver(driver);
+                                    setIsRenewalMode(false);
+                                    setIsModalOpen(true);
+                                  }}
+                                  className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
+                                >
+                                  <PlusCircle className="w-4 h-4" />
+                                  <span>صدور کارت</span>
+                                </button>
+                              )}
+                              
                               <button 
                                 onClick={() => {
                                   setSelectedDriver(driver);
-                                  setIsRenewalMode(false);
-                                  setIsModalOpen(true);
+                                  setIsEditModalOpen(true);
                                 }}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[10px] font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 flex items-center gap-2"
+                                className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-slate-100 rounded-xl transition-all"
                               >
-                                <PlusCircle className="w-4 h-4" />
-                                <span>صدور کارت</span>
+                                <Edit className="w-4 h-4" />
                               </button>
-                            )}
-                            
-                            <button 
-                              onClick={() => {
-                                setSelectedDriver(driver);
-                                setIsEditModalOpen(true);
-                              }}
-                              className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 border border-slate-100 rounded-xl transition-all"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
 
-                            <button 
-                              onClick={() => handleDelete(driver.id)}
-                              className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 rounded-xl transition-all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                              <button 
+                                onClick={() => handleDelete(driver.id)}
+                                className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 border border-slate-100 rounded-xl transition-all"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards View (Tighter margins, large tap targets, native app look) */}
+            <div className="block md:hidden p-4 space-y-4">
+              {displayedDrivers.map((driver) => {
+                const activeCard = driver.health_cards?.find(c => c.status === 'active');
+                const isExpired = activeCard && new Date(activeCard.expiry_date) < new Date();
+                
+                return (
+                  <div key={driver.id} className="bg-white border border-slate-100 rounded-3xl p-4 shadow-sm space-y-4 transition-all hover:border-blue-200">
+                    {/* Header: Photo, Name, and Status */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center font-black text-slate-400 overflow-hidden text-sm">
+                          {driver.photo_url ? <img src={driver.photo_url} className="w-full h-full object-cover" /> : driver.name.charAt(0)}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        <div>
+                          <h4 className="font-black text-slate-800 text-sm">{driver.name}</h4>
+                          <p className="text-[11px] text-slate-400 mt-0.5">نام پدر: {driver.father_name || '---'}</p>
+                        </div>
+                      </div>
+
+                      <div>
+                        {activeCard && !isExpired ? (
+                          <span className="px-2.5 py-1 text-[10px] font-black bg-emerald-50 text-emerald-600 rounded-xl">کارت فعال</span>
+                        ) : (
+                          <span className="px-2.5 py-1 text-[10px] font-black bg-amber-50 text-amber-600 rounded-xl">فاقد کارت</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Details row */}
+                    <div className="grid grid-cols-2 gap-2.5 bg-slate-50 p-3 rounded-2xl text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-bold mb-0.5">{isTeacherMode ? 'کد شناسایی' : 'نمبر اساس'}:</span>
+                        <span className="text-slate-700 font-mono font-bold leading-none">{driver.license_number}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-bold mb-0.5">{isTeacherMode ? 'رتبه/بست' : 'صنف'}:</span>
+                        <span className="text-slate-700 font-bold leading-none">{driver.vehicle_type}</span>
+                      </div>
+                    </div>
+
+                    {/* Quick Native-Like Actions */}
+                    <div className="flex items-center justify-between gap-2.5 pt-1">
+                      {activeCard ? (
+                        <button 
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setSelectedCard(activeCard);
+                            setIsPrinting(true);
+                            setIsViewOpen(true);
+                          }}
+                          className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-xl text-xs font-black hover:bg-blue-700 transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-blue-500/15"
+                        >
+                          <Printer className="w-4 h-4" />
+                          <span>چاپ کارت دیجیتال</span>
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setIsRenewalMode(false);
+                            setIsModalOpen(true);
+                          }}
+                          className="flex-1 bg-indigo-600 text-white py-3 px-4 rounded-xl text-xs font-black hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 active:scale-95 shadow-md shadow-indigo-500/15"
+                        >
+                          <PlusCircle className="w-4 h-4" />
+                          <span>صدور کارت جدید</span>
+                        </button>
+                      )}
+
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => {
+                            setSelectedDriver(driver);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="p-3 text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200/50 transition-all active:scale-95"
+                          title="ویرایش پرونده"
+                        >
+                          <Edit className="w-4.5 h-4.5" />
+                        </button>
+
+                        <button 
+                          onClick={() => handleDelete(driver.id)}
+                          className="p-3 text-rose-500 bg-rose-50 hover:bg-rose-100 rounded-xl transition-all active:scale-95"
+                          title="حذف پرونده"
+                        >
+                          <Trash2 className="w-4.5 h-4.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

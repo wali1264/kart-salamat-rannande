@@ -16,6 +16,11 @@ export interface NotificationSettings {
   teacher_template_exit: string;
 
   default_service: 'sms' | 'whatsapp' | 'voice';
+  
+  // Granular channels per notification type
+  service_for_absence: 'sms' | 'whatsapp' | 'voice';
+  service_for_entry: 'sms' | 'whatsapp' | 'voice';
+  service_for_exit: 'sms' | 'whatsapp' | 'voice';
 }
 
 const DEFAULT_SETTINGS: NotificationSettings = {
@@ -31,7 +36,12 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   teacher_template_entry: 'همکار گرامی جناب [name]، حضور ورود شما در تاریخ [تاریخ] ساعت [ساعت] ثبت گردید.',
   teacher_template_exit: 'همکار گرامی جناب [name]، خروج شما در تاریخ [تاریخ] ساعت [ساعت] ثبت گردید.',
 
-  default_service: 'sms'
+  default_service: 'sms',
+  
+  // Defaults set beautifully to match user scenario (Absence = voice call, Entering/Leaving = SMS)
+  service_for_absence: 'voice',
+  service_for_entry: 'sms',
+  service_for_exit: 'sms'
 };
 
 export const getNotificationSettings = (): NotificationSettings => {
@@ -103,9 +113,19 @@ export const queueAutoNotification = async (
       .replace(/\[تاریخ\]/g, dateStr)
       .replace(/\[ساعت\]/g, timeStr);
 
+    // Select correct service type based on event types with fallback to configured granular keys
+    let selectedService = config.default_service;
+    if (type === 'absent') {
+      selectedService = config.service_for_absence || 'voice';
+    } else if (type === 'entry') {
+      selectedService = config.service_for_entry || 'sms';
+    } else if (type === 'exit') {
+      selectedService = config.service_for_exit || 'sms';
+    }
+
     const taskRecord = {
       id: `temp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-      type: config.default_service,
+      type: selectedService,
       phone: phone,
       message: message,
       status: 'pending',

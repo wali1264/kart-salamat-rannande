@@ -67,25 +67,45 @@ export const ManualAttendance: React.FC = () => {
     if (!selectedPerson) return;
     setFetchingToday(true);
 
+    const targetDate = getTargetDateGregorian();
+    const start = new Date(targetDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(targetDate);
+    end.setHours(23, 59, 59, 999);
+    const startStr = start.toISOString().split('T')[0];
+    const endStr = end.toISOString().split('T')[0];
+
     if (!isOnline) {
       try {
-        const cached = await offlineDb.cache.where('collection').equals('attendance').toArray();
-        const targetDate = getTargetDateGregorian();
-        const start = new Date(targetDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(targetDate);
-        end.setHours(23, 59, 59, 999);
+        const cachedAtt = await offlineDb.cache.where('collection').equals('attendance').toArray();
+        const cachedAbs = await offlineDb.cache.where('collection').equals('absences').toArray();
 
-        const filtered = cached
+        const attFiltered = cachedAtt
           .map(c => c.data)
           .filter(a => 
             a.student_id === selectedPerson.id && 
             new Date(a.recorded_at) >= start && 
             new Date(a.recorded_at) <= end
-          )
-          .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+          );
 
-        setTodayRecords(filtered);
+        const absFiltered = cachedAbs
+          .map(c => c.data)
+          .filter(a => 
+            a.student_id === selectedPerson.id && 
+            a.start_date <= endStr && 
+            a.end_date >= startStr
+          )
+          .map(a => ({
+            id: a.id,
+            student_id: a.student_id,
+            type: 'absent',
+            recorded_at: new Date(a.start_date + 'T12:00:00').toISOString(),
+            method: 'manual',
+            _isAbsenceRecord: true
+          }));
+
+        const merged = [...attFiltered, ...absFiltered].sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+        setTodayRecords(merged);
         setFetchingToday(false);
         return;
       } catch (err) {
@@ -94,22 +114,36 @@ export const ManualAttendance: React.FC = () => {
     }
 
     try {
-      const targetDate = getTargetDateGregorian();
-      const start = new Date(targetDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(targetDate);
-      end.setHours(23, 59, 59, 999);
+      const [attRes, absRes] = await Promise.all([
+        supabase
+          .from('attendance')
+          .select('*')
+          .eq('student_id', selectedPerson.id)
+          .gte('recorded_at', start.toISOString())
+          .lte('recorded_at', end.toISOString()),
+        supabase
+          .from('absences')
+          .select('*')
+          .eq('student_id', selectedPerson.id)
+          .lte('start_date', endStr)
+          .gte('end_date', startStr)
+      ]);
 
-      const { data, error } = await supabase
-        .from('attendance')
-        .select('*')
-        .eq('student_id', selectedPerson.id)
-        .gte('recorded_at', start.toISOString())
-        .lte('recorded_at', end.toISOString())
-        .order('recorded_at', { ascending: false });
+      if (attRes.error) throw attRes.error;
+      if (absRes.error) throw absRes.error;
 
-      if (error) throw error;
-      setTodayRecords(data || []);
+      const attData = attRes.data || [];
+      const absData = (absRes.data || []).map(a => ({
+        id: a.id,
+        student_id: a.student_id,
+        type: 'absent',
+        recorded_at: new Date(a.start_date + 'T12:00:00').toISOString(),
+        method: 'manual',
+        _isAbsenceRecord: true
+      }));
+
+      const merged = [...attData, ...absData].sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime());
+      setTodayRecords(merged);
     } catch (err) {
       console.error('Error fetching today records:', err);
     } finally {
@@ -117,14 +151,15 @@ export const ManualAttendance: React.FC = () => {
     }
   };
 
-  const handleDeleteRecord = async (id: string) => {
+  const handleDeleteRecord = async (id: string, isAbsenceRecord?: boolean) => {
     if (!window.confirm('آیا از حذف این رکورد اطمینان دارید؟')) return;
     try {
+      const table = isAbsenceRecord ? 'absences' : 'attendance';
       const { error, queued } = await performAction(
-        'attendance',
+        table,
         'delete',
         { id },
-        () => supabase.from('attendance').delete().eq('id', id)
+        () => supabase.from(table).delete().eq('id', id)
       );
       if (error) throw error;
       setSuccess(queued ? 'درخواست حذف در صف قرار گرفت' : 'رکورد با موفقیت حذف شد');
@@ -433,19 +468,41 @@ export const ManualAttendance: React.FC = () => {
         timestamp = new Date().toISOString();
       }
 
-      const record = {
-        student_id: selectedPerson.id,
-        type: actionType,
-        recorded_at: timestamp,
-        method: 'manual'
-      };
+      let error, queued;
 
-      const { error, queued } = await performAction(
-        'attendance',
-        'insert',
-        record,
-        () => supabase.from('attendance').insert([record])
-      );
+      if (actionType === 'absent') {
+        const payload = {
+          student_id: selectedPerson.id,
+          start_date: timestamp.split('T')[0],
+          end_date: timestamp.split('T')[0],
+          reason: 'غیبت غیرموجه (ثبت دستی)'
+        };
+
+        const result = await performAction(
+          'absences',
+          'insert',
+          payload,
+          () => supabase.from('absences').insert([payload])
+        );
+        error = result.error;
+        queued = result.queued;
+      } else {
+        const record = {
+          student_id: selectedPerson.id,
+          type: actionType,
+          recorded_at: timestamp,
+          method: 'manual'
+        };
+
+        const result = await performAction(
+          'attendance',
+          'insert',
+          record,
+          () => supabase.from('attendance').insert([record])
+        );
+        error = result.error;
+        queued = result.queued;
+      }
 
       if (error) throw error;
 
@@ -849,17 +906,20 @@ export const ManualAttendance: React.FC = () => {
                           <div key={rec.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 group">
                             <div className="flex items-center gap-3">
                               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                rec.type === 'entry' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                                rec.type === 'entry' ? 'bg-emerald-100 text-emerald-600' :
+                                rec.type === 'absent' ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'
                               }`}>
                                 {rec.type === 'entry' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
                               </div>
                               <div>
-                                <p className="text-[10px] font-black text-slate-700 capitalize">{rec.type === 'entry' ? 'ورود' : 'خروج'}</p>
+                                <p className="text-[10px] font-black text-slate-700 capitalize">
+                                  {rec.type === 'entry' ? 'ورود' : rec.type === 'absent' ? 'غیبت' : 'خروج'}
+                                </p>
                                 <p className="text-[8px] font-bold text-slate-400" dir="ltr">{format(new Date(rec.recorded_at), 'HH:mm:ss')}</p>
                               </div>
                             </div>
                             <button 
-                              onClick={() => handleDeleteRecord(rec.id)}
+                              onClick={() => handleDeleteRecord(rec.id, rec._isAbsenceRecord)}
                               className="p-2 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
                             >
                               <Trash2 className="w-3.5 h-3.5" />

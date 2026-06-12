@@ -138,6 +138,37 @@ jobs:
           fi
           npx cap sync
 
+      - name: Patch Android Manifest with SMS & Call Permissions
+        run: |
+          node -e "
+          const fs = require('fs');
+          const manifestPath = 'android/app/src/main/AndroidManifest.xml';
+          if (fs.existsSync(manifestPath)) {
+            let content = fs.readFileSync(manifestPath, 'utf8');
+            const permissions = [
+              '<uses-permission android:name=\"android.permission.SEND_SMS\" />',
+              '<uses-permission android:name=\"android.permission.CALL_PHONE\" />',
+              '<uses-permission android:name=\"android.permission.READ_PHONE_STATE\" />',
+              '<uses-permission android:name=\"android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS\" />'
+            ];
+            let added = false;
+            permissions.forEach(perm => {
+              if (!content.includes(perm)) {
+                content = content.replace('<application', perm + '\n    <application');
+                added = true;
+              }
+            });
+            if (added) {
+              fs.writeFileSync(manifestPath, content, 'utf8');
+              console.log('Successfully patched AndroidManifest.xml with SMS, Call, Phone State, and Battery Optimization exemption permissions!');
+            } else {
+              console.log('All permissions already exist in AndroidManifest.xml');
+            }
+          } else {
+            console.log('AndroidManifest.xml not found!');
+          }
+          "
+
       - name: Patch Android Gradle to prevent duplicate Kotlin-stdlib classes
         run: |
           node -e "

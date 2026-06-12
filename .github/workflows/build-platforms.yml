@@ -138,6 +138,22 @@ jobs:
           fi
           npx cap sync
 
+      - name: Patch Android Gradle to prevent duplicate Kotlin-stdlib classes
+        run: |
+          node -e "
+          const fs = require('fs');
+          const patchCode = '\n\nallprojects {\n    configurations.all {\n        resolutionStrategy {\n            force \"org.jetbrains.kotlin:kotlin-stdlib:1.8.22\"\n            force \"org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22\"\n            force \"org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22\"\n        }\n    }\n}\n';
+          
+          if (fs.existsSync('android/build.gradle')) {
+            fs.appendFileSync('android/build.gradle', patchCode);
+            console.log('Successfully patched root android/build.gradle');
+          }
+          if (fs.existsSync('android/app/build.gradle')) {
+            fs.appendFileSync('android/app/build.gradle', patchCode);
+            console.log('Successfully patched app android/app/build.gradle');
+          }
+          "
+
       - name: Build Android Debug APK
         run: |
           cd android

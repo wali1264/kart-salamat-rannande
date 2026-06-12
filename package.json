@@ -1,7 +1,9 @@
 {
-  "name": "react-example",
+  "name": "maktabportal-app",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "پورتال مدیریت مکتب و غیبت هوشمند",
+  "author": "MaktabPortal Team",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",

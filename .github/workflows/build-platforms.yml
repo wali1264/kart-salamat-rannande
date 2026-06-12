@@ -10,7 +10,10 @@ on:
 jobs:
   # ================= Windows Executable Build Job =================
   build-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -127,7 +130,12 @@ jobs:
       - name: Setup and Sync Capacitor Android
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android --legacy-peer-deps
-          npx cap add android || true
+          if [ ! -d "android" ]; then
+            echo "Android directory not found. Creating brand new Capacitor android platform..."
+            npx cap add android
+          else
+            echo "Android directory already exists."
+          fi
           npx cap sync
 
       - name: Build Android Debug APK

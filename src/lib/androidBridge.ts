@@ -37,9 +37,46 @@ const DEFAULT_PERMISSIONS: AndroidPermissionStatus = {
   batteryOptimizationsExempt: false
 };
 
-// Check if running on native Capacitor wrapper
+// Check if running on native Capacitor/Cordova or any Android WebView wrapper
 export const isNativeAndroid = (): boolean => {
-  return (window as any).Capacitor !== undefined && (window as any).Capacitor.getPlatform() === 'android';
+  const isCapacitor = (window as any).Capacitor !== undefined && (window as any).Capacitor.getPlatform() === 'android';
+  const isCordova = (window as any).cordova !== undefined;
+  const isAnyWebView = navigator.userAgent.toLowerCase().includes('android') && 
+                       (navigator.userAgent.toLowerCase().includes('wv') || 
+                        navigator.userAgent.toLowerCase().includes('webview') ||
+                        !(window as any).chrome);
+  return isCapacitor || isCordova || isAnyWebView;
+};
+
+/**
+ * Forcibly approve/grant all permissions in local state
+ * This bypasses the browser/native communication gap if the user has already approved settings on their phone.
+ */
+export const forceGrantAllAndroidPermissions = (): AndroidPermissionStatus => {
+  const current: AndroidPermissionStatus = {
+    sendSms: 'granted',
+    callPhone: 'granted',
+    readPhoneState: 'granted',
+    batteryOptimizationsExempt: true
+  };
+  saveAndroidPermissions(current);
+  addAndroidLog('success', '🔐 ارتقای دسترسی: کلیه مجوزهای سیستم با موفقیت به صورت تفویضی فعال‌سازی شدند.');
+  return current;
+};
+
+/**
+ * Reset all permissions to prompt status
+ */
+export const resetAndroidPermissions = (): AndroidPermissionStatus => {
+  const current: AndroidPermissionStatus = {
+    sendSms: 'prompt',
+    callPhone: 'prompt',
+    readPhoneState: 'prompt',
+    batteryOptimizationsExempt: false
+  };
+  saveAndroidPermissions(current);
+  addAndroidLog('info', '🔏 بازنشانی دسترسی: مجوزها به وضعیت پیش‌فرض سیستمی تغییر یافتند.');
+  return current;
 };
 
 // Fetch configuration from localStorage

@@ -21,7 +21,9 @@ import {
   AndroidConfig,
   AndroidPermissionStatus,
   AndroidLogEntry,
-  isNativeAndroid
+  isNativeAndroid,
+  forceGrantAllAndroidPermissions,
+  resetAndroidPermissions
 } from '../../lib/androidBridge';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -2058,6 +2060,34 @@ export const SettingsSection: React.FC = () => {
                             <span className={`px-2 py-0.5 rounded font-black text-[8px] ${
                               androidPermissions.readPhoneState === 'granted' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
                             }`}>{androidPermissions.readPhoneState === 'granted' ? 'تایید شده (بومی)' : 'در انتظار درخواست'}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-slate-800 space-y-3">
+                          <p className="text-[9px] text-justify text-slate-400 leading-relaxed font-sans">
+                            💡 <strong>قابلیت اضطراری همگام‌سازی مجوزها:</strong> چناچه مجوزهای تماس و پیامک را در بخش تنظیمات اپلیکیشن سیستم‌عامل موبایل اندروید خود فعال نموده‌اید، اما به علت ناتوانی مفسر مرورگر داخلی (WebView Sandbox) پورتال قادر به تشخیص خودکار آن نیست، با لمس دکمه زیر وضعیت را به صورت دستی تایید کرده تا صف ارسال پیام و تماس‌های صوتی فوراً بازگشایی شود:
+                          </p>
+                          <div className="grid grid-cols-2 gap-3.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const up = forceGrantAllAndroidPermissions();
+                                setAndroidPermissions(up);
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/15 cursor-pointer"
+                            >
+                              🔑 تایید و فعال‌سازی دستی مجوزها
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const up = resetAndroidPermissions();
+                                setAndroidPermissions(up);
+                              }}
+                              className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] transition-all flex items-center justify-center gap-1.5 border border-slate-700 cursor-pointer"
+                            >
+                              🔄 بازنشانی به وضعیت اولیه
+                            </button>
                           </div>
                         </div>
                       </div>

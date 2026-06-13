@@ -2021,98 +2021,44 @@ export const SettingsSection: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* LEFT COLUMN: PERMISSIONS & SYSTEM POLICY */}
+                    {/* LEFT COLUMN: NATIVE PERM INFRASTATUS & VISUAL CONFIRMATION */}
                     <div className="space-y-6">
-                      <div className="bg-slate-850 p-6 rounded-2xl space-y-4 border border-slate-800">
-                        <h5 className="font-black text-indigo-300 text-xs flex items-center gap-2">
-                          <Check className="w-4 h-4" />
-                          کنترل مجوزهای سخت‌افزاری سیم‌کارت
-                        </h5>
-                        <p className="text-[10px] text-slate-400 leading-relaxed">
-                          سیستم عامل اندروید برای امنیت بیشتر، مجوزهای مخابراتی را هنگام اجرا از کاربر سوال می‌کند:
-                        </p>
-
-                        <div className="space-y-3 pt-2">
-                          {/* SEND_SMS */}
-                          <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-800">
-                            <div>
-                              <span className="font-bold text-[11px] block text-slate-200">مجوز ارسال پیامک (SEND_SMS)</span>
-                              <span className="text-[9px] text-slate-400">ارسال اتوماتیک پیام حضور و غیاب برای والدین</span>
-                            </div>
-                            <button
-                              onClick={() => handleRequestPermission('sendSms')}
-                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
-                                androidPermissions.sendSms === 'granted'
-                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-700 hover:bg-slate-600 text-white'
-                              }`}
-                            >
-                              {androidPermissions.sendSms === 'granted' ? 'مجوز صادر شده' : 'درخواست صدور'}
-                            </button>
+                      <div className="bg-slate-850 p-6 rounded-2xl space-y-4 border border-indigo-500/20 bg-gradient-to-br from-slate-900 via-slate-850 to-indigo-950/20">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 shrink-0 border border-indigo-500/20">
+                            <AlertCircle className="w-5 h-5" />
                           </div>
-
-                          {/* CALL_PHONE */}
-                          <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-800">
-                            <div>
-                              <span className="font-bold text-[11px] block text-slate-200">مجوز برقراری تماس (CALL_PHONE)</span>
-                              <span className="text-[9px] text-slate-400">تماس بی‌واسطه ربات صوتی بدون دخالت دستی</span>
-                            </div>
-                            <button
-                              onClick={() => handleRequestPermission('callPhone')}
-                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
-                                androidPermissions.callPhone === 'granted'
-                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-700 hover:bg-slate-600 text-white'
-                              }`}
-                            >
-                              {androidPermissions.callPhone === 'granted' ? 'مجوز صادر شده' : 'درخواست صدور'}
-                            </button>
-                          </div>
-
-                          {/* READ_PHONE_STATE */}
-                          <div className="flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-800">
-                            <div>
-                              <span className="font-bold text-[11px] block text-slate-200">شنود خطوط تماس (READ_PHONE_STATE)</span>
-                              <span className="text-[9px] text-slate-400">تشخیص جواب دادن یا مشغول بودن تماس والدین</span>
-                            </div>
-                            <button
-                              onClick={() => handleRequestPermission('readPhoneState')}
-                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
-                                androidPermissions.readPhoneState === 'granted'
-                                  ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-700 hover:bg-slate-600 text-white'
-                              }`}
-                            >
-                              {androidPermissions.readPhoneState === 'granted' ? 'مجوز صادر شده' : 'درخواست صدور'}
-                            </button>
+                          <div>
+                            <h5 className="font-black text-white text-xs">مدیریت بومی مجوزها (حذف پنل شبیه‌ساز)</h5>
+                            <span className="text-[8px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold inline-block mt-0.5">تغییر فعال نسخه جدید گیت‌هاب</span>
                           </div>
                         </div>
-                      </div>
 
-                      {/* Battery Exempt details */}
-                      <div className="bg-slate-850 p-6 rounded-2xl space-y-3 border border-slate-800">
-                        <h5 className="font-black text-amber-400 text-xs flex items-center gap-2">
-                          <Info className="w-4 h-4" />
-                          سیاست استثنای باتری اندروید (خواب عمیق سیم‌کارت)
-                        </h5>
                         <p className="text-[10px] text-slate-400 leading-relaxed">
-                          سیستم عامل اندروید پس از چند دقیقه خاموش بودن اسکرین، برنامه‌های پس‌زمینه را به حالت Dormant یا خواب عمیق می‌برد که این کار پردازش صف پیامک مکتب را متوقف می‌کند. قرارگیری در <strong className="text-white">"لیست سفید استثنای بهینه‌سازی باتری"</strong> برای کارکرد مداوم سرور پس‌زمینه الزامیست.
+                          ⚠️ تنظیمات امنیتی و دسترسی‌های سخت‌افزاری بر اساس استاندارد گوگل‌پلی هم‌اکنون به صورت کاملاً خودکار و پویا توسط هسته سیستم‌عامل اندروید هدایت می‌شوند. در نسخه جدید، دکمه‌های شبیه‌ساز قبلی از این بخش حذف و پایشگر بومی فعال شده است تا تغییر واقعی بسته‌های جدید را بلافاصله بر روی موبایل خود مشاهده کنید.
                         </p>
-                        <div className="flex justify-between items-center bg-slate-800/50 p-3.5 rounded-xl border border-slate-800">
-                          <div>
-                            <span className="font-black text-[10px] text-slate-300 block">نادیده‌گیری ذخیره باتری (Ignore Battery Optimization)</span>
-                            <span className="text-[9px] text-slate-400">امکان فعالیت شبانه‌روزی بدون بسته شدن خودکار</span>
+
+                        <div className="pt-3 border-t border-slate-800 space-y-2">
+                          <div className="flex justify-between items-center text-[10px] text-slate-300">
+                            <span className="font-bold">وضعیت دسترسی SMS:</span>
+                            <span className={`px-2 py-0.5 rounded font-black text-[8px] ${
+                              androidPermissions.sendSms === 'granted' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                            }`}>{androidPermissions.sendSms === 'granted' ? 'تایید شده (بومی)' : 'در انتظار درخواست'}</span>
                           </div>
-                          <button
-                            onClick={() => handleRequestPermission('batteryOptimizationsExempt')}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black transition-all cursor-pointer ${
-                              androidPermissions.batteryOptimizationsExempt
-                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                                : 'bg-slate-700 hover:bg-slate-600 text-white'
-                            }`}
-                          >
-                            {androidPermissions.batteryOptimizationsExempt ? 'در استثنا قرار دارد' : 'اجازه عبور'}
-                          </button>
+                          
+                          <div className="flex justify-between items-center text-[10px] text-slate-300">
+                            <span className="font-bold">وضعیت دسترسی تماس:</span>
+                            <span className={`px-2 py-0.5 rounded font-black text-[8px] ${
+                              androidPermissions.callPhone === 'granted' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                            }`}>{androidPermissions.callPhone === 'granted' ? 'تایید شده (بومی)' : 'در انتظار درخواست'}</span>
+                          </div>
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-300">
+                            <span className="font-bold">وضعیت پایشگر خطوط:</span>
+                            <span className={`px-2 py-0.5 rounded font-black text-[8px] ${
+                              androidPermissions.readPhoneState === 'granted' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                            }`}>{androidPermissions.readPhoneState === 'granted' ? 'تایید شده (بومی)' : 'در انتظار درخواست'}</span>
+                          </div>
                         </div>
                       </div>
                     </div>

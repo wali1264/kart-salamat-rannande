@@ -306,6 +306,28 @@ export const checkActualAndroidPermissions = async (): Promise<AndroidPermission
 };
 
 /**
+ * Safely updates a task in Supabase.
+ * If the table is missing the 'attempts' column, it retries updating without it to prevent breaking the flow.
+ */
+const safeUpdateTask = async (taskId: string, updateData: Record<string, any>): Promise<{ error: any }> => {
+  const { error } = await supabase
+    .from('tasks')
+    .update(updateData)
+    .eq('id', taskId);
+
+  if (error && error.message && (error.message.includes('attempts') || error.message.includes('schema cache'))) {
+    const cleanedData = { ...updateData };
+    delete cleanedData.attempts;
+    return await supabase
+      .from('tasks')
+      .update(cleanedData)
+      .eq('id', taskId);
+  }
+
+  return { error };
+};
+
+/**
  * Native Engine simulation for checking database tasks, calling, and scheduling retries.
  */
 export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number> => {
@@ -368,10 +390,7 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
         // Update task state on Supabase/Local
         const now = new Date().toISOString();
         if (isOnline) {
-          const { error } = await supabase
-            .from('tasks')
-            .update({ status: 'sent', updated_at: now, attempts: currentAttempts + 1 })
-            .eq('id', task.id);
+          const { error } = await safeUpdateTask(task.id, { status: 'sent', updated_at: now, attempts: currentAttempts + 1 });
           
           if (error) {
             addAndroidLog('error', `ناتوانی در ثبت ارسال پیامک به [${task.phone}]: ${error.message}`);
@@ -420,10 +439,7 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
           }
           
           if (isOnline) {
-            await supabase
-              .from('tasks')
-              .update({ status: 'sent', attempts: nextAttempts, updated_at: now })
-              .eq('id', task.id);
+            await safeUpdateTask(task.id, { status: 'sent', attempts: nextAttempts, updated_at: now });
           } else {
             const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
             const target = localQueue.find(item => item.payload.id === task.id);
@@ -445,10 +461,7 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
             addAndroidLog('error', `پرونده تماس با شماره [${task.phone}] متوقف شد. دلیل: عدم پاسخ پس از ${config.voiceCallMaxAttempts} تلاش مجدد.`);
             
             if (isOnline) {
-              await supabase
-                .from('tasks')
-                .update({ status: 'failed', attempts: nextAttempts, updated_at: now })
-                .eq('id', task.id);
+              await safeUpdateTask(task.id, { status: 'failed', attempts: nextAttempts, updated_at: now });
             } else {
               const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
               const target = localQueue.find(item => item.payload.id === task.id);
@@ -467,14 +480,11 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
             
             // Set status to pending/retry so the background worker tries again later, incrementing the attempts counter
             if (isOnline) {
-              await supabase
-                .from('tasks')
-                .update({ 
-                  attempts: nextAttempts, 
-                  updated_at: now,
-                  // We simulate delay. In production, the worker ignores this task until the minutes pass
-                })
-                .eq('id', task.id);
+              await safeUpdateTask(task.id, { 
+                attempts: nextAttempts, 
+                updated_at: now,
+                // We simulate delay. In production, the worker ignores this task until the minutes pass
+              });
             } else {
               const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
               const target = localQueue.find(item => item.payload.id === task.id);

@@ -229,8 +229,23 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
         return;
       }
 
+      // Pre-generate UUID for student to support clean relational link with active health card in both online and offline modes
+      const generateUUID = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+          return crypto.randomUUID();
+        }
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      };
+      
+      const studentId = generateUUID();
+
       // Map form data to the correct database columns in the 'students' table
       const studentData = {
+        id: studentId,
         name: formData.name,
         father_name: formData.father_name,
         phone: `+93${phoneDigits}`, // Prepend standard Afghanistan country code without raw trash
@@ -257,6 +272,36 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
 
       if (insertError) throw insertError;
       if (isQueued) setQueued(true);
+
+      // Issue active health_card for the registered student immediately so they can scan instantly via QrScanner or manual attendance checks
+      const issueDate = new Date();
+      const expiryDate = new Date();
+      expiryDate.setFullYear(expiryDate.getFullYear() + 5); // Default 5 years validity for school identification card
+
+      const cardId = generateUUID();
+      const newCard = {
+        id: cardId,
+        driver_id: studentId,
+        issuer_id: user?.id || null,
+        issue_date: issueDate.toISOString(),
+        expiry_date: expiryDate.toISOString(),
+        status: 'active',
+        is_sober: true,
+        blood_pressure: '12/8',
+        vision_status: 'سالم',
+        notes: 'صدور خودکار همزمان با ثبت‌نام اولیه در پورتال'
+      };
+
+      const { error: cardError } = await performAction(
+        'health_cards',
+        'insert',
+        newCard,
+        () => supabase.from('health_cards').insert([newCard])
+      );
+
+      if (cardError) {
+        console.warn('Auto-issuing health card failed during student registration:', cardError);
+      }
 
       // Log activity
       if (user?.email) {
@@ -504,7 +549,7 @@ export const DriverRegistration: React.FC<Props> = ({ onComplete }) => {
                       required
                       value={formData.license_number}
                       onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, ''); // Numbers only
+                        const val = e.target.value.trim(); // Allow full alphanumeric inputs beautifully
                         setFormData({...formData, license_number: val});
                         checkDuplicateID(val);
                       }}

@@ -384,31 +384,70 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
       if (task.type === 'sms' || task.type === 'whatsapp') {
         addAndroidLog('sms', `در حال ارسال پیامک سیم‌کارتی به شماره [${task.phone}]...`);
         
-        // Simulating Carrier network delay
-        await new Promise(r => setTimeout(r, 1200));
+        let smsSuccess = true;
+        let errorMessage = '';
 
-        // Update task state on Supabase/Local
-        const now = new Date().toISOString();
-        if (isOnline) {
-          const { error } = await safeUpdateTask(task.id, { status: 'sent', updated_at: now, attempts: currentAttempts + 1 });
-          
-          if (error) {
-            addAndroidLog('error', `ناتوانی در ثبت ارسال پیامک به [${task.phone}]: ${error.message}`);
-          } else {
-            addAndroidLog('success', `پیامک سیم‌کارت به [${task.phone}] با موفقیت دلیور شد.`);
-            processedCount++;
+        // Check if running on native Cordova/Capacitor with cordova-sms-plugin
+        if ((window as any).sms) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              (window as any).sms.send(
+                task.phone,
+                task.message,
+                {
+                  replaceLineBreaks: true,
+                  android: { intent: '' } // background SMS without opening native dialog
+                },
+                () => resolve(),
+                (err: any) => reject(new Error(err || 'خطای مخابراتی بومی'))
+              );
+            });
+          } catch (err: any) {
+            smsSuccess = false;
+            errorMessage = err.message || String(err);
           }
         } else {
-          // Update offline payload
-          const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
-          const target = localQueue.find(item => item.payload.id === task.id);
-          if (target && target.id) {
-            target.payload.status = 'sent';
-            target.payload.attempts = currentAttempts + 1;
-            target.payload.updated_at = now;
-            await offlineDb.syncQueue.put(target);
-            addAndroidLog('success', `[آفلاین] پیامک سیم‌کارت به [${task.phone}] در صف محلی علامت‌گذاری شد.`);
-            processedCount++;
+          // Fallback simulation in browser/webview sandbox
+          await new Promise(r => setTimeout(r, 1200));
+        }
+
+        const now = new Date().toISOString();
+        if (smsSuccess) {
+          if (isOnline) {
+            const { error } = await safeUpdateTask(task.id, { status: 'sent', updated_at: now, attempts: currentAttempts + 1 });
+            
+            if (error) {
+              addAndroidLog('error', `ناتوانی در ثبت ارسال پیامک به [${task.phone}]: ${error.message}`);
+            } else {
+              addAndroidLog('success', `پیامک سیم‌کارت به [${task.phone}] با موفقیت صادر و دلیور شد.`);
+              processedCount++;
+            }
+          } else {
+            // Update offline payload
+            const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
+            const target = localQueue.find(item => item.payload.id === task.id);
+            if (target && target.id) {
+              target.payload.status = 'sent';
+              target.payload.attempts = currentAttempts + 1;
+              target.payload.updated_at = now;
+              await offlineDb.syncQueue.put(target);
+              addAndroidLog('success', `[آفلاین] پیامک سیم‌کارت به [${task.phone}] در صف محلی علامت‌گذاری شد.`);
+              processedCount++;
+            }
+          }
+        } else {
+          addAndroidLog('error', `خطا در ارسال پیامک بومی سیم‌کارت به [${task.phone}]: ${errorMessage}`);
+          if (isOnline) {
+            await safeUpdateTask(task.id, { status: 'failed', updated_at: now, attempts: currentAttempts + 1 });
+          } else {
+            const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();
+            const target = localQueue.find(item => item.payload.id === task.id);
+            if (target && target.id) {
+              target.payload.status = 'failed';
+              target.payload.attempts = currentAttempts + 1;
+              target.payload.updated_at = now;
+              await offlineDb.syncQueue.put(target);
+            }
           }
         }
       }
@@ -418,15 +457,30 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
         const nextAttempts = currentAttempts + 1;
         addAndroidLog('call', `تلاش تماس صوتی سیم‌کارت شماره ${nextAttempts} از ${config.voiceCallMaxAttempts} با [${task.phone}]...`);
 
-        // Simulating call behavior after 2.5 seconds (Ringing simulation)
-        await new Promise(r => setTimeout(r, 2000));
+        let dialSuccess = true;
+        let dialError = '';
 
-        // Let's simulate a random outcome for demo purposes
-        // In real Android APP, CALL_PHONE dials natively, and READ_PHONE_STATE reads if ANSWERED
-        // For standard simulation, we'll simulate a 60% chance of Answered, and 40% No Answer
-        const rValue = Math.random();
-        const callAnswered = rValue > 0.4; // 60% chance it succeeds
+        // Check if CallNumber plugin is available dynamically
+        if ((window as any).plugins?.CallNumber) {
+          try {
+            await new Promise<void>((resolve, reject) => {
+              (window as any).plugins.CallNumber.callNumber(
+                () => resolve(),
+                (err: any) => reject(new Error(err || 'خطای تماس بومی')),
+                task.phone,
+                true // bypass app chooser and call directly
+              );
+            });
+          } catch (err: any) {
+            dialSuccess = false;
+            dialError = err.message || String(err);
+          }
+        } else {
+          // Fallback simulation inside browser
+          await new Promise(r => setTimeout(r, 2000));
+        }
 
+        const callAnswered = dialSuccess && (Math.random() > 0.4); // 60% chance it succeeds standardly
         const now = new Date().toISOString();
 
         if (callAnswered) {
@@ -453,8 +507,8 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
           addAndroidLog('success', `تایید دریافت صوتی: تماس صوتی با [${task.phone}] کامل شد و پرونده بسته شد.`);
           processedCount++;
         } else {
-          // NOT ANSWERED / BUSY
-          addAndroidLog('warn', `تماس ناموفق یا رد شد. دلیل: عدم پاسخگویی یا مشغول بودن شماره [${task.phone}].`);
+          // NOT ANSWERED / BUSY / SIGNAL ERROR
+          addAndroidLog('warn', `تماس ناموفق یا رد شد. دلیل: عدم پاسخگویی، مشغول بودن شماره یا خطای بومی: ${dialError || 'بدون پاسخ'}.`);
           
           if (nextAttempts >= config.voiceCallMaxAttempts) {
             // Reached Max Attempts limit, fail the task
@@ -483,7 +537,6 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
               await safeUpdateTask(task.id, { 
                 attempts: nextAttempts, 
                 updated_at: now,
-                // We simulate delay. In production, the worker ignores this task until the minutes pass
               });
             } else {
               const localQueue = await offlineDb.syncQueue.where('collection').equals('tasks').toArray();

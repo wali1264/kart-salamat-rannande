@@ -19,6 +19,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "clsx": "^2.1.1",
     "cordova-plugin-android-permissions": "^1.1.5",
+    "cordova-sms-plugin": "^1.0.5",
     "date-fns-jalali": "^4.1.0-0",
     "dexie": "^4.4.2",
     "dotenv": "^17.2.3",

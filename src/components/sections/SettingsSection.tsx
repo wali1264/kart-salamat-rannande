@@ -73,7 +73,9 @@ export const SettingsSection: React.FC = () => {
   const [androidConfig, setAndroidConfig] = useState<AndroidConfig>(getAndroidConfig());
   const [androidLogs, setAndroidLogs] = useState<AndroidLogEntry[]>(getAndroidLogs());
   const [isSimulatingBackgroundWorker, setIsSimulatingBackgroundWorker] = useState<boolean>(false);
-  const [isAutoWorkerActive, setIsAutoWorkerActive] = useState<boolean>(false);
+  const [isAutoWorkerActive, setIsAutoWorkerActive] = useState<boolean>(() => {
+    return localStorage.getItem('school_android_gateway_auto_worker_active') === 'true';
+  });
 
   // Manager Direct Voice Recorder States
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -402,20 +404,9 @@ export const SettingsSection: React.FC = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!isAutoWorkerActive) return;
-    
-    addAndroidLog('info', 'سرویس پس‌زمینه خودکار اندروید فعال گردید. در حال شنیدن به صف پیام‌ها و تماس‌ها...');
-    
-    const interval = setInterval(async () => {
-      await runAndroidGatewayWorker(isOnline);
-      await fetchTasks();
-    }, 15000); // Check tasks every 15s in background mode
-
-    return () => {
-      clearInterval(interval);
-      addAndroidLog('info', 'سرویس پس‌زمینه خودکار اندروید متوقف شد.');
-    };
-  }, [isAutoWorkerActive, isOnline]);
+    // Notify log of state changes
+    addAndroidLog('info', `سیگنال سرویس خودکار گیت‌وی: پردازشگر مداوم بر روی پس‌زمینه ${isAutoWorkerActive ? 'فعال و هماهنگ شد' : 'غیرفعال گردید'}.`);
+  }, [isAutoWorkerActive]);
 
   const handleRequestPermission = async (permission: keyof AndroidPermissionStatus) => {
     await requestAndroidPermission(permission);
@@ -2193,7 +2184,9 @@ export const SettingsSection: React.FC = () => {
                         </button>
                         <button
                           onClick={() => {
-                            setIsAutoWorkerActive(!isAutoWorkerActive);
+                            const nextValue = !isAutoWorkerActive;
+                            setIsAutoWorkerActive(nextValue);
+                            localStorage.setItem('school_android_gateway_auto_worker_active', nextValue ? 'true' : 'false');
                           }}
                           className={`py-2 px-4 rounded-xl font-black text-[10px] transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                             isAutoWorkerActive 

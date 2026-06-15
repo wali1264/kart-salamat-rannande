@@ -382,13 +382,16 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
 
       // Handle SMS tasks
       if (task.type === 'sms' || task.type === 'whatsapp') {
-        addAndroidLog('sms', `در حال ارسال پیامک سیم‌کارتی به شماره [${task.phone}]...`);
+        addAndroidLog('sms', `در حال بررسی درگاه ارسال پیامک به شماره [${task.phone}]...`);
+        addAndroidLog('info', `🔍 پایش دسترسی سیستم‌عامل: مجوز ثبت‌شده ارسال پیامک سیم‌کارت [${permissions.sendSms}] می‌باشد.`);
         
         let smsSuccess = true;
         let errorMessage = '';
+        let simulatedMode = false;
 
         // Check if running on native Cordova/Capacitor with cordova-sms-plugin
         if ((window as any).sms) {
+          addAndroidLog('info', `📱 بستر اندروید بومی (Native APK) تشخیص داده شد. در حال ارسال فرمان به ماژول مخابراتی اندروید...`);
           try {
             await new Promise<void>((resolve, reject) => {
               (window as any).sms.send(
@@ -408,6 +411,9 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
           }
         } else {
           // Fallback simulation in browser/webview sandbox
+          simulatedMode = true;
+          addAndroidLog('warn', `⚠️ محدودیت درگاه سخت‌افزاری (مرورگر وب): افزونه بومی پیامک سیم‌کارت (cordova-sms-plugin) در حافظه مرورگر فعلی یافت نشد. ارسال فیزیکی ناممکن است.`);
+          addAndroidLog('info', `💡 تصمیم شبیه‌ساز: به جهت عدم توقف کل سیستم و پیشبرد تست پورتال، این رویداد را به عنوان «شبیه‌سازی شده موفق» ثبت کرده، اما هیچ پیامک فیزیکی صادر نگردید.`);
           await new Promise(r => setTimeout(r, 1200));
         }
 
@@ -419,7 +425,11 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
             if (error) {
               addAndroidLog('error', `ناتوانی در ثبت ارسال پیامک به [${task.phone}]: ${error.message}`);
             } else {
-              addAndroidLog('success', `پیامک سیم‌کارت به [${task.phone}] با موفقیت صادر و دلیور شد.`);
+              if (simulatedMode) {
+                addAndroidLog('success', `[شبیه‌سازی] وضعیت فیلد پیامک [${task.phone}] در سیستم مرکزی به "ارسال موفق صوری" تغییر یافت.`);
+              } else {
+                addAndroidLog('success', `✅ گزارش موفقیت سیستم‌عامل اندروید: پیامک سیم‌کارت به [${task.phone}] با موفقیت تحویل شبکه مخابراتی GSM شد.`);
+              }
               processedCount++;
             }
           } else {
@@ -431,12 +441,12 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
               target.payload.attempts = currentAttempts + 1;
               target.payload.updated_at = now;
               await offlineDb.syncQueue.put(target);
-              addAndroidLog('success', `[آفلاین] پیامک سیم‌کارت به [${task.phone}] در صف محلی علامت‌گذاری شد.`);
+              addAndroidLog('success', `[آفلاین - ${simulatedMode ? 'شبیه‌سازی' : 'واقعی'}] پیامک سیم‌کارت به [${task.phone}] در صف محلی ثبت شد.`);
               processedCount++;
             }
           }
         } else {
-          addAndroidLog('error', `خطا در ارسال پیامک بومی سیم‌کارت به [${task.phone}]: ${errorMessage}`);
+          addAndroidLog('error', `❌ گزارش خطا از سیستم‌عامل اندروید: ارسال پیامک بومی به [${task.phone}] شکست خورد. علت: ${errorMessage}`);
           if (isOnline) {
             await safeUpdateTask(task.id, { status: 'failed', updated_at: now, attempts: currentAttempts + 1 });
           } else {
@@ -456,17 +466,20 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
       if (task.type === 'voice') {
         const nextAttempts = currentAttempts + 1;
         addAndroidLog('call', `تلاش تماس صوتی سیم‌کارت شماره ${nextAttempts} از ${config.voiceCallMaxAttempts} با [${task.phone}]...`);
+        addAndroidLog('info', `🔍 پایش دسترسی سیستم‌عامل: مجوز ثبت‌شده تماس صوتی [${permissions.callPhone}] می‌باشد.`);
 
         let dialSuccess = true;
         let dialError = '';
+        let simulatedMode = false;
 
         // Check if CallNumber plugin is available dynamically
         if ((window as any).plugins?.CallNumber) {
+          addAndroidLog('info', `📱 درگاه تماس بومی شناسایی شد. فرستادن فرمان شماره‌گیری سیم‌کارت به مقصد [${task.phone}]...`);
           try {
             await new Promise<void>((resolve, reject) => {
               (window as any).plugins.CallNumber.callNumber(
                 () => resolve(),
-                (err: any) => reject(new Error(err || 'خطای تماس بومی')),
+                (err: any) => reject(new Error(err || 'خطای سیستمی تماس مخابراتی')),
                 task.phone,
                 true // bypass app chooser and call directly
               );
@@ -477,19 +490,22 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
           }
         } else {
           // Fallback simulation inside browser
+          simulatedMode = true;
+          addAndroidLog('warn', `⚠️ محدودیت سخت‌افزاری (مرورگر وب): ماژول بومی برقراری تماس (CallNumber) پیدا نشد. امکان گرفتن تماس فیزیکی واقعی از داخل این دستگاه مقدور نیست.`);
+          addAndroidLog('info', `💡 تصمیم شبیه‌ساز: جهت ارزیابی کارکرد صف، تماس در وضعیت فرضی موفق قرار خواهد گرفت.`);
           await new Promise(r => setTimeout(r, 2000));
         }
 
-        const callAnswered = dialSuccess && (Math.random() > 0.4); // 60% chance it succeeds standardly
+        const callAnswered = simulatedMode ? true : (dialSuccess && (Math.random() > 0.4)); // Simulated web will always succeed for UI test, native uses random mock status if plugin was fire-and-forget
         const now = new Date().toISOString();
 
         if (callAnswered) {
           const hasCustomAnnounce = localStorage.getItem('school_voice_announcement_base64') !== null;
           if (hasCustomAnnounce) {
             const base64Len = Math.round((localStorage.getItem('school_voice_announcement_base64')?.length || 0) / 1024);
-            addAndroidLog('success', `تماس برقرار شد! پخش فایل صوتی ضبط‌شده مدیر (اندازه بارگذاری: ${base64Len} کیلوبایت) برای والد دانش‌آموز.`);
+            addAndroidLog('success', `🗣️ پخش صدای ضبط‌شده: در حال ارسال فایل صوتی ضبط‌شده مدیر (حجم: ${base64Len}KB) روی فرکانس مکالمه.`);
           } else {
-            addAndroidLog('success', `تماس برقرار شد! پخش پیام صوتی ربات مکتب: "${task.message}"`);
+            addAndroidLog('success', `🗣️ پخش صدای ربات: پخش متن پیام صوتی ملکی پورتال: "${task.message}"`);
           }
           
           if (isOnline) {
@@ -504,11 +520,11 @@ export const runAndroidGatewayWorker = async (isOnline: boolean): Promise<number
               await offlineDb.syncQueue.put(target);
             }
           }
-          addAndroidLog('success', `تایید دریافت صوتی: تماس صوتی با [${task.phone}] کامل شد و پرونده بسته شد.`);
+          addAndroidLog('success', `[${simulatedMode ? 'شبیه‌سازی صوری' : 'بومی واقعی'}] مکالمه برقرار و پرونده بسته شد.`);
           processedCount++;
         } else {
           // NOT ANSWERED / BUSY / SIGNAL ERROR
-          addAndroidLog('warn', `تماس ناموفق یا رد شد. دلیل: عدم پاسخگویی، مشغول بودن شماره یا خطای بومی: ${dialError || 'بدون پاسخ'}.`);
+          addAndroidLog('warn', `⚠️ تماس بومی ناموفق یا رد شد. دلیل: عدم پاسخگویی، مشغول بودن شماره یا خطای بومی: ${dialError || 'بدون پاسخ'}.`);
           
           if (nextAttempts >= config.voiceCallMaxAttempts) {
             // Reached Max Attempts limit, fail the task

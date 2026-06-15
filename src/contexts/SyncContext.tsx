@@ -200,6 +200,35 @@ export const SyncProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [isOnline, preloadData]);
 
+  // Global persistent background gateway worker loop
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    const runWorker = async () => {
+      const isAutoWorkerActive = localStorage.getItem('school_android_gateway_auto_worker_active') === 'true';
+      if (!isAutoWorkerActive) return;
+
+      try {
+        const { runAndroidGatewayWorker } = await import('../lib/androidBridge');
+        await runAndroidGatewayWorker(isOnline);
+      } catch (err) {
+        console.warn('Global Android gateway worker loop failed:', err);
+      }
+    };
+
+    // Run once at start/change of status
+    runWorker();
+
+    // Constant 15s interval (even if page unmounts, Context stays alive)
+    interval = setInterval(runWorker, 15000);
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isOnline]);
+
   const cleanupExpiredCards = useCallback(async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
